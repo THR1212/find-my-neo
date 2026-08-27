@@ -14,11 +14,13 @@ export default function Guess({
   loading,
   error,
   onConfirm,
+  onReject,
 }: {
   profile: Profile | null;
   loading: boolean;
   error: string | null;
   onConfirm: () => void;
+  onReject: () => void;
 }) {
   if (error) {
     return (
@@ -74,13 +76,14 @@ export default function Guess({
         <button className="btn" onClick={onConfirm} autoFocus>
           That's us
         </button>
-        <button className="btn btn-ghost" onClick={onConfirm}>
+        {/* Goes back to the text box with the original answer preserved, so they can
+            correct it rather than retype. Both buttons doing the same thing is the kind
+            of thing someone finds by poking at the demo. */}
+        <button className="btn btn-ghost" onClick={onReject}>
           Not quite
         </button>
       </div>
       <p className="hint" style={{ marginTop: 14 }}>
-        {/* "Not quite" would reopen the text box in the real build. For the demo both
-            paths continue — the branch is narrated, not clicked. */}
         Two more questions after this.
       </p>
     </div>

@@ -8,8 +8,15 @@ import { useState, type FormEvent } from "react";
  * paragraph of instructions, and it nudges toward the detail the model needs (what you
  * make, how many of you, where).
  */
-export default function Describe({ onSubmit }: { onSubmit: (text: string) => void }) {
-  const [text, setText] = useState("");
+export default function Describe({
+  onSubmit,
+  initialText = "",
+}: {
+  onSubmit: (text: string) => void;
+  /** Populated when someone comes back via "Not quite" — they edit rather than retype. */
+  initialText?: string;
+}) {
+  const [text, setText] = useState(initialText);
   const ready = text.trim().length > 12;
 
   function submit(e: FormEvent) {

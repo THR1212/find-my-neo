@@ -175,6 +175,27 @@ demo locally. The 28 Aug demo runs locally regardless, so this is a Sept 2 probl
 
 ---
 
+### 2026-08-27 · "Not quite" now actually branches — reversing an earlier call
+
+Originally both buttons on the guess screen advanced, on the reasoning that the reject branch
+would be *narrated* rather than clicked. That was wrong: the guess screen is the screen doing the
+persuading, and a PM poking at the demo would find two buttons with identical behaviour. That
+reads as a mock, which undercuts the exact thing the screen is meant to prove.
+
+"Not quite" now returns to the text box with the original answer preserved (edit, don't retype)
+and clears the stale profile so the guess can't flash the old answer on the way back.
+
+Verified in-browser: 139 characters preserved, Continue re-enabled.
+
+---
+
+### 2026-08-27 · Vercel git auto-deploy verified, not assumed
+
+`vercel git connect` reported "already connected", which is not the same as working. Confirmed by
+pushing a real commit and watching a new production deployment appear (7s build, Ready).
+
+---
+
 ### 2026-08-27 · Open, deliberately not decided
 
 - **Sound.** Two or three cues (advance, reveal tick, CTA). Worth ~30 minutes *after* the reveal

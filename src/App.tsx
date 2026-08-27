@@ -60,6 +60,21 @@ export default function App() {
       );
   }, []);
 
+  /**
+   * "Not quite" on the guess screen. Returns to the text box with the original answer
+   * intact so they edit rather than retype, and clears the stale profile so the guess
+   * can't flash the previous answer on the way back through.
+   */
+  const rejectGuess = useCallback(() => {
+    setS((prev) => ({
+      ...prev,
+      screen: "describe",
+      profile: null,
+      reveal: null,
+      error: null,
+    }));
+  }, []);
+
   const chooseImport = useCallback((choice: ImportChoice) => {
     setS((prev) => ({ ...prev, importChoice: choice, screen: nextScreen(prev.screen) }));
   }, []);
@@ -101,13 +116,16 @@ export default function App() {
             transition={transition}
           >
             {s.screen === "hook" && <Hook onStart={advance} />}
-            {s.screen === "describe" && <Describe onSubmit={submitDescription} />}
+            {s.screen === "describe" && (
+              <Describe onSubmit={submitDescription} initialText={s.rawBusinessText} />
+            )}
             {s.screen === "guess" && (
               <Guess
                 profile={s.profile}
                 loading={s.loading}
                 error={s.error}
                 onConfirm={advance}
+                onReject={rejectGuess}
               />
             )}
             {s.screen === "import" && <ImportQuestion onChoose={chooseImport} />}

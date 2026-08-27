@@ -97,11 +97,23 @@ _Last updated: 27 Aug 2026._
 - Private GitHub repo: https://github.com/THR1212/neo-akinator (default branch `master`)
 - `src/lib/brand.ts` — `PRODUCT_NAME = "Find My Neo"`, `docs/naming.md` written
 
+- All five screens built and verified in a real browser: real clipboard paste + Enter,
+  1440×820 laptop (fits, no scrollbar), 390×844 mobile (no horizontal overflow)
+- `src/data/replay/demo.json` — hand-written demo fixture (Proof & Butter bakery)
+- `README.md` (plain English, no frontend knowledge assumed), `DECISIONS.md`,
+  `docs/demo-script.md` (run sheet + objections + the actual ask)
+- Vercel: project `hari-7720/neo-akinator`, deployed, GitHub auto-deploy connected
+
 **Not done / next**
-- Screen 1 and the reveal screen. Nothing in `src/` is real yet — still Vite boilerplate.
-- No fixtures in `src/data/replay/` yet. Nothing will run in replay mode until there is one.
-- `src/data/plans.json`, `src/lib/rules.ts`, `src/lib/session.ts` — referenced, not written.
+- **Prices are blank.** `src/data/plans.json` has `priceInr: null`, so the plan name renders
+  without a price. Deliberate — see DECISIONS.md. Fill in real numbers to show it.
+- `src/lib/rules.ts` — the profile→plan rules table. For milestone 1 it is one boolean
+  inlined in `Reveal.tsx`; extract it for Ignite.
+- Sound cues (advance, reveal tick, CTA). Must ship muted-by-default with a visible toggle.
+- Live mode is written but never exercised against the real API. Verify the call shape in
+  hour 1 of Ignite, not at hour 30.
 - Python `analysis/` folder for the persona/retention work — not started.
+- Deployment Protection is ON, so the Vercel URL is not shareable as-is.
 
 **Open questions (not blockers for milestone 1)**
 - Squad registration status for Ignite (deadline was 21 Aug noon, unconfirmed).

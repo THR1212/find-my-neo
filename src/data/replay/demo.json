@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-written demo fixture. Matched to the scripted input in docs/demo-script.md. Not model output — tuned by hand so the reveal lands exactly as intended. Replace with a recorded live response once the prompt is tuned (LLM_MODE=live LLM_RECORD=1).",
+  "_comment": "Hand-written demo fixture, matched to the scripted input in docs/demo-script.md. Not model output — tuned by hand so the reveal lands exactly as intended. Replace with a recorded live response once the prompt is tuned.",
 
   "profile": {
     "summary": "a two-person bakery in Bandra taking custom cake orders over Instagram",
@@ -7,15 +7,34 @@
     "teamSize": 2,
     "location": "Bandra, Mumbai",
     "domainStem": "proofandbutter",
-    "suggestedMailboxes": ["hello", "orders"],
-    "wantsSite": true
+    "suggestedMailboxes": ["hello", "orders"]
   },
 
+  "_nextQuestionIdNote": "The model's suggestion for what to ask first. The engine overrules it if the signal is already resolved, so this can never break the flow. 'channel' is chosen here because the free text already mentions Instagram — asking it back makes the tool look like it was listening.",
+  "nextQuestionId": "channel",
+
   "reveal": {
-    "domain": {
-      "name": "proofandbutter.com",
-      "available": true
-    },
+    "domains": [
+      {
+        "name": "proofandbutter.com",
+        "available": true,
+        "priceInr": 899,
+        "recommended": true,
+        "note": "The one people will guess"
+      },
+      {
+        "name": "proofandbutter.in",
+        "available": true,
+        "priceInr": 499,
+        "note": "Cheaper, and reads as local"
+      },
+      {
+        "name": "proofbutter.co",
+        "available": true,
+        "priceInr": 1299,
+        "note": "Shorter, if you want room to grow beyond cakes"
+      }
+    ],
     "mailboxes": [
       { "address": "hello@proofandbutter.com", "label": "For enquiries and new customers" },
       { "address": "orders@proofandbutter.com", "label": "So cake orders stop living in your DMs" }
@@ -23,11 +42,7 @@
     "site": {
       "headline": "Celebration cakes, made to order in Bandra",
       "subhead": "Two bakers, one oven, and a waiting list worth joining.",
-      "sections": [
-        "This week's cakes",
-        "Order for a date",
-        "Find us in Bandra"
-      ]
+      "sections": ["This week's cakes", "Order for a date", "Find us in Bandra"]
     }
   }
 }

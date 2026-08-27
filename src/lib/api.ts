@@ -24,6 +24,12 @@ const REPLAY_DELAY_MS = Number(import.meta.env.VITE_REPLAY_DELAY_MS ?? 1400);
 export interface ProfileResult {
   profile: Profile;
   reveal: RevealContent;
+  /**
+   * Which question the model thinks is most worth asking first, given what the free text
+   * already revealed. Advisory only — engine.ts overrules it if that signal is already
+   * resolved or the id isn't real, so a bad suggestion can't break the flow.
+   */
+  nextQuestionId?: string | null;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -35,8 +41,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export async function buildProfile(businessText: string): Promise<ProfileResult> {
   if (MODE === "replay") {
     await sleep(REPLAY_DELAY_MS);
-    const { profile, reveal } = demoFixture as unknown as ProfileResult;
-    return { profile, reveal };
+    const { profile, reveal, nextQuestionId } = demoFixture as unknown as ProfileResult;
+    return { profile, reveal, nextQuestionId };
   }
 
   const res = await fetch("/api/profile", {

@@ -196,6 +196,144 @@ pushing a real commit and watching a new production deployment appear (7s build,
 
 ---
 
+### 2026-08-27 · REPOSITIONED — we are a qualifier, not a site builder
+
+Darrel pointed at `neo.space/ai-website-builder`. Walked it on production. Neo's live flow is
+**category → free-text business description → generate site → domain → email**, on 130,000+
+businesses. That is our flow, already shipped.
+
+New position, and it is the honest one: **build a persona, land the user on the right domain
+(with real pricing for alternates), the right mailbox plan and the right site plan — then hand
+them into Neo's existing builder to pay and finish the site.** We do not build site generation.
+
+Consequences already applied: CTA copy is now "Claim it and start building", the plan line says
+"you finish the site in Neo's builder", and the reveal offers priced domain alternates.
+Integration with the builder is NOT built — that is the next real piece of work.
+
+---
+
+### 2026-08-27 · The taxonomy finding — our strongest evidence
+
+Neo's category step has a real taxonomy: "food" returns *Food & Beverages*, "retail" returns
+seven options. But **"bakery" matches nothing**, and the raw string is silently accepted as a
+custom entry.
+
+That is the live, reproducible mechanism behind 5,318 distinct `business_industry` values
+(including "Pizza" and "purchase"). Ten seconds to demonstrate on production. It argues directly
+for free-text-plus-normalisation over a picker, which is exactly what we do.
+
+Lead the pitch with it.
+
+---
+
+### 2026-08-27 · Adaptive question engine replaces the fixed screen order
+
+The old flow ran the model once on screen 1 and everything after was fixed. That is precisely
+why it felt like a form rather than something intelligent.
+
+Now: `src/lib/questions.ts` is a bank where each question resolves a named signal, and
+`src/lib/engine.ts` picks whichever unresolved question narrows the most. The model *suggests*
+which to ask next (`nextQuestionId`); the engine overrules it if that signal is already resolved
+or the id isn't real. **The model makes the flow feel intelligent; it cannot break it.**
+
+Two people describing different businesses now get different question paths. That is the thing
+Neo's picker structurally cannot do.
+
+---
+
+### 2026-08-27 · Gamification: the narrowing must be visible
+
+Akinator works because you watch it close in on you. A form with nice transitions does not do
+that. So: a confidence ring plus a count of remaining possible setups, docked top-centre so it
+never scrolls away.
+
+The count opens at **5,318** — the real number of distinct `business_industry` strings in Neo's
+persona data. The data-quality finding is inside the experience rather than on a slide.
+
+Decay is exponential against confidence (`^3.2`), not linear: early answers should feel dramatic
+(thousands falling away), later ones precise (dozens to a handful). Linear reads as a progress
+bar, which is the opposite of the feeling we want.
+
+Verified live: 5,318 → 1,614 from the free text alone → 1,595 → 840 → 230 → 41.
+
+All of it is computed deterministically in `engine.ts`. A confidence number the model invented
+is a number that can embarrass us in front of the PM.
+
+---
+
+### 2026-08-27 · Bug: side effect inside a React state updater
+
+`answer()` called `setStage()` inside `setEngine(prev => ...)`. React double-invokes updaters
+under StrictMode, so the routing decision fired twice and the flow re-asked a question it had
+already asked ("What needs standing up first?" appeared twice in a live walkthrough).
+
+Fixed by computing the next state from `engine` directly and routing outside the updater.
+State updaters must stay pure. Caught by walking the flow in a browser, not by the type checker.
+
+---
+
+### 2026-08-27 · Domain availability + pricing via DomScan; RDAP removed
+
+Availability and indicative pricing now come from DomScan through our own `/api/domains`
+endpoint. The key lives in `.env.local` (gitignored) and is read server-side only.
+
+**RDAP was built first and then removed.** It was free, keyless and CORS-open, which was
+genuinely attractive — but DomScan's `/v1/status` is RDAP-backed anyway (`source: "rdap"`),
+costs 1 credit regardless of TLD count, and gives availability *and* pricing through one
+integration. Two sources of truth for one fact wasn't worth the maintenance.
+
+Runs on plain `npm run dev` via a Vite middleware in `vite.config.ts` that mounts the *same*
+handler as the Vercel function, so there is no "works locally, breaks deployed". `vercel dev`
+is not needed.
+
+---
+
+### 2026-08-27 · DomScan credits — the expensive mistake, and the fix
+
+**`/v1/prices` bills per TLD × REGISTRAR PAIR, not per request.** An unfiltered
+`?tlds=com,in,co` fans out across every registrar DomScan tracks. My first test call cost
+**78 credits** (10,000 → 9,922) — about 25 registrars × 3 TLDs.
+
+Costs from their OpenAPI spec (`x-domscan-credits`):
+
+| Endpoint | Cost |
+|---|---|
+| `/v1/status?name=X&tlds=a,b,c` | 1 per request — TLD count is free, so always batch here |
+| `/v1/prices` unfiltered | 1 per TLD × registrar — ~25× what you want |
+| `/v1/prices?registrars=porkbun` | 1 per TLD |
+| `/v1/rdap` | 2 — strictly worse than `/v1/status` for us |
+| `/v1/suggest` | 5 (2 with `check=false`) — budget before using |
+| `/v1/tlds`, `/v1/credits` | 0 |
+
+Applied: a single-registrar filter, TLDs capped at 3, and two caches with deliberately
+different TTLs — prices are per-TLD and identical for every user (6h, shared globally),
+availability is per-user (10m, just long enough to survive a session's re-renders).
+
+Measured after the fix: **cold 4 credits, new business 1, repeat 0.** That is ~9,900
+new-business lookups on the free tier rather than ~125.
+
+Three TLDs is also a product decision, not only thrift: more than three alternates turns a
+confident recommendation into a shopping list.
+
+---
+
+### 2026-08-27 · The prices shown are NOT Neo's prices
+
+DomScan returns third-party **registrar** list prices in **USD**. We take the cheapest
+eligible registrar and convert at a hardcoded 88 INR/USD, rounded to ₹10.
+
+So the figure is wrong in two ways at once: wrong currency origin, and wrong seller — the
+user buys from **Neo**, not Porkbun. It is a placeholder that makes the reveal feel complete.
+
+**→ Replace with Neo's own domain search API, which returns availability AND Neo's actual
+price.** Needs function-head approval. Until then, do not present these numbers to anyone who
+sells Neo domains without saying they're indicative.
+
+The FX rate is hardcoded on purpose — a live FX feed would be false precision on top of the
+wrong seller's price.
+
+---
+
 ### 2026-08-27 · Open, deliberately not decided
 
 - **Sound.** Two or three cues (advance, reveal tick, CTA). Worth ~30 minutes *after* the reveal

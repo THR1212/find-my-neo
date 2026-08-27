@@ -1,91 +1,126 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import {
-  initialSession,
-  nextScreen,
-  SCREEN_ORDER,
-  type ImportChoice,
-  type SessionState,
-  type SurfaceChoice,
-} from "./lib/session";
+  applyAnswer,
+  confidence,
+  MAX_QUESTIONS,
+  nextQuestion,
+  remainingSetups,
+  shouldReveal,
+  type EngineState,
+} from "./lib/engine";
 import { buildProfile } from "./lib/api";
+import type { RevealContent } from "./lib/session";
 
+import NarrowingMeter from "./components/NarrowingMeter";
 import Hook from "./screens/Hook";
 import Describe from "./screens/Describe";
 import Guess from "./screens/Guess";
-import ImportQuestion from "./screens/Import";
-import Surface from "./screens/Surface";
+import AdaptiveQuestion from "./screens/AdaptiveQuestion";
 import Reveal from "./screens/Reveal";
 
-const transition = { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const };
+type Stage = "hook" | "describe" | "guess" | "question" | "reveal";
 
+const transition = { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const };
 const variants = {
   enter: { opacity: 0, y: 18 },
   center: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -14 },
 };
 
-export default function App() {
-  const [s, setS] = useState<SessionState>(initialSession);
+const emptyEngine: EngineState = { profile: {}, asked: [] };
 
-  const advance = useCallback(() => {
-    setS((prev) => ({ ...prev, screen: nextScreen(prev.screen) }));
-  }, []);
+export default function App() {
+  const [stage, setStage] = useState<Stage>("hook");
+  const [engine, setEngine] = useState<EngineState>(emptyEngine);
+  const [rawText, setRawText] = useState("");
+  const [reveal, setReveal] = useState<RevealContent | null>(null);
+  const [summary, setSummary] = useState<string | null>(null);
+  /** The model's suggestion for what to ask next. Advisory — the engine can overrule it. */
+  const [preferredQuestionId, setPreferredQuestionId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const conf = useMemo(() => confidence(engine.profile), [engine.profile]);
+  const remaining = useMemo(() => remainingSetups(engine.profile), [engine.profile]);
+  const current = useMemo(
+    () => nextQuestion(engine, preferredQuestionId),
+    [engine, preferredQuestionId],
+  );
 
   /**
-   * Screen-1 submit. Fires the profile request AND advances immediately — the request
-   * resolves underneath while the user reads the guess and taps screens 3-4. This is the
-   * whole latency strategy; do not await before advancing.
+   * Screen-1 submit. Fires the profile request AND advances immediately — it resolves while
+   * the user reads the guess and answers questions, so the reveal is already in memory by
+   * the time they reach it. Do not await before advancing.
    */
   const submitDescription = useCallback((text: string) => {
-    setS((prev) => ({
-      ...prev,
-      rawBusinessText: text,
-      loading: true,
-      error: null,
-      screen: nextScreen(prev.screen),
-    }));
+    setRawText(text);
+    setLoading(true);
+    setError(null);
+    setStage("guess");
 
     buildProfile(text)
-      .then(({ profile, reveal }) =>
-        setS((prev) => ({ ...prev, profile, reveal, loading: false })),
-      )
-      .catch((err: unknown) =>
-        setS((prev) => ({
+      .then((res) => {
+        setSummary(res.profile.summary);
+        setReveal(res.reveal);
+        setPreferredQuestionId(res.nextQuestionId ?? null);
+        // Seed the engine with what the free text alone told us. This is why the ring
+        // opens partly filled rather than empty.
+        setEngine((prev) => ({
           ...prev,
-          loading: false,
-          error: err instanceof Error ? err.message : String(err),
-        })),
-      );
+          profile: {
+            ...prev.profile,
+            industry: res.profile.industry,
+            brandName: res.profile.domainStem,
+            ...(res.profile.teamSize ? { teamSize: res.profile.teamSize } : {}),
+          },
+        }));
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : String(err));
+        setLoading(false);
+      });
   }, []);
 
   /**
-   * "Not quite" on the guess screen. Returns to the text box with the original answer
-   * intact so they edit rather than retype, and clears the stale profile so the guess
-   * can't flash the previous answer on the way back through.
+   * Apply an answer and decide where to go next.
+   *
+   * Computed from `engine` directly rather than inside a setState updater: React double-invokes
+   * updaters under StrictMode, so a setStage() in there fires twice and the flow can repeat a
+   * question it already asked. State updaters must stay pure — the routing decision belongs here.
    */
+  const answer = useCallback(
+    (questionId: string, optionId: string) => {
+      const next = applyAnswer(engine, questionId, optionId);
+      setPreferredQuestionId(null); // consumed; engine picks from here on
+      setEngine(next);
+      setStage(shouldReveal(next) ? "reveal" : "question");
+    },
+    [engine],
+  );
+
   const rejectGuess = useCallback(() => {
-    setS((prev) => ({
-      ...prev,
-      screen: "describe",
-      profile: null,
-      reveal: null,
-      error: null,
-    }));
+    setStage("describe");
+    setSummary(null);
+    setReveal(null);
+    setError(null);
+    setEngine(emptyEngine);
   }, []);
 
-  const chooseImport = useCallback((choice: ImportChoice) => {
-    setS((prev) => ({ ...prev, importChoice: choice, screen: nextScreen(prev.screen) }));
+  const restart = useCallback(() => {
+    setStage("hook");
+    setEngine(emptyEngine);
+    setRawText("");
+    setReveal(null);
+    setSummary(null);
+    setPreferredQuestionId(null);
+    setError(null);
   }, []);
 
-  const chooseSurface = useCallback((choice: SurfaceChoice) => {
-    setS((prev) => ({ ...prev, surfaceChoice: choice, screen: nextScreen(prev.screen) }));
-  }, []);
-
-  const restart = useCallback(() => setS(initialSession), []);
-
-  const stepIndex = SCREEN_ORDER.indexOf(s.screen);
+  const showMeter = stage === "guess" || stage === "question" || stage === "reveal";
+  const stepNumber = engine.asked.length + 1;
 
   return (
     <>
@@ -96,18 +131,24 @@ export default function App() {
       </div>
       <div className="grain" aria-hidden="true" />
 
-      {s.screen !== "hook" && (
-        <div className="progress" aria-hidden="true">
-          {SCREEN_ORDER.slice(1).map((id, i) => (
-            <i key={id} className={i <= stepIndex - 1 ? "on" : ""} />
-          ))}
-        </div>
-      )}
+      <AnimatePresence>
+        {showMeter && (
+          <motion.div
+            className="meter-dock"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={transition}
+          >
+            <NarrowingMeter confidence={conf} remaining={remaining} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="stage">
         <AnimatePresence mode="wait">
           <motion.div
-            key={s.screen}
+            key={stage === "question" ? `q-${current?.id ?? "none"}` : stage}
             className="screen"
             variants={variants}
             initial="enter"
@@ -115,27 +156,39 @@ export default function App() {
             exit="exit"
             transition={transition}
           >
-            {s.screen === "hook" && <Hook onStart={advance} />}
-            {s.screen === "describe" && (
-              <Describe onSubmit={submitDescription} initialText={s.rawBusinessText} />
+            {stage === "hook" && <Hook onStart={() => setStage("describe")} />}
+
+            {stage === "describe" && (
+              <Describe onSubmit={submitDescription} initialText={rawText} />
             )}
-            {s.screen === "guess" && (
+
+            {stage === "guess" && (
               <Guess
-                profile={s.profile}
-                loading={s.loading}
-                error={s.error}
-                onConfirm={advance}
+                summary={summary}
+                teamSize={engine.profile.teamSize as number | undefined}
+                loading={loading}
+                error={error}
+                onConfirm={() => setStage("question")}
                 onReject={rejectGuess}
               />
             )}
-            {s.screen === "import" && <ImportQuestion onChoose={chooseImport} />}
-            {s.screen === "surface" && <Surface onChoose={chooseSurface} />}
-            {s.screen === "reveal" && (
+
+            {stage === "question" && current && (
+              <AdaptiveQuestion
+                question={current}
+                step={stepNumber}
+                total={MAX_QUESTIONS}
+                onAnswer={answer}
+              />
+            )}
+
+            {stage === "reveal" && (
               <Reveal
-                reveal={s.reveal}
-                loading={s.loading}
-                error={s.error}
-                surface={s.surfaceChoice}
+                reveal={reveal}
+                loading={loading}
+                error={error}
+                surface={(engine.profile.surface as string) ?? null}
+                teamSize={(engine.profile.teamSize as number) ?? null}
                 onRestart={restart}
               />
             )}

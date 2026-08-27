@@ -1,22 +1,22 @@
 import { motion } from "framer-motion";
-import type { Profile } from "../lib/session";
 
 /**
- * Screen 2 — the guess. This is the first of the two moments that carry the pitch:
- * the tool reflects the business back and the user thinks "how did it know that".
+ * The guess. The first of two moments carrying the pitch — the tool reflects the business
+ * back and the user thinks "how did it know that".
  *
- * It is also where the profile request lands. If it hasn't resolved yet we hold here
- * rather than pushing an empty guess — this is the only screen allowed to wait, because
- * waiting to be read is different from waiting to be shown something.
+ * It is also where the profile request lands. If it hasn't resolved we hold here rather than
+ * showing an empty guess: waiting to be *read* is different from waiting to be shown something.
  */
 export default function Guess({
-  profile,
+  summary,
+  teamSize,
   loading,
   error,
   onConfirm,
   onReject,
 }: {
-  profile: Profile | null;
+  summary: string | null;
+  teamSize?: number;
   loading: boolean;
   error: string | null;
   onConfirm: () => void;
@@ -28,14 +28,14 @@ export default function Guess({
         <p className="eyebrow">Something broke</p>
         <h1>We couldn't read that.</h1>
         <p className="lede">{error}</p>
-        <button className="btn" onClick={onConfirm}>
-          Carry on anyway
+        <button className="btn" onClick={onReject}>
+          Try again
         </button>
       </div>
     );
   }
 
-  if (loading || !profile) {
+  if (loading || !summary) {
     return (
       <div>
         <p className="eyebrow">Reading that back</p>
@@ -58,34 +58,25 @@ export default function Guess({
           initial={{ opacity: 0, filter: "blur(8px)" }}
           animate={{ opacity: 1, filter: "blur(0px)" }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          style={{ color: "var(--accent-warm)" }}
+          className="guess-highlight"
         >
-          {profile.summary}
+          {summary}
         </motion.span>
         .
       </h1>
       <p className="lede">
-        {profile.teamSize === 1
-          ? "Just you, for now."
-          : `A team of ${profile.teamSize}.`}{" "}
-        {profile.location ? `Based in ${profile.location}.` : ""} We'll tune the rest around
-        that.
+        {teamSize === 1 ? "Just you, for now." : teamSize ? `A team of ${teamSize}.` : ""} A
+        few quick questions and we'll have your setup.
       </p>
 
       <div className="row">
         <button className="btn" onClick={onConfirm} autoFocus>
           That's us
         </button>
-        {/* Goes back to the text box with the original answer preserved, so they can
-            correct it rather than retype. Both buttons doing the same thing is the kind
-            of thing someone finds by poking at the demo. */}
         <button className="btn btn-ghost" onClick={onReject}>
           Not quite
         </button>
       </div>
-      <p className="hint" style={{ marginTop: 14 }}>
-        Two more questions after this.
-      </p>
     </div>
   );
 }

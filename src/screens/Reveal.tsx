@@ -1,55 +1,68 @@
 import { motion } from "framer-motion";
-import type { RevealContent, SurfaceChoice } from "../lib/session";
-import plansData from "../data/plans.json";
-
-interface Plan {
-  id: string;
-  name: string;
-  priceInr: number | null;
-  billing: string;
-  includesSite: boolean;
-  blurb: string;
-}
-
-const PLANS = plansData.plans as Plan[];
+import { useEffect, useState } from "react";
+import type { RevealContent } from "../lib/session";
+import { lookupDomains, type DomainInfo } from "../lib/domains";
 
 /**
- * Screen 5 — THE screen. Everything else in this flow exists to set it up.
+ * THE screen. Everything else exists to set it up.
  *
- * The effect is line-by-line materialisation: domain, then mailboxes, then the drafted
- * site, then the plan quietly underneath. Each block lands on its own beat so the viewer
- * reads it as the tool *working* rather than as a page that loaded.
+ * Line-by-line materialisation: domain, then mailboxes, then the drafted site, then the plan
+ * quietly underneath. Each block lands on its own beat so it reads as the tool *working*
+ * rather than a page that loaded.
  *
- * Two rules that hold here:
- *  - The plan and price are shown quietly, last, and are NOT chosen by the model. For
- *    milestone 1 the plan is hardcoded; for Ignite it comes from src/lib/rules.ts.
- *  - The CTA is a user-clicked link into Neo's flow, never a silent redirect. It is inert
- *    in this build.
+ * Rules that hold here:
+ *  - Domain alternates are selectable and each carries its OWN price — TLDs are not priced
+ *    alike, and picking the domain is the first real decision in the purchase.
+ *  - Plan and price are shown quietly, last, and are never chosen by the model.
+ *  - The CTA hands off into Neo's existing builder. It is a link a person clicks, never a
+ *    silent redirect, and it is inert in this build.
  */
 
-/** Beat between blocks. Slow enough to read, fast enough not to stall a live demo. */
 const BEAT = 0.55;
+const ease = [0.16, 1, 0.3, 1] as const;
 
 const block = {
   hidden: { opacity: 0, y: 16, filter: "blur(6px)" },
   show: { opacity: 1, y: 0, filter: "blur(0px)" },
 };
 
-const ease = [0.16, 1, 0.3, 1] as const;
-
 export default function Reveal({
   reveal,
   loading,
   error,
   surface,
+  teamSize,
   onRestart,
 }: {
   reveal: RevealContent | null;
   loading: boolean;
   error: string | null;
-  surface: SurfaceChoice | null;
+  surface: string | null;
+  teamSize: number | null;
   onRestart: () => void;
 }) {
+  const [chosenDomain, setChosenDomain] = useState(0);
+  /**
+   * Live availability + indicative pricing, keyed by domain name. Starts empty and fills in:
+   * the fixture is the optimistic first paint and the real answer corrects it.
+   * Deliberately non-blocking — the reveal must never wait on a third-party service.
+   */
+  const [live, setLive] = useState<Record<string, DomainInfo>>({});
+
+  /** Stem drives the lookup, so switching the selected domain doesn't refetch. */
+  const stem = reveal?.domains[0]?.name.split(".")[0] ?? "";
+  useEffect(() => {
+    if (!stem) return;
+    let cancelled = false;
+    lookupDomains(stem).then((rows) => {
+      if (cancelled || !rows.length) return;
+      setLive(Object.fromEntries(rows.map((r) => [r.domain, r])));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [stem]);
+
   if (error) {
     return (
       <div>
@@ -77,15 +90,11 @@ export default function Reveal({
     );
   }
 
+  // Mail-only hides the site block. Anything else (including an unanswered surface
+  // question) shows it — the drafted site is too much of the payoff to hide by default.
   const showSite = surface !== "mail";
-
-  /**
-   * Deterministic plan selection. For milestone 1 this is the whole "rules table" — one
-   * boolean. It lives here rather than in the prompt on purpose: the model is never allowed
-   * to pick a plan or a price. src/lib/rules.ts takes this over for Ignite.
-   */
-  const plan =
-    PLANS.find((p) => p.includesSite === showSite) ?? PLANS[PLANS.length - 1];
+  const domain = reveal.domains[chosenDomain] ?? reveal.domains[0];
+  const mailboxCount = Math.max(reveal.mailboxes.length, teamSize ?? 0);
 
   return (
     <motion.div
@@ -97,15 +106,54 @@ export default function Reveal({
         Your setup
       </motion.p>
 
-      {/* 1. The domain. The single most convincing thing on the screen. */}
+      {/* 1. The domain. The most convincing thing on the screen. */}
       <motion.div variants={block} transition={{ duration: 0.7, ease }}>
         <div className="domain">
-          <span className="domain-name">{reveal.domain.name}</span>
-          {reveal.domain.available && <span className="badge">Available</span>}
+          <span className="domain-name">{domain.name}</span>
+          {/* The live answer wins over the fixture's optimistic flag. A null/absent result
+              (network failure, no key, unsupported TLD) shows NO badge — silence beats a
+              wrong "Available" in front of people who can check in one keystroke. */}
+          {(live[domain.name]?.available ?? domain.available) === true && (
+            <span className="badge">Available</span>
+          )}
+          {live[domain.name]?.available === false && (
+            <span className="badge badge-taken">Taken</span>
+          )}
+          {(live[domain.name]?.priceInr ?? domain.priceInr) !== null && (
+            <span className="domain-price">
+              ₹{(live[domain.name]?.priceInr ?? domain.priceInr)!.toLocaleString("en-IN")}/yr
+            </span>
+          )}
         </div>
+
+        {/* Alternates. Each priced separately — a .in is not a .com is not a .co, and
+            pretending otherwise is the kind of thing that loses trust at checkout. */}
+        {reveal.domains.length > 1 && (
+          <div className="alts">
+            {reveal.domains.map((d, i) =>
+              i === chosenDomain ? null : (
+                <button
+                  key={d.name}
+                  className="alt"
+                  onClick={() => setChosenDomain(i)}
+                  title={d.note}
+                >
+                  <span className="alt-name">{d.name}</span>
+                  {(live[d.name]?.priceInr ?? d.priceInr) !== null && (
+                    <span className="alt-price">
+                      ₹{(live[d.name]?.priceInr ?? d.priceInr)!.toLocaleString("en-IN")}
+                    </span>
+                  )}
+                  {live[d.name]?.available === false && <span className="alt-taken">taken</span>}
+                </button>
+              ),
+            )}
+          </div>
+        )}
+        {domain.note && <p className="domain-note">{domain.note}</p>}
       </motion.div>
 
-      {/* 2. Mailboxes. Each one is a small argument for why this is worth paying for. */}
+      {/* 2. Mailboxes. Each is a small argument for why this is worth paying for. */}
       <motion.div variants={block} transition={{ duration: 0.7, ease }} className="reveal-block">
         <p className="reveal-label">Your mailboxes</p>
         {reveal.mailboxes.map((m, i) => (
@@ -116,13 +164,16 @@ export default function Reveal({
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: BEAT * 2 + 0.18 * i, duration: 0.5, ease }}
           >
-            <span className="mailbox-address">{m.address}</span>
+            <span className="mailbox-address">
+              {m.address.split("@")[0]}
+              <span className="mailbox-domain">@{domain.name}</span>
+            </span>
             <span className="mailbox-label">{m.label}</span>
           </motion.div>
         ))}
       </motion.div>
 
-      {/* 3. The drafted site. Skipped entirely if they said mail-only. */}
+      {/* 3. The drafted site — handed to Neo's builder, not built by us. */}
       {showSite && (
         <motion.div variants={block} transition={{ duration: 0.7, ease }} className="reveal-block">
           <p className="reveal-label">Your site, drafted</p>
@@ -138,23 +189,19 @@ export default function Reveal({
         </motion.div>
       )}
 
-      {/* 4. Plan and price, quietly, last. Never chosen by the model — see header.
-             Price is omitted entirely while plans.json has priceInr: null. A wrong price in
-             front of the Neo PM team is worse than no price; fill plans.json to show it. */}
+      {/* 4. Plan, quietly, last. Price renders only when plans.json has a real number —
+             see that file's warning about Neo Sites vs mailbox pricing. */}
       <motion.div variants={block} transition={{ duration: 0.7, ease }} className="plan-line">
         <div>
           <div className="plan-name">
-            {plan.name}
-            {plan.priceInr !== null && ` · ₹${plan.priceInr} ${plan.billing}`}
+            {mailboxCount} {mailboxCount === 1 ? "mailbox" : "mailboxes"}
+            {showSite ? " + site" : ""} on {domain.name}
           </div>
-          <div className="plan-meta">
-            {reveal.mailboxes.length} mailboxes{showSite ? " · site included" : ""} · cancel
-            anytime
-          </div>
+          <div className="plan-meta">Cancel anytime · you finish the site in Neo's builder</div>
         </div>
         <div className="row" style={{ marginTop: 0 }}>
           <button className="btn" autoFocus>
-            Claim this setup
+            Claim it and start building
           </button>
           <button className="btn btn-ghost" onClick={onRestart}>
             Start over

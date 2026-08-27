@@ -93,13 +93,14 @@ _Last updated: 27 Aug 2026._
 - `api/_lib/llm.ts` — provider seam with replay mode, gpt-5.6 gotchas baked in
 - `api/_lib/replay.ts` — fixture loader with fake latency
 - `TECHNICAL.md` — verified model facts, pricing, architecture, ruled-out decisions
-- `.env.example`, `.gitignore`, git repo initialised
+- `.env.example`, `.gitignore`, git initialised
+- Private GitHub repo: https://github.com/THR1212/neo-akinator (default branch `master`)
+- `src/lib/brand.ts` — `PRODUCT_NAME = "Find My Neo"`, `docs/naming.md` written
 
 **Not done / next**
 - Screen 1 and the reveal screen. Nothing in `src/` is real yet — still Vite boilerplate.
 - No fixtures in `src/data/replay/` yet. Nothing will run in replay mode until there is one.
 - `src/data/plans.json`, `src/lib/rules.ts`, `src/lib/session.ts` — referenced, not written.
-- GitHub remote not yet added — `gh auth login` is interactive and pending.
 - Python `analysis/` folder for the persona/retention work — not started.
 
 **Open questions (not blockers for milestone 1)**

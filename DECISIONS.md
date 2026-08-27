@@ -155,6 +155,26 @@ schema will reject them.
 
 ---
 
+### 2026-08-27 · Vercel linked and deployed; git auto-deploy NOT connected
+
+Project `hari-7720/neo-akinator`. Vite auto-detected (`vite build` → `dist`). Deployed and
+verified serving.
+
+**Auto-deploy on push failed** and needs a browser step only the account owner can do: the Vercel
+account has no GitHub *login connection*, so it can't attach the repo. Fix at
+vercel.com → Account Settings → Login Connections → add GitHub, then `npx vercel git connect`.
+Until then, deploy manually with `npx vercel deploy` (preview) or `npx vercel --prod`.
+
+**Deployment Protection is on by default**, so the URL is not publicly reachable — opening it
+without a bypass token gets an auth wall. That is the right default for internal work, but it
+means *you cannot just send the link to the PM*. Either disable protection for this project or
+demo locally. The 28 Aug demo runs locally regardless, so this is a Sept 2 problem.
+
+`.env.local` (Vercel OIDC token, and the LLM key in live mode) and `.vercel/` are gitignored.
+`.gitignore` uses a broad `.env*` with `!.env.example` — the example is the only tracked env file.
+
+---
+
 ### 2026-08-27 · Open, deliberately not decided
 
 - **Sound.** Two or three cues (advance, reveal tick, CTA). Worth ~30 minutes *after* the reveal

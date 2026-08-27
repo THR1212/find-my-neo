@@ -23,6 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
-.env.local
-.env
+# .env.local holds the Vercel OIDC token and, in live mode, the LLM API key.
+# .env* is deliberately broad — .env.example is force-added and is the only one tracked.
+.env*
+!.env.example
 .vercel

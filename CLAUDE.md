@@ -19,8 +19,9 @@ setup (available domain, mailbox names, draft site copy) → one CTA into Neo's 
 
 ## Hard rules
 
-1. **"Akinator" is a trademark.** Internal shorthand only. It must never appear in demo-visible
-   copy, the deck, the deployed page title, or the URL. Shipped name: see `docs/naming.md`.
+1. **Shipped name is "Find My Neo"** — defined once in `src/lib/brand.ts` as `PRODUCT_NAME`,
+   never hardcoded in a component. "Akinator" is a trademark (Elokence SAS): internal shorthand
+   and repo name only, never on screen, in the deck, or in a page title. See `docs/naming.md`.
 2. **The LLM never decides price or plan.** It emits a structured profile object only.
    `src/lib/rules.ts` maps profile → plan deterministically. Pricing lives in `src/data/plans.json`.
 3. **No API key ever reaches the browser.** All model calls go through `api/*` serverless functions.
@@ -98,7 +99,7 @@ _Last updated: 27 Aug 2026._
 - Screen 1 and the reveal screen. Nothing in `src/` is real yet — still Vite boilerplate.
 - No fixtures in `src/data/replay/` yet. Nothing will run in replay mode until there is one.
 - `src/data/plans.json`, `src/lib/rules.ts`, `src/lib/session.ts` — referenced, not written.
-- `docs/naming.md` — referenced, not written. **The shipped name is still undecided.**
+- GitHub remote not yet added — `gh auth login` is interactive and pending.
 - Python `analysis/` folder for the persona/retention work — not started.
 
 **Open questions (not blockers for milestone 1)**

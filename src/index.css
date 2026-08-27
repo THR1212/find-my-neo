@@ -1,111 +1,571 @@
+/* Find My Neo — visual system.
+   Deliberately CSS-only for the backdrop. The reveal is a typography-and-timing problem,
+   not a 3D one; three.js and Unity are ruled out (see TECHNICAL.md). Visual budget goes
+   into an animated gradient, generous type, and easing curves. */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --bg: #0a0a0f;
+  --bg-raised: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #f4f4f6;
+  --text-dim: #a1a1ac;
+  --text-faint: #6b6b76;
+  --accent: #7c6cff;
+  --accent-warm: #ff8a5b;
+  --accent-glow: rgba(124, 108, 255, 0.35);
+  --ok: #4ade80;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --radius: 18px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+* {
   box-sizing: border-box;
 }
 
-body {
+html,
+body,
+#root {
+  height: 100%;
   margin: 0;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Animated backdrop -------------------------------------------------- */
+/* Three slow-drifting radial blooms. Cheap, GPU-composited, and it reads as
+   depth without shipping a renderer. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.bloom {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.5;
+  will-change: transform;
+}
+
+.bloom-1 {
+  width: 46vw;
+  height: 46vw;
+  background: #4c3bd6;
+  top: -12%;
+  left: -8%;
+  animation: drift-1 26s ease-in-out infinite alternate;
+}
+
+.bloom-2 {
+  width: 38vw;
+  height: 38vw;
+  background: #a8437a;
+  bottom: -14%;
+  right: -6%;
+  animation: drift-2 32s ease-in-out infinite alternate;
+}
+
+.bloom-3 {
+  width: 30vw;
+  height: 30vw;
+  background: #2b6fb8;
+  top: 42%;
+  left: 48%;
+  animation: drift-3 38s ease-in-out infinite alternate;
+}
+
+@keyframes drift-1 {
+  to {
+    transform: translate3d(14vw, 10vh, 0) scale(1.18);
+  }
+}
+@keyframes drift-2 {
+  to {
+    transform: translate3d(-12vw, -8vh, 0) scale(1.12);
+  }
+}
+@keyframes drift-3 {
+  to {
+    transform: translate3d(-16vw, 12vh, 0) scale(0.86);
+  }
+}
+
+/* Grain keeps the gradient from banding on a projector. */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bloom {
+    animation: none;
+  }
+}
+
+/* --- Layout ------------------------------------------------------------- */
+
+/* The reveal is taller than a laptop viewport once the site block is in. Scroll rather
+   than clip — but keep it centred while the content still fits, so the short screens
+   don't sit at the top of the page. */
+.stage {
+  position: relative;
+  z-index: 2;
+  min-height: 100%;
+  display: grid;
+  justify-items: center;
+  /* `safe center` centres while the content fits and falls back to start when it
+     overflows. Plain `center` clips the top of the reveal on a short viewport — the
+     overflow is unreachable because centring pushes it past the scroll origin. */
+  align-content: center;
+  align-content: safe center;
+  /* Top padding clears the fixed progress bar. */
+  padding: 78px 24px 48px;
+}
+
+.screen {
+  width: 100%;
+  max-width: 680px;
+}
+
+/* --- Typography --------------------------------------------------------- */
+
+.eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 18px;
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  margin: 0 0 14px;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+.lede {
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  margin: 0 0 32px;
 }
 
-code {
+/* --- Controls ----------------------------------------------------------- */
+
+.field {
+  width: 100%;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 18px;
+  line-height: 1.5;
+  padding: 20px 22px;
+  resize: none;
+  outline: none;
+  transition: border-color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
+}
+
+.field::placeholder {
+  color: var(--text-faint);
+}
+
+.field:focus {
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+.btn {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--text);
+  color: #0a0a0f;
+  font-family: inherit;
   font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  font-weight: 600;
+  padding: 14px 26px;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-out), opacity 0.2s var(--ease-out);
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 26px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+/* Option cards for the tap-through screens. */
+.options {
+  display: grid;
+  gap: 12px;
+}
+
+.option {
+  width: 100%;
+  text-align: left;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  padding: 18px 20px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease-out), background 0.2s var(--ease-out),
+    transform 0.2s var(--ease-out);
+}
+
+.option:hover {
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.07);
+  transform: translateX(3px);
+}
+
+.option .option-hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+/* --- Reveal ------------------------------------------------------------- */
+
+.reveal-block {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  margin-top: 26px;
+}
+
+.reveal-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 12px;
+}
+
+.domain {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.domain-name {
+  font-size: clamp(26px, 4.4vw, 38px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ok);
+  background: rgba(74, 222, 128, 0.11);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  border-radius: 999px;
+  padding: 4px 11px;
+}
+
+.mailbox {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mailbox:last-child {
+  border-bottom: 0;
+}
+
+.mailbox-address {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.mailbox-label {
+  font-size: 13px;
+  color: var(--text-faint);
+  text-align: right;
+}
+
+.site-preview {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+}
+
+.site-headline {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 7px;
+}
+
+.site-subhead {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin: 0 0 16px;
+}
+
+.site-nav {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.site-nav span {
+  font-size: 12px;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+
+.plan-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.plan-meta {
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.plan-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* --- Loading ------------------------------------------------------------ */
+
+.dots {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  animation: pulse 1.3s ease-in-out infinite;
+}
+
+.dots i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.dots i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* --- Progress ----------------------------------------------------------- */
+
+.progress {
+  position: fixed;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  gap: 7px;
+}
+
+.progress i {
+  width: 22px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background 0.4s var(--ease-out);
+}
+
+.progress i.on {
+  background: var(--text);
+}
+
+/* --- Mobile ------------------------------------------------------------- */
+/* Not an afterthought: Neo's pricing traffic skews heavily mobile in India, and the
+   overlay this lives in is full-screen on a phone. Everything below either stacks or
+   goes full-width — nothing relies on a two-column row surviving a 360px viewport. */
+
+@media (max-width: 640px) {
+  .stage {
+    padding: 62px 18px 36px;
+    /* Phones centre badly once the on-screen keyboard opens; top-align instead. */
+    align-content: start;
+  }
+
+  h1 {
+    font-size: clamp(26px, 7.5vw, 34px);
+  }
+
+  .lede {
+    font-size: 15.5px;
+    margin-bottom: 24px;
+  }
+
+  .field {
+    font-size: 16px; /* < 16px makes iOS Safari zoom the viewport on focus. */
+    padding: 16px 18px;
+  }
+
+  /* Full-width tap targets rather than a cramped inline row. */
+  .row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .row .btn {
+    width: 100%;
+    padding: 15px 22px;
+  }
+
+  .row .hint {
+    text-align: center;
+  }
+
+  .option {
+    padding: 16px 18px;
+  }
+
+  /* Address and its caption stack — side-by-side truncates the address on a phone. */
+  .mailbox {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 13px 0;
+  }
+
+  .mailbox-address {
+    font-size: 16px;
+    /* Long addresses must break rather than force a horizontal scroll. */
+    overflow-wrap: anywhere;
+  }
+
+  .mailbox-label {
+    text-align: left;
+  }
+
+  .domain {
+    gap: 9px;
+  }
+
+  .domain-name {
+    font-size: clamp(23px, 7vw, 30px);
+    overflow-wrap: anywhere;
+  }
+
+  .site-preview {
+    padding: 18px;
+  }
+
+  .site-headline {
+    font-size: 18px;
+  }
+
+  .plan-line {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .plan-line .row {
+    width: 100%;
+  }
+
+  .progress {
+    top: 20px;
+  }
+
+  .progress i {
+    width: 18px;
+  }
+}
+
+/* Very small phones (iPhone SE and similar). */
+@media (max-width: 380px) {
+  .stage {
+    padding: 56px 14px 30px;
+  }
+
+  .domain-name {
+    font-size: 21px;
+  }
 }

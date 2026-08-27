@@ -1,0 +1,24 @@
+{
+  "_comment": "Plan catalogue. Pricing is PUBLIC and must be filled in from the real Neo pricing page before any demo — see _TODO below. The model never sees this file and never picks a plan; src/lib/rules.ts maps profile -> plan deterministically. Keeping prices here (not in the prompt) is what makes 'what if it hallucinates a price' a non-question.",
+
+  "_TODO": "priceInr values are PLACEHOLDERS (null). Fill from neo.space pricing or Confluence NS/1679589391. Rendering deliberately hides the price line while null rather than showing a fake number — a wrong price in front of the Neo PM team is worse than no price.",
+
+  "plans": [
+    {
+      "id": "starter",
+      "name": "Neo Starter",
+      "priceInr": null,
+      "billing": "per mailbox / month",
+      "includesSite": false,
+      "blurb": "One professional address on your own domain"
+    },
+    {
+      "id": "business",
+      "name": "Neo Business",
+      "priceInr": null,
+      "billing": "per mailbox / month",
+      "includesSite": true,
+      "blurb": "Mailboxes plus a one-page site"
+    }
+  ]
+}

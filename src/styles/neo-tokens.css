@@ -1,0 +1,50 @@
+/* Neo brand tokens — pulled live from join.neo.space on 27 Aug 2026 via computed styles
+   and the app's own CSS custom properties. These are Neo's actual values, not approximations.
+
+   NOTE: our current demo skin (src/index.css) is DARK — deep background, purple/orange accents.
+   Neo is the opposite: white, blue, Poppins. If the goal is "this looks like it belongs on
+   Neo's pricing page", we reskin to these. If the goal is "this is a distinct experience that
+   opens over the pricing page", the dark treatment is defensible as an overlay.
+   That is a real decision and it is not yet made — see DECISIONS.md. */
+
+:root {
+  /* Type — Neo loads exactly one family */
+  --neo-font: Poppins, sans-serif;
+
+  /* Primary blue. Two live values: --primary is the button/brand blue,
+     --primary-color is the slightly softer one used for links and highlights. */
+  --neo-primary: #0066ff;
+  --neo-primary-alt: #2170f4;
+  --neo-primary-contrast: #ffffff;
+
+  /* The brand gradient — blue to pink. Genuinely nice, and the single most
+     "Neo" visual asset available to us. */
+  --neo-gradient: linear-gradient(100deg, #1078ff 30.21%, #fe4ca2 98.31%);
+
+  /* Text */
+  --neo-heading: #000000;
+  --neo-text: #333333;
+  --neo-text-secondary: #666666;
+  --neo-text-muted: #888888;
+  --neo-text-light: #707070;
+
+  /* Surfaces */
+  --neo-bg: #ffffff;
+  --neo-bg-page: #f7f7f7;
+  --neo-bg-gray: #f5f5f5;
+  --neo-bg-blue: #eef8ff;
+  --neo-bg-blue-alt: #f2f8ff;
+  --neo-bg-sky: #e6efff;
+  --neo-bg-secondary: #e8effd;
+
+  /* Status */
+  --neo-success: #17b87e;
+  --neo-success-bg: #dcf7e7;
+  --neo-error: #ff4d4f;
+  --neo-highlight: #fbaa4f;
+
+  /* Lines and shape */
+  --neo-border: #dedede;
+  --neo-border-blue: #dcf0ff;
+  --neo-radius: 6px;
+}

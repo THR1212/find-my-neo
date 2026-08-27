@@ -1,4 +1,5 @@
-import { HOOK_COPY, PRODUCT_NAME } from "../lib/brand";
+import { HOOK_COPY } from "../lib/brand";
+import Wordmark from "../components/Wordmark";
 
 /**
  * The entry point. On the real pricing page this is a small inline prompt that opens a
@@ -9,7 +10,7 @@ import { HOOK_COPY, PRODUCT_NAME } from "../lib/brand";
 export default function Hook({ onStart }: { onStart: () => void }) {
   return (
     <div>
-      <p className="eyebrow">{PRODUCT_NAME}</p>
+      <Wordmark />
       <h1>{HOOK_COPY}</h1>
       <p className="lede">
         Tell us what you do. We'll find your domain, set up your mailboxes, and draft your

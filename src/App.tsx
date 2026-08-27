@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   applyAnswer,
   confidence,
-  MAX_QUESTIONS,
   nextQuestion,
   remainingSetups,
   shouldReveal,
@@ -174,12 +173,7 @@ export default function App() {
             )}
 
             {stage === "question" && current && (
-              <AdaptiveQuestion
-                question={current}
-                step={stepNumber}
-                total={MAX_QUESTIONS}
-                onAnswer={answer}
-              />
+              <AdaptiveQuestion question={current} step={stepNumber} onAnswer={answer} />
             )}
 
             {stage === "reveal" && (
@@ -189,6 +183,7 @@ export default function App() {
                 error={error}
                 surface={(engine.profile.surface as string) ?? null}
                 teamSize={(engine.profile.teamSize as number) ?? null}
+                profile={engine.profile}
                 onRestart={restart}
               />
             )}

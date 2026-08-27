@@ -2,6 +2,8 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import type { RevealContent } from "../lib/session";
 import { lookupDomains, type DomainInfo } from "../lib/domains";
+import { pickFeatures, type FeatureSurface } from "../lib/features";
+import type { Profile } from "../lib/engine";
 
 /**
  * THE screen. Everything else exists to set it up.
@@ -32,6 +34,7 @@ export default function Reveal({
   error,
   surface,
   teamSize,
+  profile,
   onRestart,
 }: {
   reveal: RevealContent | null;
@@ -39,6 +42,7 @@ export default function Reveal({
   error: string | null;
   surface: string | null;
   teamSize: number | null;
+  profile: Profile;
   onRestart: () => void;
 }) {
   const [chosenDomain, setChosenDomain] = useState(0);
@@ -96,6 +100,14 @@ export default function Reveal({
   const domain = reveal.domains[chosenDomain] ?? reveal.domains[0];
   const mailboxCount = Math.max(reveal.mailboxes.length, teamSize ?? 0);
 
+  /**
+   * Why this plan, for this person. Deterministic — see features.ts. The model never picks
+   * these, because inventing a Neo feature in front of the Neo product team is the worst
+   * failure available to this demo.
+   */
+  const surfaces: FeatureSurface[] = showSite ? ["mail", "site"] : ["mail"];
+  const features = pickFeatures(profile, surfaces);
+
   return (
     <motion.div
       initial="hidden"
@@ -119,9 +131,13 @@ export default function Reveal({
           {live[domain.name]?.available === false && (
             <span className="badge badge-taken">Taken</span>
           )}
+          {/* "approx" is not hedging — the figure is a third-party registrar's USD list price
+              converted at a fixed rate. Showing it unqualified next to a Neo checkout, to the
+              people who set Neo's actual prices, would be the wrong kind of confident. */}
           {(live[domain.name]?.priceInr ?? domain.priceInr) !== null && (
             <span className="domain-price">
-              ₹{(live[domain.name]?.priceInr ?? domain.priceInr)!.toLocaleString("en-IN")}/yr
+              ~₹{(live[domain.name]?.priceInr ?? domain.priceInr)!.toLocaleString("en-IN")}/yr
+              <span className="price-caveat">approx</span>
             </span>
           )}
         </div>
@@ -186,6 +202,26 @@ export default function Reveal({
               ))}
             </div>
           </div>
+        </motion.div>
+      )}
+
+      {/* 3b. Why this shape, for this person. One real Neo feature per surface, each tied
+             to something they actually told us. Generic benefit copy is what we're beating. */}
+      {features.length > 0 && (
+        <motion.div variants={block} transition={{ duration: 0.7, ease }} className="reveal-block">
+          <p className="reveal-label">Worth knowing</p>
+          {features.map((f, i) => (
+            <motion.div
+              key={f.id}
+              className="feature"
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: BEAT * 3 + 0.16 * i, duration: 0.5, ease }}
+            >
+              <span className="feature-name">{f.name}</span>
+              <span className="feature-because">— {f.because}</span>
+            </motion.div>
+          ))}
         </motion.div>
       )}
 

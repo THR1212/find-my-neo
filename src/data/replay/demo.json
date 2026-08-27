@@ -14,24 +14,26 @@
   "nextQuestionId": "channel",
 
   "reveal": {
+    "_domainsNote": "Availability and price are overridden at runtime by the live DomScan lookup (/api/domains). These values are the FALLBACK shown only when that call fails. They are set to the measured live figures rather than invented ones, so the fallback path can never contradict the happy path in front of an audience. The stem must match domainStem above — the lookup keys off it.",
+
     "domains": [
       {
         "name": "proofandbutter.com",
         "available": true,
-        "priceInr": 899,
+        "priceInr": 980,
         "recommended": true,
         "note": "The one people will guess"
       },
       {
         "name": "proofandbutter.in",
         "available": true,
-        "priceInr": 499,
+        "priceInr": 690,
         "note": "Cheaper, and reads as local"
       },
       {
-        "name": "proofbutter.co",
+        "name": "proofandbutter.co",
         "available": true,
-        "priceInr": 1299,
+        "priceInr": 1390,
         "note": "Shorter, if you want room to grow beyond cakes"
       }
     ],

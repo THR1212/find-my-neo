@@ -10,5 +10,11 @@
  */
 export const PRODUCT_NAME = "Find My Neo";
 
-/** Entry-point copy on the pricing page. */
-export const HOOK_COPY = "Not sure which plan? Answer 5 questions";
+/**
+ * Entry-point copy on the pricing page.
+ *
+ * "A few" rather than a number, on purpose. MAX_QUESTIONS is a ceiling of 4, but the engine
+ * stops early once it's confident, so the real count varies by person — promising an exact
+ * number we might not ask is the kind of small dishonesty someone notices.
+ */
+export const HOOK_COPY = "Not sure which plan? Answer a few questions";

@@ -11,19 +11,18 @@ import type { Question } from "../lib/questions";
 export default function AdaptiveQuestion({
   question,
   step,
-  total,
   onAnswer,
 }: {
   question: Question;
   step: number;
-  total: number;
   onAnswer: (questionId: string, optionId: string) => void;
 }) {
   return (
     <div key={question.id}>
-      <p className="eyebrow">
-        Question {step} of {total}
-      </p>
+      {/* No "of N" — the engine stops early when it's confident, so a denominator would be
+          a promise we might not keep. The narrowing meter already shows progress, and it
+          shows something more interesting than a count. */}
+      <p className="eyebrow">Question {step}</p>
       <h1>{question.prompt}</h1>
       {question.sub && <p className="lede">{question.sub}</p>}
 

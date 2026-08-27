@@ -85,11 +85,31 @@ export function nextQuestion(state: EngineState, preferredId?: string | null): Q
   return unresolved.reduce((best, q) => (q.weight > best.weight ? q : best), unresolved[0]);
 }
 
-/** Stop once we're confident enough or we've asked enough. Whichever comes first. */
-export const MAX_QUESTIONS = 3;
+/**
+ * When to stop asking.
+ *
+ * Ceiling, not a target. Every question on a pre-purchase page is a place to drop off, so we
+ * stop as soon as we know enough rather than marching to a fixed count — which is also more
+ * faithful to the idea: it stops when it's got you, not when it runs out of script.
+ *
+ * Four rather than three: three leaves half the six-question bank unresolved, so the plan,
+ * domain and feature picks rest on less than they could, and the narrowing — the whole
+ * mechanic — is over in one big jump. Four is the most we can ask before it reads as a form.
+ * Keep HOOK_COPY in brand.ts in step with this number.
+ */
+export const MAX_QUESTIONS = 4;
+
+/**
+ * Early exit. Above this we have enough signal that another question would be asking for
+ * the sake of it — the recommendation wouldn't change.
+ */
+const CONFIDENT_ENOUGH = 0.82;
 
 export function shouldReveal(state: EngineState): boolean {
-  return state.asked.length >= MAX_QUESTIONS || nextQuestion(state) === null;
+  if (nextQuestion(state) === null) return true;
+  if (state.asked.length >= MAX_QUESTIONS) return true;
+  // Never cut it off before two — one answer after the free text feels like it guessed.
+  return state.asked.length >= 2 && confidence(state.profile) >= CONFIDENT_ENOUGH;
 }
 
 export function applyAnswer(

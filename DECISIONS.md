@@ -131,6 +131,30 @@ them.
 
 ---
 
+### 2026-08-27 · Verified on screen, not just in the build
+
+`npm run build` passing only means it compiles. These were checked in a real browser:
+
+- **Paste + Enter**, using the actual system clipboard and a trusted `Ctrl+V` — not a synthetic
+  event. Synthetic `ClipboardEvent`s don't trigger the browser's paste action at all, so an
+  earlier "test" of this was silently meaningless. The demo script says to paste, so paste is
+  the path that had to work.
+- **1440×820** (a laptop with browser chrome): the reveal fits with no scrollbar.
+- **390×844 mobile**: no horizontal overflow, mailboxes stack, buttons full-width.
+
+---
+
+### 2026-08-27 · `_comment` / `_TODO` keys in JSON data files
+
+`demo.json` and `plans.json` carry underscore-prefixed keys documenting themselves in place —
+worth it because those are the two files a non-frontend person will edit. `api.ts` casts through
+`unknown`, so they're ignored at runtime.
+
+**If anyone later adds zod validation or tightens these types, strip those keys first** or the
+schema will reject them.
+
+---
+
 ### 2026-08-27 · Open, deliberately not decided
 
 - **Sound.** Two or three cues (advance, reveal tick, CTA). Worth ~30 minutes *after* the reveal

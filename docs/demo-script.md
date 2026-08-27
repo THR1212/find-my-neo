@@ -1,90 +1,114 @@
 # Demo script — PM viability check, 28 Aug 2026
 
-Runs locally: `npm run dev`, then http://localhost:5173. No key, no internet, no backend.
-Total runtime about 90 seconds. Rehearse it once before the meeting.
+Runs locally: `npm run dev`, then http://localhost:5173. ~2 minutes.
+Rehearse once. The reveal takes about five seconds and the urge to fill that silence is strong.
+
+**Read this before anything else:** the framing changed on 27 Aug after walking Neo's live
+`/ai-website-builder`. Do not present this as a new idea. Present it as a qualifier that feeds
+the builder Neo already has. The overlap is the first thing a Neo PM will see — name it before
+they do.
 
 ---
 
 ## Before you start
 
-- [ ] `npm run dev` already running, browser already on the page, **on the hook screen**
-- [ ] Browser at full screen, notifications off
-- [ ] The scripted input copied to your clipboard (below) — don't type it live
-- [ ] Know that the reveal is pre-written for this exact business
+- [ ] `npm run dev` running, browser on the hook screen, full screen, notifications off
+- [ ] `.env.local` has `DOMSCAN_API_KEY` (domain availability is a **live** call — if it fails
+      the reveal still renders, just without live badges)
+- [ ] Scripted input on your clipboard — paste it, don't type it live
+- [ ] A second tab open on `neo.space/ai-website-builder`, already at the category step
 
 ---
 
-## The scripted input
+## Open by naming the collision (30 seconds, before you demo anything)
 
-> We're a two-person bakery in Bandra called Proof & Butter, custom celebration cakes, and right now every order comes through Instagram DMs.
+> "Neo already has an AI website builder. You describe your business, it generates a site,
+> offers a domain and email. I walked it this morning. So I'm not going to pretend this is a
+> new idea — what I want to show you is the half of it I think is missing, and one thing I
+> found in your live flow."
 
-Paste it. It matches `src/data/replay/demo.json`. Any other input still returns the bakery.
+This costs you nothing and buys the whole meeting. If they spot the overlap first, you spend
+the rest of the time defending; if you name it, you're the person who did the homework.
 
 ---
 
-## The run
+## The evidence, on their own product (60 seconds)
+
+On the second tab, at Neo's category step:
+
+1. Type **food** → *Food & Beverages*, *Food & Beverage E-commerce*… a real taxonomy.
+2. Type **retail** → seven options. Also real.
+3. Type **bakery** → **nothing matches.** It accepts the raw string as a custom entry.
+
+> "That's live, right now. And it's the mechanism behind this: in the persona data, 13,968 rows
+> produced **5,318 distinct `business_industry` values** — 'Pizza', 'ONLINE STORE', 'repair',
+> 'purchase'. Case variants counted separately. Neo can't act on that field today."
+
+**Be honest about the data:** it's the 2023–24 Athena pull, an older product state. The
+*direction* holds; don't quote the levels as current.
+
+---
+
+## The demo (90 seconds)
 
 | Step | Action | What you say |
 |---|---|---|
-| 1 | Click **Start** | "This sits on the pricing page. It doesn't replace it — it's for the people who bounce." |
-| 2 | Paste the input, press Enter | "One free-text box. No dropdowns. This is the part that needs a model." |
-| 3 | Guess screen appears | *Say nothing. Let them read it.* |
-| 4 | Click **That's us** | "It read the business back. That's the hook." |
-| 5 | **Yes, emails and contacts** | "This question is here on evidence — import intent is the strongest retention signal in the persona data." |
-| 6 | **Email and a site** | — |
-| 7 | The reveal builds | *Say nothing until it finishes.* |
-| 8 | After it lands | "Domain, mailboxes, drafted site — before they've paid or signed up for anything." |
+| 1 | **Start** | "This opens over the pricing page. It doesn't replace it — it's for people who'd otherwise bounce." |
+| 2 | Paste, Enter | "One free-text box. That's the difference from a category picker — 'bakery' works here." |
+| 3 | Guess appears | *Say nothing. Let them read it.* |
+| 4 | **That's us** | "It read the business back. Notice the counter — 5,318 possible setups down to about 1,600, from one sentence." |
+| 5 | **Social DMs** | "The questions aren't fixed. It asked this because the text mentioned Instagram — a different business gets a different path." |
+| 6 | **Emails and contacts** | "This one's on evidence: import intent is the strongest retention signal in the persona data." |
+| 7 | **Email and a site** | — |
+| 8 | Reveal builds | *Silence.* |
+| 9 | After it lands | "Domain — checked live, that availability is a real lookup. Mailboxes. The drafted site. And two features picked for *them*, because they told us orders come through DMs." |
+| 10 | **Claim it and start building** | "And this is the point — it hands into your builder. We don't build the site. You already do that." |
 
-**The one rule: don't talk over the reveal.** It takes about four seconds. Silence sells it.
+**The one rule: don't talk over the reveal.**
+
+---
+
+## The ask
+
+Not "is this good". Three things:
+
+1. **Does this collide with anything already in design or PM phase?** Specifically the KR1
+   persona bullet in `NP/1697185794`. This is the Ignite disqualification risk and they'd know.
+2. **Is the qualifier framing right** — persona → domain/mailbox/site plan → handoff?
+3. **If it works, is there a route to shipping it,** or is it a hackathon piece only?
 
 ---
 
 ## Questions you should expect
 
-**"Isn't this the KR1 persona bullet we already have?"**
-The honest answer is that you don't know yet, and this is the question you actually want answered
-— it's the Ignite disqualification risk. Ask them directly. The distinction to draw: KR1 is
-*post-signup onboarding personalisation*; this is *pre-purchase*, and it's generative rather than
-a branching flow.
+**"How is this different from the builder?"**
+The builder starts once someone has decided to build a site. This starts before they've decided
+anything — it works out what they need, then routes them in with it pre-filled.
 
-**"How is this different from Chatbot V2?"**
-Chatbot V2 guides someone through a decision tree to complete a purchase. This produces
-something — a domain, mailboxes, drafted copy — before any purchase exists.
+**"Isn't this Chatbot V2?"**
+Chatbot V2 guides someone down a decision tree to complete a purchase. This produces something —
+a domain, mailboxes, drafted copy — before a purchase exists.
 
-**"What if the model hallucinates a price?"**
-It can't. The model never sees pricing and never picks a plan; it returns a profile, and code
-maps profile to plan. That's `plans.json` plus a rules table.
+**"What if the model hallucinates a price, or a feature?"**
+It can't do either. The model returns a profile only. Plan selection is a rules table, domain
+prices come from an API, and the feature highlights are a fixed bank of real Neo features
+matched deterministically. Inventing a Neo feature is the one failure we designed out.
 
-**"Aren't we chasing exactly the low-retention cohort the strategy says to stop chasing?"**
-This is the strongest objection and it's worth conceding partly. Frame the tool as an intent
-*qualifier*: it routes low-intent to free and high-intent to seat bundles and annual billing.
-That maps to KR4 (quality of users acquired) and the M3 retention metric.
+**"Are those real prices?"**
+No, and say so plainly. They're third-party registrar list prices in USD converted at a fixed
+rate — labelled "approx" on screen. The right source is Neo's own domain search API. **Availability
+is genuinely live.**
 
-**"What's the evidence?"**
-64% of orders cancelled in the 2023–24 persona data. The fields that best predict retention —
-import behaviour, current mail client — are filled on about 13% of orders. And
-`business_industry` has 5,318 distinct strings across 13,968 rows, including "Pizza" and
-"purchase". Neo can't currently act on those fields. **Caveat honestly: these are 2023–24
-numbers from an older product state. Directional, not current.**
+**"Aren't we chasing the low-retention cohort the strategy says to stop chasing?"**
+Concede part of it. Frame the tool as an intent *qualifier*: routes low-intent to free, high-intent
+to seat bundles and annual billing. Maps to KR4 and the M3 retention metric.
 
 ---
 
-## What to say about what's missing
+## Say what's missing before they find it
 
-Say it before they find it. It reads as judgement rather than as gaps:
-
-- **Prices are blank** — deliberate, rather than showing a number I couldn't verify.
-- **The CTA doesn't go anywhere** — the handoff into Neo's purchase flow is hackathon work.
-- **The middle two screens are rough** — all the effort went into the reveal on purpose.
-- **This runs off a saved response, not a live model call** — the live path is built and works;
-  the demo uses a recorded one so it can't fail on venue wifi.
-
----
-
-## The actual ask
-
-You are not asking "is this good". You are asking:
-
-1. **Does this collide with anything already in design or PM phase?** (The disqualification risk.)
-2. **Is this worth building at Ignite, 2–4 Sep?**
-3. **If it works, is there a route to shipping it** — or is it a hackathon piece only?
+- **Prices are indicative, not Neo's** — deliberate, rather than a number I couldn't verify.
+- **The handoff isn't built.** The CTA is inert. Integrating with the builder is the next real work.
+- **It runs off a recorded model response.** The live path exists; the demo uses a recorded one
+  so it can't fail on venue wifi. Domain lookup *is* live.
+- **Mailbox pricing isn't sourced.** Site plans are (₹269/₹359/₹899); mailbox plans aren't.

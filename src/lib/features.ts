@@ -8,13 +8,19 @@
  *
  * ┌──────────────────────────────────────────────────────────────────────────────────┐
  * │ THE MODEL DOES NOT CHOOSE THESE, AND MUST NEVER WRITE THEM.                       │
- * │ Every entry below is a real, shipped Neo feature, transcribed from                │
- * │ neo.space/ai-website-builder and the site footer on 27 Aug 2026. A hallucinated   │
- * │ feature in front of the Neo product team is the single worst failure this demo    │
- * │ could have. Matching is deterministic — see pickFeatures().                       │
+ * │ Every entry below is a real, shipped Neo feature. A hallucinated feature in front │
+ * │ of the Neo product team is the single worst failure this demo could have, so the  │
+ * │ bank is fixed and matching is deterministic — see pickFeatures().                 │
+ * │                                                                                   │
+ * │ Allow-list and provenance: docs/neo-product-facts.md, verified against Confluence │
+ * │ NP/698843154 (Spec - Neo AI Site Builder) and a live product walk on 27 Aug 2026. │
+ * │ BEFORE ADDING ONE: confirm it appears in that file. Marketing copy is not proof.  │
  * └──────────────────────────────────────────────────────────────────────────────────┘
  *
- * If you add one, verify it exists on Neo's own marketing pages first, and record where.
+ * Two things the spec corrected, worth not re-breaking:
+ *  - Neo's builder produces a ONE-PAGE landing site. Never imply multi-page.
+ *  - "Generate design" picks template/colour/font RANDOMLY client-side, not via AI. So it is
+ *    not listed here as an AI feature.
  */
 
 import type { Profile } from "./engine";
@@ -117,7 +123,9 @@ export const FEATURES: Feature[] = [
     id: "templates",
     name: "Website templates",
     surface: "site",
-    because: "you can change the look later without rebuilding anything",
+    /* "one page" is deliberate — Neo's builder generates a one-page landing site
+       (NP/698843154). Implying multi-page would be a claim their team would catch. */
+    because: "your one-page site can change look later without rebuilding anything",
     matches: () => true,
     priority: 1,
   },

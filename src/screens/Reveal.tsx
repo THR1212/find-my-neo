@@ -142,28 +142,32 @@ export default function Reveal({
           )}
         </div>
 
-        {/* Alternates. Each priced separately — a .in is not a .com is not a .co, and
-            pretending otherwise is the kind of thing that loses trust at checkout. */}
+        {/* All options stay in the row, with the active one marked — hiding the selected one
+            made the row reshuffle on every switch and meant you could never see the full set
+            at once. Each is priced separately: a .in is not a .com is not a .co, and flattening
+            that is what loses trust at checkout. */}
         {reveal.domains.length > 1 && (
-          <div className="alts">
-            {reveal.domains.map((d, i) =>
-              i === chosenDomain ? null : (
+          <div className="alts" role="group" aria-label="Choose a domain">
+            {reveal.domains.map((d, i) => {
+              const active = i === chosenDomain;
+              const taken = live[d.name]?.available === false;
+              const price = live[d.name]?.priceInr ?? d.priceInr;
+              return (
                 <button
                   key={d.name}
-                  className="alt"
+                  className={`alt${active ? " alt-active" : ""}`}
                   onClick={() => setChosenDomain(i)}
                   title={d.note}
+                  aria-pressed={active}
                 >
                   <span className="alt-name">{d.name}</span>
-                  {(live[d.name]?.priceInr ?? d.priceInr) !== null && (
-                    <span className="alt-price">
-                      ₹{(live[d.name]?.priceInr ?? d.priceInr)!.toLocaleString("en-IN")}
-                    </span>
+                  {price !== null && (
+                    <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
                   )}
-                  {live[d.name]?.available === false && <span className="alt-taken">taken</span>}
+                  {taken && <span className="alt-taken">taken</span>}
                 </button>
-              ),
-            )}
+              );
+            })}
           </div>
         )}
         {domain.note && <p className="domain-note">{domain.note}</p>}

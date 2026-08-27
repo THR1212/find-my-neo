@@ -206,6 +206,13 @@ New position, and it is the honest one: **build a persona, land the user on the 
 (with real pricing for alternates), the right mailbox plan and the right site plan — then hand
 them into Neo's existing builder to pay and finish the site.** We do not build site generation.
 
+**Correction, 27 Aug (later):** Neo's builder *is* the purchase flow — "Try it for free" lands in
+`join.neo.space` with `source_hook=purchaseFlow`. Describe → generate → buy is already one
+continuous flow Neo owns end to end. So we are **not** adding a purchase path. The accurate claim
+is entering that same funnel **earlier and pre-qualified** — domain chosen, mailbox count known,
+plan fitted, before the category picker. Overstating this loses credibility with the people who
+built it. See `docs/neo-product-facts.md`.
+
 Consequences already applied: CTA copy is now "Claim it and start building", the plan line says
 "you finish the site in Neo's builder", and the reveal offers priced domain alternates.
 Integration with the builder is NOT built — that is the next real piece of work.
@@ -331,6 +338,92 @@ sells Neo domains without saying they're indicative.
 
 The FX rate is hardcoded on purpose — a live FX feed would be false precision on top of the
 wrong seller's price.
+
+---
+
+### 2026-08-27 · Reskinned to Neo's brand — and what we gave up
+
+Applied Neo's live tokens: Poppins, `#0066FF`, white surfaces, `#333` text, 6px control radius,
+and their blue→pink gradient (`#1078ff → #fe4ca2`) on the guessed business name and the wordmark.
+
+**We gave up a better-looking thing.** The dark purple/orange treatment was more striking and
+more distinctive. It also looked like someone else's product. For a "should we ship this"
+conversation with Neo product, looking native to the pricing page is worth more than looking
+impressive — the pitch is that this belongs there.
+
+The wordmark is deliberately **not** a copy of Neo's logo. Faking someone's mark is worse than
+not using it; it reads as a Neo sub-brand instead.
+
+---
+
+### 2026-08-27 · Stop when confident, not at a fixed count
+
+`MAX_QUESTIONS` went 3 → 4, plus an early exit at `confidence >= 0.82` (never before the second
+answer).
+
+Three was picked arbitrarily when the engine was built, optimising for completion when the quiz
+was just a plan router. Once the positioning became "build a persona", three was wrong: it left
+half the six-question bank unresolved, so the plan, domain and feature picks rested on less than
+they could — and the narrowing, which is the whole mechanic, was over in one jump.
+
+Four is a **ceiling, not a target**. Every question on a pre-purchase page is a place to drop off,
+so stopping early when the answer wouldn't change is both kinder and more faithful to the idea:
+it stops when it's got you, not when it runs out of script.
+
+Consequence: the hook copy says "a few questions" and the question header dropped its "of N".
+Promising an exact number we might not ask is a small dishonesty people notice.
+
+---
+
+### 2026-08-27 · Tuning constants, and why they are what they are
+
+Someone will change these. Here's what breaks.
+
+- **`STARTING_SETUPS = 5318`** — the real count of distinct `business_industry` strings in the
+  persona data (13,968 rows). Not decorative: it puts the data-quality finding *inside* the
+  experience instead of on a slide. Change it and you lose the story.
+- **Decay exponent `^3.2`** — makes early answers dramatic (thousands falling away) and later
+  ones precise (dozens to a handful). Drop it toward 1 and it becomes a linear progress bar,
+  which is exactly the feeling we're avoiding. Raise it much past 4 and everything collapses on
+  the first answer, leaving nothing to watch.
+- **Confidence base `0.22`** when industry is known — the ring must not open at empty after
+  someone has just written a paragraph. That reads as "you weren't listening".
+- **`USD_TO_INR = 88`**, hardcoded — a live FX feed would be false precision on top of the wrong
+  seller's price.
+- **Porkbun as the single pricing registrar** — publishes an official feed and prices near the
+  floor, which suits an indicative "from" figure. Any single registrar would do; the point is
+  that *one* keeps `/v1/prices` at 1 credit per TLD instead of ~25.
+
+---
+
+### 2026-08-27 · Feature highlights are a fixed bank, matched deterministically
+
+The reveal names one or two real Neo features tied to what the user actually said — "contact
+forms, so enquiries land in your inbox instead of your DMs" only appears because they told us
+orders come through DMs.
+
+**The model does not choose them and must never write them.** Inventing a Neo feature in front
+of the Neo product team is the worst failure available here. `src/lib/features.ts` is a fixed
+list; `pickFeatures()` matches on signals with a priority tie-break, and always-true fallbacks
+mean the block is never empty.
+
+The allow-list is `docs/neo-product-facts.md`, verified against Confluence `NP/698843154` — not
+transcribed from marketing pages, which was the first (wrong) version.
+
+Two claims that file corrected:
+- Neo's builder generates a **one-page landing site**, not a website in general. Never imply multi-page.
+- "Generate design" picks template/colour/font **randomly client-side**, not via AI. It is not
+  listed as an AI feature.
+
+---
+
+### 2026-08-27 · All domain options stay visible
+
+The alternates row used to hide whichever domain was selected, so it reshuffled on every switch
+and you could never see the full set. Now all three render with the active one filled in Neo blue.
+
+Caught from a screenshot where `.in` was selected and appeared to have vanished. It was working
+as designed; the design was wrong.
 
 ---
 

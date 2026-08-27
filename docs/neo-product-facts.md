@@ -66,13 +66,21 @@ we're using — worth knowing, not worth making a point of.
 
 ---
 
-## The purchase funnel before the builder
+## The builder IS the purchase flow — not a separate demo
 
-Walked live on 27 Aug 2026. `neo.space/ai-website-builder` → "Try it yourself for FREE" →
-`join.neo.space/site/industry`.
+This is the single most important thing on this page, and it narrows our claim.
 
-Query params observed on the handoff, relevant to our own integration:
-`?hExp=&page_variant=<page title>&source_hook=purchaseFlow&locale=en-US`
+`neo.space/ai-website-builder` → "Try it yourself for FREE" lands the user directly in
+**`join.neo.space`**, the signup app, carrying `source_hook=purchaseFlow`. The AI builder is the
+*entry point to buying*, not a sandbox that later hands off somewhere else. Describe → generate →
+purchase is already one continuous flow that Neo owns end to end.
+
+So do **not** pitch this as "we'll hand users into Neo's builder, which currently has no purchase
+path". It has one. What we're actually proposing is entering that same funnel **earlier and
+pre-qualified** — with the domain chosen, the mailbox count known, and the plan already fitted —
+rather than at the category picker.
+
+Full params observed: `?hExp=&page_variant=<page title>&source_hook=purchaseFlow&locale=en-US`
 
 **Step 1 — category picker** (`/site/industry`), *not* free text. "Tell us what your site is
 about", with a searchable taxonomy plus six popular industries.

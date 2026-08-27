@@ -22,13 +22,18 @@ they do.
 
 ## Open by naming the collision (30 seconds, before you demo anything)
 
-> "Neo already has an AI website builder. You describe your business, it generates a site,
-> offers a domain and email. I walked it this morning. So I'm not going to pretend this is a
-> new idea — what I want to show you is the half of it I think is missing, and one thing I
-> found in your live flow."
+> "Neo already has an AI website builder, and it's already the purchase flow — 'Try it for free'
+> drops you straight into join.neo.space with `source_hook=purchaseFlow`. Describe, generate,
+> buy, all yours end to end. I walked it this morning. So I'm not pitching a new funnel. I want
+> to show you one thing I found in that live flow, and the part of it I think is missing."
 
-This costs you nothing and buys the whole meeting. If they spot the overlap first, you spend
-the rest of the time defending; if you name it, you're the person who did the homework.
+This costs you nothing and buys the whole meeting. If they spot the overlap first you spend the
+rest of the time defending; if you name it, you're the person who did the homework.
+
+**The claim, stated precisely:** we are not adding a purchase path — Neo has one. We're proposing
+entering that same funnel **earlier and pre-qualified**: domain chosen, mailbox count known, plan
+fitted, before the category picker. Overstating this is the fastest way to lose credibility with
+people who built the thing.
 
 ---
 
@@ -62,7 +67,7 @@ On the second tab, at Neo's category step:
 | 7 | **Email and a site** | — |
 | 8 | Reveal builds | *Silence.* |
 | 9 | After it lands | "Domain — checked live, that availability is a real lookup. Mailboxes. The drafted site. And two features picked for *them*, because they told us orders come through DMs." |
-| 10 | **Claim it and start building** | "And this is the point — it hands into your builder. We don't build the site. You already do that." |
+| 10 | **Claim it and start building** | "And this is the point — it enters your existing funnel, just further along. Domain picked, mailboxes known, plan fitted. We don't build the site; you already do that, and you already own the checkout." |
 
 **The one rule: don't talk over the reveal.**
 

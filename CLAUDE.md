@@ -11,11 +11,20 @@ we decided it.
 
 ## What this is
 
-An adaptive 5-question quiz that lives on Neo's pricing page as a full-screen overlay.
-User describes their business in free text → we profile them → we reveal a personalised
-setup (available domain, mailbox names, draft site copy) → one CTA into Neo's purchase flow.
+An adaptive quiz on Neo's pricing page. User describes their business in free text → we build a
+persona → we land them on the right domain (with priced alternates), mailbox plan and site plan
+→ they claim it, pay, and **finish the site in Neo's existing AI builder**.
 
-**Generative and pre-purchase.** Not a decision tree, not post-purchase analytics.
+**We are a qualifier, not a site builder — and not a new funnel.** Neo already generates sites
+(`neo.space/ai-website-builder`, live, one-page, 130,000+ businesses) **and that builder is
+already their purchase flow** — it lands in `join.neo.space` with `source_hook=purchaseFlow`.
+
+So the accurate claim is: we enter Neo's existing funnel **earlier and pre-qualified** — domain
+chosen, mailbox count known, plan fitted — instead of at the category picker. Never say we're
+adding a purchase path; they have one. See `docs/neo-product-facts.md` before making any claim
+about what Neo does.
+
+Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
 
 ## Hard rules
 
@@ -37,13 +46,19 @@ setup (available domain, mailbox names, draft site copy) → one CTA into Neo's 
 The reveal (screen 5). Available domain, mailbox names, draft site copy, materialising line by line.
 Everything else can be rough. Budget prompt-iteration time on screen 2 (the "guess") and screen 5 only.
 
-## Flow (fixed — do not add screens)
+## Flow — adaptive, not a fixed screen order
 
-1. Hook — "Not sure which plan? Answer 5 questions" on the pricing page
-2. Free text — "What's your business?"
-3. The guess — model reflects back an inferred profile, binary confirm/deny
-4. Two taps — import intent, then mail-only vs mail+site
-5. The reveal
+1. Hook — on the pricing page, opens a full-screen overlay
+2. Free text — "What's your business?" (the only real input, and what justifies an LLM)
+3. The guess — profile reflected back, confirm or correct
+4. **Adaptive questions** — the engine asks whichever unresolved signal narrows most.
+   The model *suggests* which to ask next; `engine.ts` overrules it if that signal is already
+   resolved or the id isn't real. Stops when confident, or at 4. Different businesses get
+   different paths.
+5. The reveal — domain with priced alternates, mailboxes, drafted site, why-this-plan features
+
+**Do not reintroduce a fixed screen order.** The adaptivity is the product.
+The narrowing meter (5,318 → single digits) is the gamification and must stay visible throughout.
 
 Option sets on screens 3–4 should reuse Neo's real persona survey values rather than invented ones —
 continuity with existing data is a pitch asset. The values transcribed in handoff §4 are a starting
@@ -70,7 +85,9 @@ never know which one it got.
 
 React + Vite + TS · Framer Motion · Vercel serverless functions · hardcoded plan JSON.
 Ruled out and not to be revisited: gRPC, WebSockets, Unity WebGL, three.js.
-Domain availability: RDAP (`rdap.org/domain/<name>`), free, no auth.
+Domain availability + indicative pricing: **DomScan**, via our own `/api/domains`. Key is
+server-side only. RDAP was built first and removed — see DECISIONS. **Watch the credits:**
+`/v1/prices` bills per TLD × registrar pair, so it always needs a `registrars=` filter.
 
 ## LLM
 
@@ -88,6 +105,8 @@ Full detail and sources in `TECHNICAL.md`.
 
 _Last updated: 27 Aug 2026._
 
+_Repositioned 27 Aug after walking Neo's live AI builder. Read `docs/neo-product-facts.md` first._
+
 **Done**
 - Vite + React + TS scaffold, Framer Motion / openai / zod installed
 - `api/_lib/llm.ts` — provider seam with replay mode, gpt-5.6 gotchas baked in
@@ -97,8 +116,18 @@ _Last updated: 27 Aug 2026._
 - Private GitHub repo: https://github.com/THR1212/neo-akinator (default branch `master`)
 - `src/lib/brand.ts` — `PRODUCT_NAME = "Find My Neo"`, `docs/naming.md` written
 
-- All five screens built and verified in a real browser: real clipboard paste + Enter,
+- Full flow built and verified in a real browser: real clipboard paste + Enter,
   1440×820 laptop (fits, no scrollbar), 390×844 mobile (no horizontal overflow)
+- **Adaptive engine** — `src/lib/questions.ts` (6-question bank) + `src/lib/engine.ts`
+  (picks next question, confidence, narrowing counter, confidence-based stopping)
+- **Narrowing meter** — 5,318 → single digits, verified live
+- **Neo brand reskin** — Poppins, `#0066FF`, white, brand gradient; `src/styles/neo-tokens.css`
+- **DomScan domain lookup** — live availability + indicative price, credit-aware caching
+  (cold 4 credits / new business 1 / repeat 0), Vite middleware mirrors the Vercel function
+- **Feature highlights** — `src/lib/features.ts`, deterministic, allow-listed against
+  `docs/neo-product-facts.md`
+- `docs/neo-product-facts.md` — verified Neo behaviour from Confluence `NP/698843154` + live walk
+- `docs/demo-script.md` — rewritten around the repositioning
 - `src/data/replay/demo.json` — hand-written demo fixture (Proof & Butter bakery)
 - `README.md` (plain English, no frontend knowledge assumed), `DECISIONS.md`,
   `docs/demo-script.md` (run sheet + objections + the actual ask)
@@ -113,13 +142,21 @@ _Last updated: 27 Aug 2026._
 - Live mode is written but never exercised against the real API. Verify the call shape in
   hour 1 of Ignite, not at hour 30.
 - Python `analysis/` folder for the persona/retention work — not started.
-- Deployment Protection is ON, so the Vercel URL is not shareable as-is.
+- Deployment Protection is ON. Share via a **Shareable Link** (deployment page → Share), not the
+  bare URL — the bare URL hits a Vercel login wall. Sent to Moin/Darrel 27 Aug.
+- **Mailbox pricing not sourced.** Site plans are known (₹269/₹359/₹899); mailbox plans aren't.
+- Handoff into Neo's funnel — not built. Their builder takes Business name (55) +
+  About the business (2000); we produce both. That's the integration point.
 
-**Open questions (not blockers for milestone 1)**
+**Open questions**
 - Squad registration status for Ignite (deadline was 21 Aug noon, unconfirmed).
-- Whether the Neo KR1 persona bullet has entered design/PM phase — this is the
-  disqualification risk. The PM meeting is the natural place to ask directly.
-- Whether Neo's real persona question bank matches what handoff §4 reconstructed.
+- Whether the Neo KR1 persona bullet has entered design/PM phase — the disqualification risk.
+  Ask directly in the PM meeting.
+- **Does Neo upsell mailbox/domain after site generation?** Darrel's question, still unanswered —
+  the generate step is behind a Cloudflare CAPTCHA so it needs a manual run. If they already
+  upsell mail there, our differentiator narrows again.
+- `Spec: Site offering` (`NP/787382478`) describes a site upsell flow with plan selection —
+  read before claiming our recommendation flow is novel.
 
 ## Two milestones — do not confuse them
 

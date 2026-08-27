@@ -1,35 +1,32 @@
 {
   "_comment": "Plan catalogue. Pricing is PUBLIC and must be filled in from the real Neo pricing page before any demo — see _TODO below. The model never sees this file and never picks a plan; src/lib/rules.ts maps profile -> plan deterministically. Keeping prices here (not in the prompt) is what makes 'what if it hallucinates a price' a non-question.",
 
-  "_source": "Read live from neo.space/ai-website-builder on 27 Aug 2026. These are the NEO SITES (website) plans, discounted first-year yearly billing. listPriceInr is the undiscounted figure shown struck through. Neo also sells mailbox plans separately — those are NOT captured here yet.",
+  "_TODO": "priceInr is deliberately null so no price renders. See _wrongPricesWarning below — do NOT fill these with the Neo Sites numbers.",
+
+  "_wrongPricesWarning": "Neo Sites (WEBSITE) pricing read live on 27 Aug 2026 is Basic ₹269 (list ₹449), Plus ₹359 (₹599), Growth ₹899 (₹1499), per month billed yearly. These are recorded in _neoSitesReference for the deck ONLY. They are NOT mailbox prices, and this reveal shows a mailbox count — rendering 'Plus ₹359' beside '2 mailboxes' is wrong in a way the Neo product team will catch instantly. Mailbox pricing has not been sourced yet.",
+
+  "_neoSitesReference": [
+    { "name": "Basic", "priceInr": 269, "listPriceInr": 449, "aiGenerations": "20 times", "storage": "1 GB" },
+    { "name": "Plus", "priceInr": 359, "listPriceInr": 599, "aiGenerations": "500 times", "storage": "10 GB" },
+    { "name": "Growth", "priceInr": 899, "listPriceInr": 1499, "aiGenerations": "Unlimited", "storage": "50 GB" }
+  ],
 
   "plans": [
     {
-      "id": "basic",
-      "name": "Basic",
-      "priceInr": 269,
-      "listPriceInr": 449,
-      "billing": "per mo, billed yearly",
+      "id": "starter",
+      "name": "Neo Starter",
+      "priceInr": null,
+      "billing": "per mailbox / month",
       "includesSite": false,
-      "blurb": "1 GB storage, custom domain, AI site generation 20 times"
+      "blurb": "One professional address on your own domain"
     },
     {
-      "id": "plus",
-      "name": "Plus",
-      "priceInr": 359,
-      "listPriceInr": 599,
-      "billing": "per mo, billed yearly",
+      "id": "business",
+      "name": "Neo Business",
+      "priceInr": null,
+      "billing": "per mailbox / month",
       "includesSite": true,
-      "blurb": "10 GB storage, 500 AI generations, unlimited stock images"
-    },
-    {
-      "id": "growth",
-      "name": "Growth",
-      "priceInr": 899,
-      "listPriceInr": 1499,
-      "billing": "per mo, billed yearly",
-      "includesSite": true,
-      "blurb": "50 GB, unlimited AI on the latest model, premium fonts, priority support"
+      "blurb": "Mailboxes plus a one-page site"
     }
   ]
 }

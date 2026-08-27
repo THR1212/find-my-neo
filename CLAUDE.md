@@ -73,10 +73,56 @@ Domain availability: RDAP (`rdap.org/domain/<name>`), free, no auth.
 
 ## LLM
 
-Provider is **not Anthropic** — Ignite supplies the plan. Model ID lives in `LLM_MODEL` env var,
-never hardcoded. Do not invoke the `claude-api` skill for this project.
+Provider is **not Anthropic** — it is GPT-5.6 (`gpt-5.6-terra` default, `gpt-5.6-luna` as the
+cheap tier). Model ID lives in `LLM_MODEL`, never hardcoded outside `api/_lib/llm.ts`.
+
+**Do not invoke the `claude-api` skill for this project** — it refuses non-Anthropic work and
+will try to steer the code back to the Anthropic SDK.
+
+Three gotchas that will cost an hour each if rediscovered: no `temperature` param at all,
+`max_completion_tokens` not `max_tokens`, and check `finish_reason === "length"` before parsing.
+Full detail and sources in `TECHNICAL.md`.
+
+## CURRENT STATE
+
+_Last updated: 27 Aug 2026._
+
+**Done**
+- Vite + React + TS scaffold, Framer Motion / openai / zod installed
+- `api/_lib/llm.ts` — provider seam with replay mode, gpt-5.6 gotchas baked in
+- `api/_lib/replay.ts` — fixture loader with fake latency
+- `TECHNICAL.md` — verified model facts, pricing, architecture, ruled-out decisions
+- `.env.example`, `.gitignore`, git repo initialised
+
+**Not done / next**
+- Screen 1 and the reveal screen. Nothing in `src/` is real yet — still Vite boilerplate.
+- No fixtures in `src/data/replay/` yet. Nothing will run in replay mode until there is one.
+- `src/data/plans.json`, `src/lib/rules.ts`, `src/lib/session.ts` — referenced, not written.
+- `docs/naming.md` — referenced, not written. **The shipped name is still undecided.**
+- Python `analysis/` folder for the persona/retention work — not started.
+
+**Open questions (not blockers for milestone 1)**
+- Squad registration status for Ignite (deadline was 21 Aug noon, unconfirmed).
+- Whether the Neo KR1 persona bullet has entered design/PM phase — this is the
+  disqualification risk. The PM meeting is the natural place to ask directly.
+- Whether Neo's real persona question bank matches what handoff §4 reconstructed.
+
+## Two milestones — do not confuse them
+
+**Milestone 1 — PM viability demo, 28 Aug 2026.** A short, local, look-and-feel demo to show the
+product team what the idea is and how it would feel. Not a hackathon deliverable. Runs on
+`npm run dev` off replay fixtures. No Vercel, no deploy, no real purchase flow, no funnel.
+The only question it has to answer is: *does the reveal make a PM say "yes, build this"?*
+
+**Milestone 2 — Ignite 2026, 02–04 Sep 2026.** The 48-hour build. Feature freeze at **hour 36**;
+the last 4 hours are ring-fenced for the pitch narrative, demo script, and measurement slide.
+That is not leftover time. Vercel deploy, the handoff link, and the funnel belong here.
+
+## Scope for milestone 1 (build in this order, stop when the reveal is beautiful)
+
+1. Screen 1 (free-text box) → Screen 5 (the reveal). **Skip screens 2, 3 and 4 entirely** —
+   they narrate as "and then two more taps". The generative reveal is the whole pitch.
+2. Reveal runs off a committed fixture for a scripted input. Live call is a bonus, not a goal.
+3. Hardcode one plan. No rules table, no RDAP, no handoff link. The CTA can be a dead button.
 
 ## Schedule
-
-Feature freeze at **hour 36**. The last 4 hours are ring-fenced for the pitch: narrative, demo
-script, measurement slide. That is not leftover time.

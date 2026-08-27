@@ -3,23 +3,39 @@
    not a 3D one; three.js and Unity are ruled out (see TECHNICAL.md). Visual budget goes
    into an animated gradient, generous type, and easing curves. */
 
-:root {
-  --bg: #0a0a0f;
-  --bg-raised: rgba(255, 255, 255, 0.04);
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  --text: #f4f4f6;
-  --text-dim: #a1a1ac;
-  --text-faint: #6b6b76;
-  --accent: #7c6cff;
-  --accent-warm: #ff8a5b;
-  --accent-glow: rgba(124, 108, 255, 0.35);
-  --ok: #4ade80;
+/* Neo's live design tokens — see src/styles/neo-tokens.css for provenance. Pulled from
+   join.neo.space computed styles on 27 Aug 2026, not approximated.
 
-  --radius: 18px;
+   This overlay opens on Neo's pricing page, so it has to look like it belongs there:
+   white surfaces, #0066FF, Poppins, #333 body text. The earlier dark purple treatment
+   looked striking and looked like someone else's product. */
+
+:root {
+  --bg: #ffffff;
+  --bg-page: #f7f7f7;
+  --bg-raised: #ffffff;
+  --bg-sunken: #f7f9fc;
+  --border: #e4e4e4;
+  --border-strong: #c9d4e6;
+
+  --text: #111111;
+  --text-dim: #555555;
+  --text-faint: #8a8a8a;
+
+  --accent: #0066ff;
+  --accent-alt: #2170f4;
+  --accent-warm: #fe4ca2; /* the pink end of Neo's own brand gradient */
+  --accent-glow: rgba(0, 102, 255, 0.16);
+  --gradient: linear-gradient(100deg, #1078ff 30.21%, #fe4ca2 98.31%);
+  --ok: #17b87e;
+  --ok-bg: #dcf7e7;
+
+  /* Neo uses 6px on controls. Cards get a little more so the reveal doesn't read as a form. */
+  --radius: 6px;
+  --radius-card: 12px;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+  --font: "Poppins", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -52,38 +68,43 @@ body {
   overflow: hidden;
 }
 
+/* On white, the blooms have to be barely there — enough to stop the page reading as a
+   plain form, nowhere near enough to fight the text. Colours are the two ends of Neo's
+   own brand gradient (#1078ff → #fe4ca2) plus their light sky blue. */
+
 .bloom {
   position: absolute;
   border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.5;
+  filter: blur(100px);
+  opacity: 0.28;
   will-change: transform;
 }
 
 .bloom-1 {
-  width: 46vw;
-  height: 46vw;
-  background: #4c3bd6;
-  top: -12%;
-  left: -8%;
+  width: 48vw;
+  height: 48vw;
+  background: #1078ff;
+  top: -16%;
+  left: -10%;
   animation: drift-1 26s ease-in-out infinite alternate;
 }
 
 .bloom-2 {
-  width: 38vw;
-  height: 38vw;
-  background: #a8437a;
-  bottom: -14%;
-  right: -6%;
+  width: 40vw;
+  height: 40vw;
+  background: #fe4ca2;
+  bottom: -18%;
+  right: -8%;
   animation: drift-2 32s ease-in-out infinite alternate;
 }
 
 .bloom-3 {
-  width: 30vw;
-  height: 30vw;
-  background: #2b6fb8;
+  width: 32vw;
+  height: 32vw;
+  background: #e6efff;
   top: 42%;
   left: 48%;
+  opacity: 0.7;
   animation: drift-3 38s ease-in-out infinite alternate;
 }
 
@@ -103,13 +124,14 @@ body {
   }
 }
 
-/* Grain keeps the gradient from banding on a projector. */
+/* Grain keeps the gradient from banding on a projector. Much lighter on white — at dark-mode
+   opacity it reads as a dirty screen rather than texture. */
 .grain {
   position: fixed;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  opacity: 0.16;
+  opacity: 0.035;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -135,39 +157,47 @@ body {
      overflow is unreachable because centring pushes it past the scroll origin. */
   align-content: center;
   align-content: safe center;
-  /* Top padding clears the fixed progress bar. */
-  padding: 78px 24px 48px;
+  /* Fluid, not stepped. Top padding also has to clear the fixed narrowing meter, which
+     is why it scales rather than sitting at a fixed 78px. */
+  padding: clamp(58px, 9vh, 88px) clamp(16px, 4vw, 28px) clamp(30px, 6vh, 52px);
 }
 
 .screen {
-  width: 100%;
-  max-width: 680px;
+  /* min() rather than width+max-width so it shrinks continuously instead of snapping
+     at a breakpoint. Everything inside sizes off viewport units too — the layout should
+     be liquid across every width, not correct at three of them. */
+  width: min(680px, 100%);
 }
 
 /* --- Typography --------------------------------------------------------- */
 
+/* One fluid type scale. Every size below interpolates continuously between a phone and a
+   large laptop, so there is no width at which the page looks "between" two designs. */
+
 .eyebrow {
-  font-size: 12px;
+  font-size: clamp(10.5px, 1.1vw + 8px, 12px);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-faint);
-  margin: 0 0 18px;
+  margin: 0 0 clamp(12px, 2.2vh, 18px);
 }
 
 h1 {
-  font-size: clamp(30px, 5vw, 46px);
+  font-size: clamp(26px, 4.4vw + 8px, 46px);
   line-height: 1.1;
   letter-spacing: -0.03em;
   font-weight: 600;
-  margin: 0 0 14px;
+  margin: 0 0 clamp(10px, 1.8vh, 14px);
+  /* Long business names and domains must break rather than force a sideways scroll. */
+  overflow-wrap: break-word;
 }
 
 .lede {
-  font-size: 17px;
+  font-size: clamp(15px, 0.9vw + 13px, 17px);
   line-height: 1.55;
   color: var(--text-dim);
-  margin: 0 0 32px;
+  margin: 0 0 clamp(20px, 4vh, 32px);
 }
 
 /* --- Controls ----------------------------------------------------------- */
@@ -176,12 +206,12 @@ h1 {
   width: 100%;
   background: var(--bg-raised);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   color: var(--text);
   font-family: inherit;
-  font-size: 18px;
+  font-size: clamp(16px, 0.7vw + 14px, 18px);
   line-height: 1.5;
-  padding: 20px 22px;
+  padding: clamp(15px, 2.4vh, 20px) clamp(16px, 2vw, 22px);
   resize: none;
   outline: none;
   transition: border-color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
@@ -192,42 +222,55 @@ h1 {
 }
 
 .field:focus {
-  border-color: var(--border-strong);
+  border-color: var(--accent);
   box-shadow: 0 0 0 4px var(--accent-glow);
 }
 
+/* Neo's primary is a solid blue pill. Matching it matters more than being clever here —
+   this is the button a Neo PM has looked at a thousand times. */
 .btn {
   appearance: none;
   border: 0;
   border-radius: 999px;
-  background: var(--text);
-  color: #0a0a0f;
+  background: var(--accent);
+  color: #ffffff;
   font-family: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 14px 26px;
+  font-size: clamp(14px, 0.5vw + 13px, 15px);
+  font-weight: 500;
+  padding: clamp(12px, 1.8vh, 14px) clamp(20px, 2.4vw, 26px);
   cursor: pointer;
-  transition: transform 0.2s var(--ease-out), opacity 0.2s var(--ease-out);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out),
+    background 0.2s var(--ease-out);
 }
 
 .btn:hover:not(:disabled) {
   transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 102, 255, 0.24);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
 }
 
 .btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .btn-ghost {
   background: transparent;
   color: var(--text-dim);
   border: 1px solid var(--border);
+  box-shadow: none;
 }
 
 .btn-ghost:hover:not(:disabled) {
-  color: var(--text);
+  color: var(--accent);
   border-color: var(--border-strong);
+  background: var(--bg-sunken);
+  box-shadow: none;
 }
 
 .row {
@@ -253,21 +296,26 @@ h1 {
   text-align: left;
   background: var(--bg-raised);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   color: var(--text);
   font-family: inherit;
-  font-size: 16px;
+  font-size: clamp(15px, 0.6vw + 13.5px, 16px);
   font-weight: 500;
-  padding: 18px 20px;
+  padding: clamp(15px, 2.2vh, 18px) clamp(16px, 2vw, 20px);
   cursor: pointer;
   transition: border-color 0.2s var(--ease-out), background 0.2s var(--ease-out),
-    transform 0.2s var(--ease-out);
+    transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
 
 .option:hover {
-  border-color: var(--border-strong);
-  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--accent);
+  background: var(--bg-sunken);
   transform: translateX(3px);
+  box-shadow: 0 4px 14px rgba(0, 102, 255, 0.1);
+}
+
+.option:active {
+  transform: translateX(3px) scale(0.99);
 }
 
 .option .option-hint {
@@ -303,9 +351,11 @@ h1 {
 }
 
 .domain-name {
-  font-size: clamp(26px, 4.4vw, 38px);
+  font-size: clamp(22px, 3.6vw + 6px, 38px);
   font-weight: 600;
   letter-spacing: -0.025em;
+  /* A long stem must wrap, never widen the page. */
+  overflow-wrap: anywhere;
 }
 
 .badge {
@@ -315,10 +365,11 @@ h1 {
   font-size: 12px;
   font-weight: 600;
   color: var(--ok);
-  background: rgba(74, 222, 128, 0.11);
-  border: 1px solid rgba(74, 222, 128, 0.25);
+  background: var(--ok-bg);
+  border: 1px solid rgba(23, 184, 126, 0.28);
   border-radius: 999px;
   padding: 4px 11px;
+  white-space: nowrap;
 }
 
 .mailbox {
@@ -327,7 +378,7 @@ h1 {
   align-items: baseline;
   gap: 16px;
   padding: 11px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border);
 }
 
 .mailbox:last-child {
@@ -346,10 +397,10 @@ h1 {
 }
 
 .site-preview {
-  background: var(--bg-raised);
+  background: var(--bg-sunken);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 22px;
+  border-radius: var(--radius-card);
+  padding: clamp(16px, 2.6vw, 22px);
 }
 
 .site-headline {
@@ -452,15 +503,16 @@ h1 {
   align-items: center;
   gap: 12px;
   padding: 8px 16px 8px 8px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.86);
   border: 1px solid var(--border);
   border-radius: 999px;
   backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.08);
 }
 
 :root {
-  --meter-track: rgba(255, 255, 255, 0.12);
-  --meter-fill: var(--accent-warm);
+  --meter-track: #e9edf3;
+  --meter-fill: var(--accent);
 }
 
 .meter-readout {
@@ -484,8 +536,14 @@ h1 {
   color: var(--text-faint);
 }
 
+/* The guessed business name carries Neo's own brand gradient. It is the one moment in the
+   flow that should feel like a flourish, and using their gradient rather than an invented
+   accent is what makes it read as a Neo feature. */
 .guess-highlight {
-  color: var(--accent-warm);
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 /* --- Domain alternates -------------------------------------------------- */
@@ -527,9 +585,9 @@ h1 {
 }
 
 .alt:hover {
-  border-color: var(--border-strong);
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-sunken);
 }
 
 .alt-price {
@@ -544,7 +602,7 @@ h1 {
 
 .badge-taken {
   color: var(--text-faint);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-page);
   border-color: var(--border);
 }
 

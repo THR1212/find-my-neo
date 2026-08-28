@@ -404,3 +404,60 @@ Email tracking → **Read Receipts**; and the full import heading).
   feature means **bring your own**, not a purchase. Worth having straight before discussing pricing.
 - `neo_site` = *"AI-powered site builder"*, illustration asset `one_page_site.png` — one page,
   consistent with the 2024 spec.
+
+---
+
+## Server-to-server test — CONFIRMED WORKING (28 Aug 2026)
+
+Two single test requests from a terminal, no browser, no cookies, no `Origin` header, no
+Turnstile. Both returned **HTTP 200**.
+
+**`t: "bi"`** — plain `curl -X POST https://api.titan.email/neo/generate/unauth` with
+`{"crid","t":"bi","p":"{\"ik\":\"ecommerce_retail\",\"bd\":\"…\"}"}` returned
+`{"industryKey":"ecommerce_retail","templateKey":"offline_services","businessName":"Proof and Butter"}`.
+
+**`t: "sc"`** — 9.2 KB of complete site content. Inner payload shape:
+
+```json
+{"bn":"Proof and Butter",
+ "bd":"<description>",
+ "d":{"template_key":"offline_services","industry_key":"ecommerce_retail"},
+ "bks":null,
+ "requireBlocksAsList":true}
+```
+
+Returned `templateKey`, `font` (`poppins_inter`), `pallet` (`offline_services_p1_v1`) and
+**17 populated blocks** — e.g. header "Proof and Butter Bakery"; introduction "Delicious Custom
+Cakes Just for You"; custom-links "See our cake designs" / "Follow us on Instagram" / "Contact
+for custom orders"; products with a "Chocolate Celebration Cake". It picked the Instagram
+detail out of the description unprompted.
+
+**So the "show Neo's real designs, let the user pick" idea is buildable** from our own serverless
+function. We do not need to iframe their editor.
+
+**One gap:** images come back as *prompts*, not URLs —
+`{"logo_image": {"prompt/url/img/bk:h": "bakery symbol"}}`. Resolving them to real pictures needs
+the second endpoint, `POST api.titan.email/files/images/search/bulk/unauth`, which the browser
+flow also calls (results are Pexels URLs). Untested server-side so far.
+
+### The template instability — now four for one business
+
+Same bakery description across four runs produced four different templates:
+
+| Run | `industryKey` sent | `templateKey` returned |
+|---|---|---|
+| Signed-in walk | `business_management_consulting` | `fashion_store` |
+| Handoff URL | `business_management_consulting` | `property` ("Real Estate") |
+| Fresh-user walk | `ecommerce_retail` | `bio_site` |
+| Server-side test | `ecommerce_retail` | `offline_services` |
+
+Two of those pairs share an industry key and still differ, so this is not only the category
+being wrong — template selection is itself unstable. A bakery has been a fashion store, an
+estate agent, a link-in-bio page and an offline services business.
+
+### Caveats before building on it
+
+1. **Undocumented internal API.** Fine for a hackathon demo; shipping on it needs Neo's agreement.
+2. **Unauthenticated today**, which can change without notice.
+3. **Keep volume low and mark it.** These are production endpoints. Use the `neotest` convention
+   and never loop over them.

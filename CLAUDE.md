@@ -144,7 +144,8 @@ _Repositioned 27 Aug after walking Neo's live AI builder. Read `docs/neo-product
 - Python `analysis/` folder for the persona/retention work — not started.
 - Deployment Protection is ON. Share via a **Shareable Link** (deployment page → Share), not the
   bare URL — the bare URL hits a Vercel login wall. Sent to Moin/Darrel 27 Aug.
-- **Mailbox pricing not sourced.** Site plans are known (₹269/₹359/₹899); mailbox plans aren't.
+- Mailbox + site pricing now sourced from Neo's own sheet into `src/data/plans.json`, but the
+  reveal still renders no plan price — wiring it in is outstanding.
 - Handoff into Neo's funnel — not built. Their builder takes Business name (55) +
   About the business (2000); we produce both. That's the integration point.
 
@@ -152,6 +153,10 @@ _Repositioned 27 Aug after walking Neo's live AI builder. Read `docs/neo-product
 - Squad registration status for Ignite (deadline was 21 Aug noon, unconfirmed).
 - Whether the Neo KR1 persona bullet has entered design/PM phase — the disqualification risk.
   Ask directly in the PM meeting.
+- **Who does the 100% domain discount apply to?** Neo's sheet shows domain at 100% off on
+  monthly/yearly billing. Almost certainly the free `co.site` subdomain rather than a
+  registrable custom domain — the two are priced very differently. **Do not claim "free domain"
+  on screen until this is settled.** Ask Neo product.
 - **Does Neo upsell mailbox/domain after site generation?** Darrel's question, still unanswered —
   the generate step is behind a Cloudflare CAPTCHA so it needs a manual run. If they already
   upsell mail there, our differentiator narrows again.

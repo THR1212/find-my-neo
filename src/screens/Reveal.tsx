@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { RevealContent } from "../lib/session";
 import { lookupDomains, type DomainInfo } from "../lib/domains";
 import { pickFeatures, type FeatureSurface } from "../lib/features";
+import { recommend, CYCLE_LABEL } from "../lib/rules";
 import type { Profile } from "../lib/engine";
 
 /**
@@ -108,6 +109,9 @@ export default function Reveal({
   const surfaces: FeatureSurface[] = showSite ? ["mail", "site"] : ["mail"];
   const features = pickFeatures(profile, surfaces);
 
+  /** Plan choice + price. Deterministic — see rules.ts. */
+  const rec = recommend(profile, mailboxCount);
+
   return (
     <motion.div
       initial="hidden"
@@ -131,9 +135,14 @@ export default function Reveal({
           {live[domain.name]?.available === false && (
             <span className="badge badge-taken">Taken</span>
           )}
-          {/* "approx" is not hedging — the figure is a third-party registrar's USD list price
-              converted at a fixed rate. Showing it unqualified next to a Neo checkout, to the
-              people who set Neo's actual prices, would be the wrong kind of confident. */}
+          {/* Price stays labelled "approx" — it is a third-party registrar's USD list price
+              converted at a fixed rate, not Neo's.
+              DO NOT claim the domain is free until someone verifies who that discount applies
+              to. Neo's sheet shows a 100% domain discount on monthly/yearly billing, but that
+              is very likely the free `co.site` SUBDOMAIN, not a registrable custom domain —
+              co.site is Neo's own namespace. Claiming "free custom domain" to the people who
+              set Neo's prices, and being wrong, would cost more than the claim is worth.
+              Tracked in CLAUDE.md open questions. */}
           {(live[domain.name]?.priceInr ?? domain.priceInr) !== null && (
             <span className="domain-price">
               ~₹{(live[domain.name]?.priceInr ?? domain.priceInr)!.toLocaleString("en-IN")}/yr
@@ -229,15 +238,24 @@ export default function Reveal({
         </motion.div>
       )}
 
-      {/* 4. Plan, quietly, last. Price renders only when plans.json has a real number —
-             see that file's warning about Neo Sites vs mailbox pricing. */}
+      {/* 4. Plan and price, quietly, last. Chosen by rules.ts, priced from Neo's own sheet —
+             the model is never asked and never sees a number. */}
       <motion.div variants={block} transition={{ duration: 0.7, ease }} className="plan-line">
         <div>
           <div className="plan-name">
-            {mailboxCount} {mailboxCount === 1 ? "mailbox" : "mailboxes"}
-            {showSite ? " + site" : ""} on {domain.name}
+            {rec.mailPlan.name}
+            {rec.sitePlan ? ` + ${rec.sitePlan.name} site` : ""}
+            {rec.monthlyInr !== null && (
+              <span className="plan-price">
+                {" "}
+                ₹{rec.monthlyInr.toLocaleString("en-IN")}/mo
+              </span>
+            )}
           </div>
-          <div className="plan-meta">Cancel anytime · you finish the site in Neo's builder</div>
+          <div className="plan-meta">
+            {rec.rationale} {CYCLE_LABEL[rec.cycle]} · cancel anytime · you finish the site in
+            Neo's builder
+          </div>
         </div>
         <div className="row" style={{ marginTop: 0 }}>
           <button className="btn" autoFocus>

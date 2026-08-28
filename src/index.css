@@ -897,3 +897,11 @@ h1 {
     font-size: 21px;
   }
 }
+
+/* Plan price. Sits inline with the plan name rather than in its own block — the price is
+   information, not the pitch. The domain and mailboxes did the persuading. */
+.plan-price {
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}

@@ -1,32 +1,63 @@
 {
-  "_comment": "Plan catalogue. Pricing is PUBLIC and must be filled in from the real Neo pricing page before any demo — see _TODO below. The model never sees this file and never picks a plan; src/lib/rules.ts maps profile -> plan deterministically. Keeping prices here (not in the prompt) is what makes 'what if it hallucinates a price' a non-question.",
+  "_source": "Neo's own pricing sheet (Google Sheets 1PAdQGTl6yqHYqDIBq5jYdVunnKe6LQYB12j6Fb45ID8), read 27 Aug 2026. India (INR) column. These are REAL Neo prices — unlike the DomScan domain figures, which are a third-party registrar's and are labelled 'approx' on screen.",
 
-  "_TODO": "priceInr is deliberately null so no price renders. See _wrongPricesWarning below — do NOT fill these with the Neo Sites numbers.",
+  "_units": "All INR figures are PER MAILBOX PER MONTH for mail, and PER MONTH for site, at the stated billing cycle. Longer cycles are cheaper per month but billed upfront.",
 
-  "_wrongPricesWarning": "Neo Sites (WEBSITE) pricing read live on 27 Aug 2026 is Basic ₹269 (list ₹449), Plus ₹359 (₹599), Growth ₹899 (₹1499), per month billed yearly. These are recorded in _neoSitesReference for the deck ONLY. They are NOT mailbox prices, and this reveal shows a mailbox count — rendering 'Plus ₹359' beside '2 mailboxes' is wrong in a way the Neo product team will catch instantly. Mailbox pricing has not been sourced yet.",
+  "mail": {
+    "_note": "Lite has no monthly option in the sheet (shown as '-') — it starts at quarterly. 'afterFirstCycle' is the renewal rate once the introductory cycle ends; it is higher than the intro rate for every plan except Lite, which is flat.",
+    "plans": [
+      {
+        "id": "lite",
+        "name": "Neo Lite",
+        "inr": { "monthly": null, "quarterly": 59, "yearly": 59, "twoYearly": 59, "fourYearly": 59 },
+        "afterFirstCycleInr": 59,
+        "blurb": "One address on your own domain"
+      },
+      {
+        "id": "starter",
+        "name": "Neo Starter",
+        "inr": { "monthly": 199, "quarterly": 149, "yearly": 149, "twoYearly": 119, "fourYearly": 100 },
+        "afterFirstCycleInr": 199,
+        "blurb": "The usual starting point for a small team"
+      },
+      {
+        "id": "standard",
+        "name": "Neo Standard",
+        "inr": { "monthly": 399, "quarterly": 299, "yearly": 299, "twoYearly": 239, "fourYearly": 200 },
+        "afterFirstCycleInr": 399,
+        "blurb": "More storage and the fuller feature set"
+      },
+      {
+        "id": "max",
+        "name": "Neo Max",
+        "inr": { "monthly": 799, "quarterly": 599, "yearly": 599, "twoYearly": 479, "fourYearly": 400 },
+        "afterFirstCycleInr": 799,
+        "blurb": "Everything, for teams that live in their inbox"
+      }
+    ]
+  },
 
-  "_neoSitesReference": [
-    { "name": "Basic", "priceInr": 269, "listPriceInr": 449, "aiGenerations": "20 times", "storage": "1 GB" },
-    { "name": "Plus", "priceInr": 359, "listPriceInr": 599, "aiGenerations": "500 times", "storage": "10 GB" },
-    { "name": "Growth", "priceInr": 899, "listPriceInr": 1499, "aiGenerations": "Unlimited", "storage": "50 GB" }
-  ],
+  "site": {
+    "_note": "TWO price sets exist. `live` is what neo.space shows publicly today (verified on the pricing page 27 Aug 2026). `v3Freemium` is the Site V3 / Freemium set from the same sheet — materially cheaper. USE `live` FOR THE DEMO: it is what a Neo PM sees on their own site, and quoting an unreleased set as current is the kind of error that costs credibility.",
+    "live": [
+      { "id": "basic", "name": "Basic", "inr": { "monthly": 449, "yearly": 269, "twoYearly": 180, "fourYearly": 180 } },
+      { "id": "plus", "name": "Plus", "inr": { "monthly": 599, "yearly": 359, "twoYearly": 240, "fourYearly": 240 } },
+      { "id": "growth", "name": "Growth", "inr": { "monthly": 1499, "yearly": 899, "twoYearly": 600, "fourYearly": 600 } }
+    ],
+    "v3Freemium": [
+      { "id": "basic", "name": "Basic", "inr": { "monthly": 99, "quarterly": 99, "yearly": 99, "twoYearly": 59, "fourYearly": 59 }, "afterFirstCycleInr": 225, "retailInr": 449 },
+      { "id": "plus", "name": "Plus", "inr": { "monthly": 165, "quarterly": 165, "yearly": 165, "twoYearly": 99, "fourYearly": 99 }, "afterFirstCycleInr": 375, "retailInr": 599 },
+      { "id": "growth", "name": "Growth", "inr": { "monthly": 495, "quarterly": 495, "yearly": 495, "twoYearly": 295, "fourYearly": 295 }, "afterFirstCycleInr": 1125, "retailInr": 1499 }
+    ]
+  },
 
-  "plans": [
-    {
-      "id": "starter",
-      "name": "Neo Starter",
-      "priceInr": null,
-      "billing": "per mailbox / month",
-      "includesSite": false,
-      "blurb": "One professional address on your own domain"
-    },
-    {
-      "id": "business",
-      "name": "Neo Business",
-      "priceInr": null,
-      "billing": "per mailbox / month",
-      "includesSite": true,
-      "blurb": "Mailboxes plus a one-page site"
-    }
-  ]
+  "domain": {
+    "_note": "UNVERIFIED — DO NOT SURFACE THIS IN THE UI YET. The sheet shows a 100% domain discount on monthly and yearly billing, i.e. free for the first cycle. Neo's public FAQ says something similar ('you can get one from Neo Sites for free, through your website's first billing cycle'). BUT this very likely applies to the free `co.site` SUBDOMAIN, not a registrable custom domain — co.site is Neo's own namespace, and the two are priced quite differently. Verify which before claiming anything on screen. Being wrong about a discount in front of the people who set Neo's prices costs more than the claim is worth.",
+
+    "_open": "Who does the 100% domain discount apply to — co.site subdomain, or a real custom domain purchase? Ask Neo product.",
+    "retailInrPerMonth": 75,
+    "longCycleInrPerMonth": 50,
+    "promoInrPerMonth": { "monthly": 0, "yearly": 0, "twoYearly": 25, "fourYearly": 37.5 },
+    "freeFirstCycle": true
+  }
 }

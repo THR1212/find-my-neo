@@ -461,3 +461,33 @@ estate agent, a link-in-bio page and an offline services business.
 2. **Unauthenticated today**, which can change without notice.
 3. **Keep volume low and mark it.** These are production endpoints. Use the `neotest` convention
    and never loop over them.
+
+### Image resolution — also works server-side
+
+`POST api.titan.email/files/images/search/bulk/unauth`
+
+Request (note it needs **`crid`**, same as the generate endpoint — omitting it returns
+`400 InvalidParameter, parameter: "crid"`; a `gid` UUIDv4 is also required):
+
+```json
+{"crid":"w_neotest_2_000_test",
+ "gid":"<uuid v4>",
+ "industry_key":"ecommerce_retail",
+ "sq":[{"qid":0,"q":"bakery symbol","bk":"header"},
+       {"qid":1,"q":"custom celebration cake in bakery","bk":"introduction"}]}
+```
+
+Response: `{"respList":[{"qid":0,"url":"https://images.pexels.com/photos/…"}]}` — verified the
+returned URLs load (HTTP 200, `image/jpeg`, ~150 KB).
+
+`q` values come from the image prompts embedded in the `t: "sc"` blocks, and `bk` is the block key.
+
+### The complete pipeline, all callable from our serverless function
+
+1. `t: "bi"` → `{industryKey, templateKey, businessName}`
+2. `t: "sc"` → full site: template, font, pallet, 17 content blocks (images as prompts)
+3. `files/images/search/bulk/unauth` → resolves those prompts to real Pexels URLs
+
+That is everything needed to render Neo's actual generated design ourselves. No iframe, no auth,
+no CAPTCHA. Subject to the three caveats above — undocumented, unauthenticated *today*, and
+production, so keep volume low and mark it `neotest`.

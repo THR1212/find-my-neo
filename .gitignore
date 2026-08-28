@@ -28,3 +28,11 @@ dist-ssr
 .env*
 !.env.example
 .vercel
+
+# Capture artifacts from walking Neo's live flows: screen recordings and HARs.
+# Kept local on purpose — recordings show the tester's email and signup, and HARs
+# contain session cookies and auth tokens. Findings belong in docs/neo-product-facts.md;
+# the raw captures do not belong in the repo (they are also ~100MB).
+neo_flows/
+*.har
+*.webm

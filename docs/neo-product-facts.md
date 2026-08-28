@@ -146,6 +146,97 @@ past "Edit this design".
 Caveat on this run: the tester was already signed into a test account in that browser profile,
 though the endpoints used were the `unauth` ones.
 
+## The fresh-user flow — Darrel's actual question, answered
+
+Walked 28 Aug 2026 in a clean profile, never signed in. Timeline from the HAR:
+
+| Time | Step |
+|---|---|
+| 03:50:03 | `neo.space/ai-website-builder` |
+| 03:50:48 | `join.neo.space/site/industry` — category picker |
+| 03:51:06 | `app.neo.space/site/noAuth/onboarding` — describe your business idea |
+| 03:51:08 | `POST /neo/generate/unauth` → **400** |
+| 03:51:11 | retry → **400** |
+| 03:51:32 | after re-picking a category → **200** |
+| 03:51:54 | image search, resources |
+| **03:52:12** | **`join.neo.space/site/sign-up` ← THE GATE** |
+| 03:53:46 | `app.neo.space/site/edit/` — editor, now authenticated |
+| 03:54:18 | `join.neo.space/site/select-plan` — plan selection |
+
+**Darrel was right.** The site is generated *before* any account exists — `/neo/generate/unauth`
+needs no login — and signup is demanded **after** you have seen your site, immediately before the
+editor. Plan selection comes after that.
+
+That ordering is the whole psychology of their funnel: show the thing first, ask for the account
+once the user is invested. Worth respecting rather than fighting — our tool should hand over at
+or before that point, not try to replicate it.
+
+Note: the fresh-user run went **sign-up → edit → select-plan**, whereas the earlier signed-in run
+went **design → domain-selection**. The path differs by auth state; don't assume one order.
+
+## A real bug in Neo's live funnel
+
+The first two generation attempts returned **HTTP 400**:
+
+```json
+{"error":"InvalidParameter","parameter":"in",
+ "desc":"A required parameter is missing or invalid","statusCode":400}
+```
+
+The client had sent the **business description in the `in` field** (industry name) rather than an
+`ik` (industry key):
+
+```json
+{"t":"bi","p":"{\"in\":\"We're a two-person bakery in Bandra…\",\"bd\":\"We're a two-person bakery in Bandra…\"}"}
+```
+
+`in` and `bd` were the same string. Generation only succeeded after going back and choosing a
+taxonomy industry, which sent `ik: ecommerce_retail`.
+
+So the category step isn't merely producing dirty data — on this path it **hard-fails
+generation**, twice, with no useful message to the user. The exact UI action that triggers it
+(free-text industry? "Skip this"?) still needs one reproduction to pin down; the screen recording
+should show it.
+
+*(And `ecommerce_retail` for a bakery produced `templateKey: bio_site` — a third different
+wrong template for the same business, after `fashion_store` and `property`.)*
+
+## The generation API in full — and why your "show Neo's designs" idea works
+
+`POST api.titan.email/neo/generate/unauth` is one endpoint with a `t` (type) discriminator:
+
+| `t` | Purpose | Input | Output |
+|---|---|---|---|
+| `bi` | business idea | `ik`, `bd` | `{industryKey, templateKey, businessName}` |
+| `sc` | **site content** | `bn`, `bd`, `d`, `bks`, `requireBlocksAsList` | the **entire generated site** |
+| `bn` | business name | `domainName` | a name, e.g. `oesbusiness…` → "OES Business Solutions" |
+
+`t: "sc"` is the one that matters. It returns the complete site as structured JSON:
+
+```
+templateKey, industryKey, siteCategory, font, pallet, validResponse, blocks[]
+```
+
+with 17 blocks, each carrying real content:
+
+`header` (title, logo_image) · `introduction` (heading, description, desktop/mobileCoverImage,
+mainButton) · `fixed-widget` · `custom-links` · `products` (heading, productList) · `about-us` ·
+`gallery` (imageList) · `appointment-booking` · `testimonials` · `faq` · `subscribe-newsletter` ·
+`business-information` · `location-map` · `contact-form` · `social-links` · `page-footer` · `footer`
+
+Plus `font` (e.g. `pacifico_quicksand`) and `pallet` (e.g. `bio_site_p4_v1`).
+
+**So we do not need to iframe their editor.** We can call `t: "sc"` with our own `bn`/`bd` and
+render a lightweight preview from the returned JSON — real headings, real copy, real images, real
+palette. That is the "show Neo's actual designs, let the user pick" idea, and it is buildable.
+
+**Before relying on it, three things to check:**
+1. Whether it is callable **server-to-server** (our Vercel function) or only from a browser with
+   Turnstile satisfied. This is the make-or-break question.
+2. It is an **undocumented internal API**. Fine for a hackathon demo; shipping on it needs Neo's
+   agreement.
+3. It is unauthenticated *today*. That can change without notice.
+
 ## The handoff — solved, and it's just query params
 
 After picking a design, Neo navigates to domain selection carrying **everything in plain query

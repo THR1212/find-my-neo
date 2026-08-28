@@ -1,0 +1,314 @@
+{
+ "_comment": "REAL response from Neo's own generator, recorded 28 Aug 2026 for the Proof & Butter demo input. Not hand-written. Used as the fallback when the live call to api.titan.email fails — see api/_lib/neoSite.ts. Regenerate with the same pipeline (t:bi -> t:sc -> files/images/search/bulk) rather than editing by hand, so the fallback can never drift from what the live path returns.",
+ "templateKey": "offline_services",
+ "industryKey": "ecommerce_retail",
+ "siteCategory": "store",
+ "font": "poppins_inter",
+ "pallet": "offline_services_p1_v1",
+ "blocks": [
+  {
+   "key": "header",
+   "data": {
+    "title": "Proof & Butter Bakery",
+    "logo_image": {
+     "prompt/url/img/bk:h": "bakery symbol"
+    }
+   }
+  },
+  {
+   "key": "introduction",
+   "data": {
+    "heading": "Indulge in Personalized Celebration Cakes",
+    "description": "At Proof & Butter, we specialize in custom celebration cakes tailored to your special moments. Our passion for baking shines through every creation, ensuring that your cake not only tastes divine but also looks exquisite.",
+    "desktopCoverImage": {
+     "prompt/url/img/bk:i": "custom celebration cake display"
+    },
+    "mobileCoverImage": {
+     "prompt/url/img/bk:i": "delicious cake in bakery"
+    },
+    "mainButton": {
+     "buttonLabel": "Order Now"
+    }
+   }
+  },
+  {
+   "key": "fixed-widget",
+   "data": {}
+  },
+  {
+   "key": "custom-links",
+   "data": {
+    "linksList": [
+     {
+      "buttonLabel": "View our Instagram"
+     },
+     {
+      "buttonLabel": "Order your cake today"
+     },
+     {
+      "buttonLabel": "See our latest creations"
+     }
+    ]
+   }
+  },
+  {
+   "key": "products",
+   "data": {
+    "heading": "Explore Our Delicious Creations",
+    "mainButton": {
+     "buttonLabel": "Visit the store"
+    },
+    "productList": [
+     {
+      "heading": "Chocolate Celebration Cake",
+      "image": {
+       "prompt/url/img/bk:p": "chocolate celebration cake"
+      },
+      "price": "3500"
+     },
+     {
+      "heading": "Vanilla Buttercream Cake",
+      "image": {
+       "prompt/url/img/bk:p": "vanilla buttercream cake"
+      },
+      "price": "3200"
+     },
+     {
+      "heading": "Red Velvet Cake",
+      "image": {
+       "prompt/url/img/bk:p": "red velvet cake"
+      },
+      "price": "3700"
+     },
+     {
+      "heading": "Fruit Layer Cake",
+      "image": {
+       "prompt/url/img/bk:p": "fruit layer cake"
+      },
+      "price": "3300"
+     },
+     {
+      "heading": "Carrot Cake with Cream Cheese Frosting",
+      "image": {
+       "prompt/url/img/bk:p": "carrot cake"
+      },
+      "price": "3400"
+     },
+     {
+      "heading": "Lemon Drizzle Cake",
+      "image": {
+       "prompt/url/img/bk:p": "lemon drizzle cake"
+      },
+      "price": "3100"
+     }
+    ],
+    "displaySetting": {
+     "buttonLabel": "Order Now"
+    }
+   }
+  },
+  {
+   "key": "about-us",
+   "data": {
+    "heading": "Our Passion for Baking",
+    "description": "Proof & Butter was born from our love for baking and the joy it brings to celebrations. As a two-person bakery in Bandra, we pour our heart and soul into each cake, ensuring that every bite is a delightful experience. From birthdays to weddings, we make your moments sweeter.",
+    "image": {
+     "prompt/url/img/bk:au": "bakery kitchen scene"
+    },
+    "mainButton": {
+     "buttonLabel": "Learn More"
+    }
+   }
+  },
+  {
+   "key": "gallery",
+   "data": {
+    "heading": "Our Cake Gallery",
+    "mainButton": {
+     "buttonLabel": "View Gallery"
+    },
+    "imageList": [
+     {
+      "image": {
+       "prompt/url/img/bk:g": "multicolored birthday cake"
+      },
+      "description": "A vibrant birthday cake with multicolored layers."
+     },
+     {
+      "image": {
+       "prompt/url/img/bk:g": "themed wedding cake"
+      },
+      "description": "An elegantly designed wedding cake fit for a royal celebration."
+     },
+     {
+      "image": {
+       "prompt/url/img/bk:g": "baby shower cake"
+      },
+      "description": "A delightful baby shower cake with cute decorations."
+     },
+     {
+      "image": {
+       "prompt/url/img/bk:g": "superhero cake"
+      },
+      "description": "A fun superhero-themed cake for children's parties."
+     },
+     {
+      "image": {
+       "prompt/url/img/bk:g": "candy cake"
+      },
+      "description": "A colorful candy cake loaded with sweets and treats."
+     },
+     {
+      "image": {
+       "prompt/url/img/bk:g": "christmas cake"
+      },
+      "description": "A festive Christmas cake decorated with traditional elements."
+     }
+    ]
+   }
+  },
+  {
+   "key": "appointment-booking",
+   "data": {
+    "heading": "Schedule Your Cake Consultation",
+    "description": "Book a time to discuss your custom cake needs with us. Weâ€™ll work with you to create something extraordinary!",
+    "mainButton": {
+     "buttonLabel": "Book Now"
+    }
+   }
+  },
+  {
+   "key": "testimonials",
+   "data": {
+    "heading": "What Our Customers Say",
+    "testimonials": [
+     {
+      "image": {
+       "prompt/url/img/bk:t": "happy customer with cake"
+      },
+      "heading": "The cake was beautiful and delicious!",
+      "author": "Priya Sharma",
+      "designation": "Event Planner"
+     },
+     {
+      "image": {
+       "prompt/url/img/bk:t": "smiling mother with cake"
+      },
+      "heading": "A perfect cake for my daughter's birthday!",
+      "author": "Anita Desai",
+      "designation": "Satisfied Mother"
+     },
+     {
+      "image": {
+       "prompt/url/img/bk:t": "group of friends with cake"
+      },
+      "heading": "Everyone loved the cake, it was a hit!",
+      "author": "Rahul Mehta",
+      "designation": "Party Host"
+     },
+     {
+      "image": {
+       "prompt/url/img/bk:t": "couple with wedding cake"
+      },
+      "heading": "Our wedding cake was beyond our expectations!",
+      "author": "Sanjay and Neha",
+      "designation": "Happy Couple"
+     }
+    ]
+   }
+  },
+  {
+   "key": "faq",
+   "data": {
+    "heading": "Frequently Asked Questions",
+    "faqList": [
+     {
+      "question": "How can I place an order?",
+      "answer": "You can place your order by sending us a DM on Instagram."
+     },
+     {
+      "question": "What sizes of cakes do you offer?",
+      "answer": "We offer various sizes from small personal cakes to large multi-tiered cakes."
+     },
+     {
+      "question": "Do you accommodate dietary restrictions?",
+      "answer": "Yes, we offer gluten-free and vegan options upon request."
+     },
+     {
+      "question": "What is the lead time for orders?",
+      "answer": "We recommend placing your order at least 48 hours in advance."
+     }
+    ]
+   }
+  },
+  {
+   "key": "subscribe-newsletter",
+   "data": {
+    "heading": "Stay Updated with Our Delights",
+    "description": "Subscribe to receive news on our latest cakes, special offers, and baking tips directly to your inbox.",
+    "mainButton": {
+     "buttonLabel": "Subscribe Now"
+    }
+   }
+  },
+  {
+   "key": "business-information",
+   "data": {
+    "heading": "Reach out to us here."
+   }
+  },
+  {
+   "key": "location-map",
+   "data": {
+    "heading": "Our location"
+   }
+  },
+  {
+   "key": "contact-form",
+   "data": {
+    "heading": "Get in Touch"
+   }
+  },
+  {
+   "key": "social-links",
+   "data": {
+    "linksList": {
+     "heading": "Follow Us"
+    }
+   }
+  },
+  {
+   "key": "page-footer",
+   "data": {
+    "siteTitle": "Proof & Butter Bakery - Creating Sweet Moments",
+    "siteDescription": "Your destination for custom celebration cakes that make every occasion special."
+   }
+  },
+  {
+   "key": "footer",
+   "data": {}
+  }
+ ],
+ "images": {
+  "bakery symbol": "https://images.pexels.com/photos/18656839/pexels-photo-18656839.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "custom celebration cake display": "https://images.pexels.com/photos/30233153/pexels-photo-30233153.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "delicious cake in bakery": "https://images.pexels.com/photos/1352295/pexels-photo-1352295.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "chocolate celebration cake": "https://images.pexels.com/photos/18613262/pexels-photo-18613262.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "vanilla buttercream cake": "https://images.pexels.com/photos/12171163/pexels-photo-12171163.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "red velvet cake": "https://images.pexels.com/photos/12364900/pexels-photo-12364900.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "fruit layer cake": "https://images.pexels.com/photos/1291712/pexels-photo-1291712.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "carrot cake": "https://images.pexels.com/photos/5594497/pexels-photo-5594497.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "lemon drizzle cake": "https://images.pexels.com/photos/30632225/pexels-photo-30632225.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "bakery kitchen scene": "https://images.pexels.com/photos/33393555/pexels-photo-33393555.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "multicolored birthday cake": "https://images.pexels.com/photos/31999343/pexels-photo-31999343.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "themed wedding cake": "https://images.pexels.com/photos/38986757/pexels-photo-38986757.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "baby shower cake": "https://images.pexels.com/photos/33158029/pexels-photo-33158029.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "superhero cake": "https://images.pexels.com/photos/10951228/pexels-photo-10951228.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "candy cake": "https://images.pexels.com/photos/20859567/pexels-photo-20859567.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "christmas cake": "https://images.pexels.com/photos/19552397/pexels-photo-19552397.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "happy customer with cake": "https://images.pexels.com/photos/7447277/pexels-photo-7447277.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "smiling mother with cake": "https://images.pexels.com/photos/34684836/pexels-photo-34684836.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "group of friends with cake": "https://images.pexels.com/photos/36713424/pexels-photo-36713424.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+  "couple with wedding cake": "https://images.pexels.com/photos/30443892/pexels-photo-30443892.jpeg?auto=compress&cs=tinysrgb&h=650&w=940"
+ }
+}

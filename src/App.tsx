@@ -10,6 +10,7 @@ import {
   type EngineState,
 } from "./lib/engine";
 import { buildProfile } from "./lib/api";
+import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
 import type { RevealContent } from "./lib/session";
 
 import NarrowingMeter from "./components/NarrowingMeter";
@@ -40,6 +41,12 @@ export default function App() {
   const [preferredQuestionId, setPreferredQuestionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Neo's real generated site. Fired alongside the profile call on screen-1 submit, because
+   * their generator is genuinely slow (their own UI shows a 12-step loader for up to 24s).
+   * Starting it any later and the reveal would sit waiting on it.
+   */
+  const [neoSite, setNeoSite] = useState<NeoSite | null>(null);
 
   const conf = useMemo(() => confidence(engine.profile), [engine.profile]);
   const remaining = useMemo(() => remainingSetups(engine.profile), [engine.profile]);
@@ -58,6 +65,11 @@ export default function App() {
     setLoading(true);
     setError(null);
     setStage("guess");
+
+    /* Kick Neo's generator off immediately and in parallel — it is the slowest thing in the
+       flow by a wide margin, and it must be ready by the time they reach the reveal.
+       fetchNeoSite never rejects; it falls back to a recorded real response. */
+    fetchNeoSite("", text).then(setNeoSite);
 
     buildProfile(text)
       .then((res) => {
@@ -184,6 +196,7 @@ export default function App() {
                 surface={(engine.profile.surface as string) ?? null}
                 teamSize={(engine.profile.teamSize as number) ?? null}
                 profile={engine.profile}
+                neoSite={neoSite}
                 onRestart={restart}
               />
             )}

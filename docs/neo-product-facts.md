@@ -374,3 +374,33 @@ social links · custom domain · remove Neo branding
   spec (2024) does not describe. Sites carry a "Made with Neo" badge and a WhatsApp widget.
 - `Spec: Site offering` (`NP/787382478`) describes a site upsell flow with plan selection —
   worth reading before claiming our recommendation flow is novel.
+
+---
+
+## Source hierarchy — read this before claiming Neo does anything
+
+Three sources, and they are good at different things. Using the wrong one is how a wrong claim
+gets made confidently.
+
+| Source | Authoritative for | Not authoritative for |
+|---|---|---|
+| **`static.flock.co/meta/plan/feature/config/en-US.json`** — public, no auth, 49 features with Neo's own `heading` + `description`. Captured from the live checkout 28 Aug 2026. | **Feature names and descriptions.** It is the file Neo's own checkout renders to customers. | Behaviour, intent, roadmap. |
+| **Confluence** (e.g. `NP/698843154`, Jul 2024) | **How things work and why** — the one-page constraint, "Generate design" being random rather than AI, field limits, flow logic. | Current naming. Specs date; the site builder spec is over two years old. |
+| **Live product walk + HAR** | **What actually happens now** — request shapes, ordering, where gates fall, bugs. | Anything not exercised in that run. |
+
+**Rule: names come from the JSON, behaviour comes from Confluence, reality comes from the HAR.**
+
+A mistake worth not repeating: `src/lib/features.ts` was first written from marketing-page
+transcription, and its header then claimed Confluence verification. The Confluence spec had
+verified the *site* claims only — it said nothing about mail feature names. One verification was
+allowed to cover claims it never reached. Rebuilding from the JSON corrected four names
+(AI Smart Write → **AI Email Writer**; Email Campaigns → **Campaign Mode**;
+Email tracking → **Read Receipts**; and the full import heading).
+
+### Settled by the catalogue
+
+- `neo_domain` = *"maxdesigns.co.site domain"* — the **free .co.site subdomain**.
+- `custom_domain` = *"Custom Domain Email — Domain you already own"* — Neo's "custom domain"
+  feature means **bring your own**, not a purchase. Worth having straight before discussing pricing.
+- `neo_site` = *"AI-powered site builder"*, illustration asset `one_page_site.png` — one page,
+  consistent with the 2024 spec.

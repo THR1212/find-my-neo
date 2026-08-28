@@ -153,13 +153,9 @@ _Repositioned 27 Aug after walking Neo's live AI builder. Read `docs/neo-product
 - Squad registration status for Ignite (deadline was 21 Aug noon, unconfirmed).
 - Whether the Neo KR1 persona bullet has entered design/PM phase — the disqualification risk.
   Ask directly in the PM meeting.
-- **Who does the 100% domain discount apply to?** Neo's sheet shows domain at 100% off on
-  monthly/yearly billing. Almost certainly the free `co.site` subdomain rather than a
-  registrable custom domain — the two are priced very differently. **Do not claim "free domain"
-  on screen until this is settled.** Ask Neo product.
-- **Does Neo upsell mailbox/domain after site generation?** Darrel's question, still unanswered —
-  the generate step is behind a Cloudflare CAPTCHA so it needs a manual run. If they already
-  upsell mail there, our differentiator narrows again.
+_(Both resolved 28 Aug — see `docs/neo-product-facts.md`. The free domain is the `.co.site`
+subdomain; domain is upsold right after design selection and mail is upsold inside the editor
+at ₹100/mo.)_
 - `Spec: Site offering` (`NP/787382478`) describes a site upsell flow with plan selection —
   read before claiming our recommendation flow is novel.
 

@@ -52,9 +52,9 @@
   },
 
   "domain": {
-    "_note": "UNVERIFIED — DO NOT SURFACE THIS IN THE UI YET. The sheet shows a 100% domain discount on monthly and yearly billing, i.e. free for the first cycle. Neo's public FAQ says something similar ('you can get one from Neo Sites for free, through your website's first billing cycle'). BUT this very likely applies to the free `co.site` SUBDOMAIN, not a registrable custom domain — co.site is Neo's own namespace, and the two are priced quite differently. Verify which before claiming anything on screen. Being wrong about a discount in front of the people who set Neo's prices costs more than the claim is worth.",
+    "_note": "SUBJECT TO CHANGE. Figures below are read from Neo's own pricing sheet (India column, 27 Aug 2026) — they are facts, not guesses, but promotional structures move and this is a snapshot.",
 
-    "_open": "Who does the 100% domain discount apply to — co.site subdomain, or a real custom domain purchase? Ask Neo product.",
+    "_scopeResolved": "CONFIRMED 28 Aug 2026 by walking the live funnel: the 100% domain discount is the free `.co.site` SUBDOMAIN, not a registrable custom domain. Neo's domain-selection step returns e.g. `joesbusiness.co.site` tagged RECOMMENDED with a 'Get my FREE domain' button. A custom domain (.com/.in/.co) is a real purchase. Subject to change.",
     "retailInrPerMonth": 75,
     "longCycleInrPerMonth": 50,
     "promoInrPerMonth": { "monthly": 0, "yearly": 0, "twoYearly": 25, "fourYearly": 37.5 },

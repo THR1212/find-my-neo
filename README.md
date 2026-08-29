@@ -177,8 +177,9 @@ uncommitted changes and cannot be undone. `git stash` does the same but keeps th
 
 ## Things that are deliberately not finished
 
-**Plan prices are blank.** `plans.json` has `priceInr: null`, so the plan name shows without a
-price. Intentional — a wrong price in front of the Neo product team is worse than none.
+**Plan prices are real now.** `plans.json` holds Neo's own figures from their internal pricing
+sheet, and `rules.ts` turns a profile into a plan — so the reveal shows a genuine total like
+"Neo Starter + Basic site ₹567/mo". The model never touches any of it.
 
 **Domain prices say "approx" because they aren't Neo's.** They're a third-party registrar's USD
 list price converted at a fixed rate. Availability *is* real. The right fix is Neo's own domain

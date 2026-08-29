@@ -5,7 +5,7 @@
 Decided 27 Aug 2026. This is what appears in demo-visible copy, the deck, and the page title.
 
 Defined once in `src/lib/brand.ts` as `PRODUCT_NAME`. Never hardcode the string in a component —
-if the PM team wants a different name after tomorrow, that has to be a one-line change, not a
+if the PM team wants a different name after the review, that has to be a one-line change, not a
 find-and-replace through UI copy under an Ignite deadline.
 
 ## "Akinator" — internal shorthand only

@@ -59,7 +59,8 @@ Budget prompt-iteration time on the guess screen and the reveal only.
    The model *suggests* which to ask next; `engine.ts` overrules it if that signal is already
    resolved or the id isn't real. Stops when confident, or at 4. Different businesses get
    different paths.
-5. The reveal — domain with priced alternates, mailboxes, drafted site, why-this-plan features
+5. The reveal — domain with priced alternates, mailboxes, **Neo's own generated site**,
+   why-this-plan features, and the plan + real price quietly underneath
 
 **Do not reintroduce a fixed screen order.** The adaptivity is the product.
 The narrowing meter (5,318 → single digits) is the gamification and must stay visible throughout.
@@ -185,11 +186,18 @@ The only question it has to answer is: *does the reveal make a PM say "yes, buil
 the last 4 hours are ring-fenced for the pitch narrative, demo script, and measurement slide.
 That is not leftover time. Vercel deploy, the handoff link, and the funnel belong here.
 
-## Scope for milestone 1 (build in this order, stop when the reveal is beautiful)
+## Scope for milestone 1 — SUPERSEDED, kept for the reasoning only
 
-1. Screen 1 (free-text box) → Screen 5 (the reveal). **Skip screens 2, 3 and 4 entirely** —
-   they narrate as "and then two more taps". The generative reveal is the whole pitch.
-2. Reveal runs off a committed fixture for a scripted input. Live call is a bonus, not a goal.
-3. Hardcode one plan. No rules table, no RDAP, no handoff link. The CTA can be a dead button.
+The original 28 Aug plan was: build screen 1 and the reveal, skip the middles, hardcode one
+plan, dead CTA, everything off fixtures. That was correct for a one-day viability check.
+
+**It has all been overtaken.** The demo was postponed to Monday and the extra days went into:
+the adaptive engine (so the middles are the product, not filler), real Neo pricing plus
+`rules.ts`, live domain lookup, and Neo's own generator wired in live.
+
+What survives from that plan is the priority order, and it still holds:
+**the reveal is the pitch — everything else can be rough.**
+
+Still genuinely not built: the handoff CTA is inert, and the profile/guess step is fixture-backed.
 
 ## Schedule

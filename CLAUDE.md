@@ -34,8 +34,11 @@ Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
 2. **The LLM never decides price or plan.** It emits a structured profile object only.
    `src/lib/rules.ts` maps profile → plan deterministically. Pricing lives in `src/data/plans.json`.
 3. **No API key ever reaches the browser.** All model calls go through `api/*` serverless functions.
-4. **The reveal must work with the network off.** Every LLM call goes through the provider seam in
-   `api/_lib/llm.ts`, which has a replay mode. Demo runs in replay. See "Replay mode" below.
+4. **Every external call must degrade, never block.** Three of them now: the LLM (`api/_lib/llm.ts`,
+   replay mode), Neo's site generator (`api/_lib/neoSite.ts`, falls back to a *recorded real*
+   response), and DomScan (`api/_lib/domainService.ts`, renders no badge rather than a wrong one).
+   A screen must never know which path it got — except where honesty requires it, e.g. the site
+   card says "offline — recorded earlier" when the live call failed.
 5. **Never create real orders and never script traffic at Neo's production domain search.**
    Handoff is a user-clicked link, never a silent redirect.
 6. **Preprod uses live Stripe keys.** Never demo against `join-preprod.neo.space`.
@@ -43,8 +46,9 @@ Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
 
 ## The one screen that must be perfect
 
-The reveal (screen 5). Available domain, mailbox names, draft site copy, materialising line by line.
-Everything else can be rough. Budget prompt-iteration time on screen 2 (the "guess") and screen 5 only.
+The reveal. Available domain with priced alternates, mailboxes, **Neo's own generated site**, and
+the plan quietly underneath — materialising line by line. Everything else can be rough.
+Budget prompt-iteration time on the guess screen and the reveal only.
 
 ## Flow — adaptive, not a fixed screen order
 
@@ -69,9 +73,12 @@ Design for 1–3 person businesses. No 50–200 employee branch.
 
 ## Latency plan
 
-- Screen-1 submit fires the profile call immediately.
-- Reveal content (domain candidates, mailbox names, site copy) is generated **during** screens 3–4
-  while the user is tapping. State is a single session object (`src/lib/session.ts`), not per-screen.
+- Screen-1 submit fires **both** the profile call and Neo's site generator immediately, in
+  parallel, and advances without awaiting either.
+- **Neo's generator takes 22–38 seconds** — measured repeatedly, and by far the slowest thing in
+  the flow. The questions only occupy ~15–20s, so a visible wait remains: `NeoSiteGenerating.tsx`
+  covers it with Neo's own 12-step loader copy. Do not move this call later.
+- Domain availability resolves on arrival at the reveal and corrects the optimistic first paint.
 - Optimistic UI: animate the transition on click, resolve the call underneath.
 
 ## Replay mode
@@ -83,8 +90,17 @@ never know which one it got.
 
 ## Stack
 
-React + Vite + TS · Framer Motion · Vercel serverless functions · hardcoded plan JSON.
+React + Vite + TS · Framer Motion · Vercel **Edge** functions · plan data from Neo's own sheet.
 Ruled out and not to be revisited: gRPC, WebSockets, Unity WebGL, three.js.
+
+**Vercel functions must declare `runtime: "edge"`.** They are written against the Web API
+(`Request`/`Response`); the default Node runtime passes a bare path in `req.url` and
+`new URL()` throws. This cannot be caught locally — the Vite dev middleware hands over a
+different request object. Deploy and hit the real endpoint before believing an API works.
+
+**Site content comes from Neo, not us.** `api/_lib/neoSite.ts` calls their real generator.
+We do not write site copy. See `docs/neo-product-facts.md` for the API shape and its gotchas
+(`crid` required on the image endpoint too; `sq` capped at 10; `p` is a JSON string).
 Domain availability + indicative pricing: **DomScan**, via our own `/api/domains`. Key is
 server-side only. RDAP was built first and removed — see DECISIONS. **Watch the credits:**
 `/v1/prices` bills per TLD × registrar pair, so it always needs a `registrars=` filter.
@@ -103,61 +119,60 @@ Full detail and sources in `TECHNICAL.md`.
 
 ## CURRENT STATE
 
-_Last updated: 27 Aug 2026._
+_Last updated: 28 Aug 2026. Repositioned 27 Aug after walking Neo's live builder —
+read `docs/neo-product-facts.md` before claiming anything about what Neo does._
 
-_Repositioned 27 Aug after walking Neo's live AI builder. Read `docs/neo-product-facts.md` first._
-
-**Done**
-- Vite + React + TS scaffold, Framer Motion / openai / zod installed
-- `api/_lib/llm.ts` — provider seam with replay mode, gpt-5.6 gotchas baked in
-- `api/_lib/replay.ts` — fixture loader with fake latency
-- `TECHNICAL.md` — verified model facts, pricing, architecture, ruled-out decisions
-- `.env.example`, `.gitignore`, git initialised
-- Private GitHub repo: https://github.com/THR1212/neo-akinator (default branch `master`)
-- `src/lib/brand.ts` — `PRODUCT_NAME = "Find My Neo"`, `docs/naming.md` written
-
-- Full flow built and verified in a real browser: real clipboard paste + Enter,
-  1440×820 laptop (fits, no scrollbar), 390×844 mobile (no horizontal overflow)
+**Working, live, and verified in production**
+- Full adaptive flow: hook → free text → guess → up to 4 engine-chosen questions → reveal.
+  Verified in a real browser (clipboard paste, 1440×820 laptop, 390×844 mobile).
 - **Adaptive engine** — `src/lib/questions.ts` (6-question bank) + `src/lib/engine.ts`
-  (picks next question, confidence, narrowing counter, confidence-based stopping)
-- **Narrowing meter** — 5,318 → single digits, verified live
-- **Neo brand reskin** — Poppins, `#0066FF`, white, brand gradient; `src/styles/neo-tokens.css`
-- **DomScan domain lookup** — live availability + indicative price, credit-aware caching
-  (cold 4 credits / new business 1 / repeat 0), Vite middleware mirrors the Vercel function
-- **Feature highlights** — `src/lib/features.ts`, deterministic, allow-listed against
-  `docs/neo-product-facts.md`
-- `docs/neo-product-facts.md` — verified Neo behaviour from Confluence `NP/698843154` + live walk
-- `docs/demo-script.md` — rewritten around the repositioning
-- `src/data/replay/demo.json` — hand-written demo fixture (Proof & Butter bakery)
-- `README.md` (plain English, no frontend knowledge assumed), `DECISIONS.md`,
-  `docs/demo-script.md` (run sheet + objections + the actual ask)
-- Vercel: project `hari-7720/neo-akinator`, deployed, GitHub auto-deploy connected
+  (next question, confidence, narrowing counter, confidence-based early stop).
+- **Narrowing meter** — 5,318 → single digits.
+- **Neo's real site generator** — `api/_lib/neoSite.ts` calls Neo's own API
+  (`t:"bi"` → `t:"sc"` → image search). We render THEIR content, not our copy.
+  Live in production: `source: live`, 19–20/20 images resolved. Falls back to a *recorded real*
+  response and says so on the card.
+- **Generating state** — `src/components/NeoSiteGenerating.tsx`, Neo's own 12-step loader copy.
+  Their generator takes 22–38s; this is not optional.
+- **Live domain lookup** — DomScan via `/api/domains`, credit-aware caching
+  (cold 4 / new business 1 / repeat 0 credits).
+- **Real Neo pricing** — `src/data/plans.json` from Neo's own sheet; `src/lib/rules.ts` maps
+  profile → plan deterministically. Reveal shows e.g. "Neo Starter + Basic site ₹567/mo".
+- **Feature highlights** — `src/lib/features.ts`, names taken verbatim from Neo's own
+  catalogue (`static.flock.co/meta/plan/feature/config/en-US.json`).
+- **Neo brand skin** — Poppins, `#0066FF`, white, brand gradient.
+- Vercel project `hari-7720/find-my-neo`, GitHub auto-deploy connected, both API routes on the
+  **Edge runtime** (required — see DECISIONS).
+- Repo: https://github.com/THR1212/neo-akinator (branch `master`).
 
 **Not done / next**
-- **Prices are blank.** `src/data/plans.json` has `priceInr: null`, so the plan name renders
-  without a price. Deliberate — see DECISIONS.md. Fill in real numbers to show it.
-- `src/lib/rules.ts` — the profile→plan rules table. For milestone 1 it is one boolean
-  inlined in `Reveal.tsx`; extract it for Ignite.
-- Sound cues (advance, reveal tick, CTA). Must ship muted-by-default with a visible toggle.
-- Live mode is written but never exercised against the real API. Verify the call shape in
-  hour 1 of Ignite, not at hour 30.
-- Python `analysis/` folder for the persona/retention work — not started.
-- Deployment Protection is ON. Share via a **Shareable Link** (deployment page → Share), not the
-  bare URL — the bare URL hits a Vercel login wall. Sent to Moin/Darrel 27 Aug.
-- Mailbox + site pricing now sourced from Neo's own sheet into `src/data/plans.json`, but the
-  reveal still renders no plan price — wiring it in is outstanding.
-- Handoff into Neo's funnel — not built. Their builder takes Business name (55) +
-  About the business (2000); we produce both. That's the integration point.
+- **The LLM profile call is still fixture-backed.** `VITE_LLM_MODE=replay` is the default and
+  `api/profile.ts` does not exist. Going live needs that endpoint plus an OpenAI key. Everything
+  else in the flow is live. This is the biggest remaining gap.
+- **Handoff not wired.** `src/lib/handoff.ts` builds the URL but the CTA is still inert.
+  Neo's funnel takes plain query params (`bn`, `bd`) — no new API needed.
+- **Design chooser.** Neo offers three variants; we call once and show one.
+- Sound cues — must ship muted-by-default with a visible toggle.
+- Python `analysis/` folder for the persona/retention numbers — not started.
+- Screen recordings and HARs live in `neo_flows/` and are **gitignored** (~100MB, contain
+  session tokens and the tester's email). Findings go in `docs/neo-product-facts.md`.
+
+**Sharing the deployment**
+Deployment Protection is ON. Use a **Shareable Link** (deployment page → Share), not the bare
+URL — the bare URL hits a Vercel login wall. Current link is in the outreach message to
+Moin/Darrel. Also: `neo-akinator.vercel.app` regenerates on every prod deploy and must be
+removed each time (trademarked name).
 
 **Open questions**
 - Squad registration status for Ignite (deadline was 21 Aug noon, unconfirmed).
-- Whether the Neo KR1 persona bullet has entered design/PM phase — the disqualification risk.
-  Ask directly in the PM meeting.
-_(Both resolved 28 Aug — see `docs/neo-product-facts.md`. The free domain is the `.co.site`
-subdomain; domain is upsold right after design selection and mail is upsold inside the editor
-at ₹100/mo.)_
-- `Spec: Site offering` (`NP/787382478`) describes a site upsell flow with plan selection —
+- Whether the Neo KR1 persona bullet (`NP/1697185794`) has entered design/PM phase — the
+  disqualification risk. Ask directly on Monday.
+- `Spec: Site offering` (`NP/787382478`) describes a site upsell flow *with plan selection* —
   read before claiming our recommendation flow is novel.
+
+_Resolved 28 Aug: the free domain is the `.co.site` subdomain; domain is upsold immediately
+after design selection and mail is upsold inside the editor at ₹100/mo; the signup gate falls
+after generation and before the editor._
 
 ## Two milestones — do not confuse them
 

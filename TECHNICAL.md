@@ -44,10 +44,13 @@ Strict mode requires `additionalProperties: false` and every property listed in 
 
 ### Credentials
 
-`flock-partner-analysis` uses an existing "AI summarizer" `OPENAI_API_KEY`. That key works for
-tomorrow's demo — **Ignite credentials are not a blocker for the PM meeting.** It is a shared
-work key on another project's billing, so: a handful of demo calls is fine, a load test is not.
-Mention the reuse to the PM rather than have it surface later.
+`flock-partner-analysis` uses an existing "AI summarizer" `OPENAI_API_KEY`. **Ignite credentials
+are not a blocker for the PM meeting** — that key would work. It is a shared work key on another
+project's billing, so: a handful of demo calls is fine, a load test is not. Mention the reuse
+rather than have it surface later.
+
+Not yet needed: the profile/guess step is still fixture-backed and `api/profile.ts` does not
+exist. Neo's site generator needs **no key at all**.
 
 For Ignite itself, the squad gets its own LLM plan plus $15 API credit.
 
@@ -113,8 +116,27 @@ Closed decisions. Reopen only with a reason that is not "it might look cooler".
 - **gRPC** — no native browser support; needs grpc-web plus an Envoy proxy.
 - **WebSockets** — the flow is turn-based request/response; adds connection state, fights serverless.
 
-## Domain availability
+## Domain availability and pricing
 
-RDAP: `https://rdap.org/domain/<name>` — free, no auth, registry standard.
-Caveat: tells you whether a domain is registered globally, **not** whether Neo sells that TLD.
-Neo's own domain search API would be better if granted. Not needed for the PM demo.
+**DomScan**, via our own `/api/domains`. Key is server-side only, in `.env.local`.
+
+RDAP (`rdap.org`) was built first and removed: DomScan's `/v1/status` is RDAP-backed anyway
+(`source: "rdap"`), costs 1 credit regardless of how many TLDs you batch, and returns
+availability *and* pricing through one integration.
+
+**Credit model — read before touching any query string.** From DomScan's own OpenAPI spec:
+
+| Endpoint | Cost |
+|---|---|
+| `/v1/status?name=X&tlds=a,b,c` | 1 per request — TLD count is free, so always batch |
+| `/v1/prices` **unfiltered** | 1 per TLD × registrar — fans out across ~25 registrars |
+| `/v1/prices?registrars=porkbun` | 1 per TLD |
+| `/v1/rdap` | 2 — worse than `/v1/status` for us |
+| `/v1/tlds`, `/v1/credits` | 0 |
+
+An unfiltered `?tlds=com,in,co` cost **78 credits** in testing. Always send `registrars=`.
+With that filter plus caching: cold 4 credits, new business 1, repeat 0.
+
+**The prices are NOT Neo's.** They are a third-party registrar's USD list price converted at a
+hardcoded 88 INR/USD. Labelled "approx" on screen. The right source is Neo's own domain search
+API, which needs function-head approval.

@@ -1,4 +1,7 @@
-# Demo script — PM viability check, 28 Aug 2026
+# Demo script — PM viability check
+
+_Originally 28 Aug; postponed to Monday. Re-read this before the meeting — the build moved a
+lot on 28 Aug (Neo's real generator is now wired in)._
 
 Runs locally: `npm run dev`, then http://localhost:5173. ~2 minutes.
 Rehearse once. The reveal takes about five seconds and the urge to fill that silence is strong.
@@ -107,7 +110,7 @@ anything — it works out what they need, then routes them in with it pre-filled
 
 **"Isn't this Chatbot V2?"**
 Chatbot V2 guides someone down a decision tree to complete a purchase. This produces something —
-a domain, mailboxes, drafted copy — before a purchase exists.
+a checked domain, mailboxes, a generated site — before a purchase exists.
 
 **"What if the model hallucinates a price, or a feature?"**
 It can't do either. The model returns a profile only. Plan selection is a rules table, domain
@@ -115,9 +118,10 @@ prices come from an API, and the feature highlights are a fixed bank of real Neo
 matched deterministically. Inventing a Neo feature is the one failure we designed out.
 
 **"Are those real prices?"**
-No, and say so plainly. They're third-party registrar list prices in USD converted at a fixed
-rate — labelled "approx" on screen. The right source is Neo's own domain search API. **Availability
-is genuinely live.**
+Split the answer. **Plan prices are yours** — read from your own pricing sheet, and the mapping
+from profile to plan is a rules table, not the model. **The domain price is not** — it's a
+third-party registrar's USD list price converted at a fixed rate, labelled "approx" on screen.
+The right source there is Neo's own domain search API. Domain *availability* is genuinely live.
 
 **"Aren't we chasing the low-retention cohort the strategy says to stop chasing?"**
 Concede part of it. Frame the tool as an intent *qualifier*: routes low-intent to free, high-intent
@@ -133,4 +137,6 @@ to seat bundles and annual billing. Maps to KR4 and the M3 retention metric.
   endpoint and a key. Domain lookup and **Neo's site generation are both genuinely live**.
 - **The site is Neo's content, not Neo's design.** We render their copy in our own card, and
   template choice isn't deterministic (see below). Don't say "this is the site they'll get".
-- **Mailbox pricing isn't sourced.** Site plans are (₹269/₹359/₹899); mailbox plans aren't.
+- **Pricing is now Neo's own**, from their internal sheet — mail (Lite/Starter/Standard/Max) and
+  site (Basic/Plus/Growth). The reveal shows a real total, e.g. "Neo Starter + Basic site ₹567/mo".
+  Only the *domain* price is third-party and labelled "approx".

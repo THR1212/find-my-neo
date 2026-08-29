@@ -54,17 +54,33 @@ For Ignite itself, the squad gets its own LLM plan plus $15 API credit.
 ## Architecture
 
 ```
-Browser (Vite/React)  ──POST──▶  api/*.ts (Vercel function)  ──▶  api/_lib/llm.ts
-                                                                    ├─ replay → src/data/replay/*.json
-                                                                    └─ live   → chat.completions
+Browser (Vite/React)
+  │
+  ├─ /api/neo-site  ─▶ api/_lib/neoSite.ts  ─▶ api.titan.email  (NEO'S OWN GENERATOR)
+  │                       └─ on failure: src/data/replay/neo-site.json (a REAL recording)
+  │
+  ├─ /api/domains   ─▶ api/_lib/domainService.ts ─▶ domscan.net   (key server-side only)
+  │                       └─ on failure: no badge, no price — never a wrong one
+  │
+  └─ buildProfile   ─▶ src/lib/api.ts
+                          ├─ replay (default) → src/data/replay/demo.json
+                          └─ live             → /api/profile  ← NOT BUILT YET
 ```
 
-The key never reaches the browser. Every model call goes through `complete()` in
-`api/_lib/llm.ts` — one function, so swapping provider or endpoint is a local change.
+**Both `/api/*` routes run on the Vercel Edge runtime**, declared explicitly. They are written
+against the Web API (`Request`/`Response`); the default Node runtime passes a bare path in
+`req.url` and `new URL()` throws `ERR_INVALID_URL`. This cannot be reproduced locally — the Vite
+dev middleware hands over a different request object — so deploy and hit the real endpoint before
+believing an API works.
 
-**Replay mode** (`LLM_MODE=replay`, the default) serves committed fixtures with a fake latency so
-it still feels like a real call. This is the demo path. Rationale: the reveal is the money shot,
-Ignite provides no hosting, and venue wifi is not a dependency worth accepting.
+**Everything degrades, nothing blocks.** Each external call has a defined failure path, and where
+the fallback could mislead we say so on screen ("offline — recorded earlier").
+
+**The site content is Neo's, not ours.** We stopped drafting site copy entirely. See
+`docs/neo-product-facts.md` for the three-call pipeline and its gotchas.
+
+**Replay mode** (`VITE_LLM_MODE=replay`, the default) still covers the profile/guess step, which
+is the one part not yet live.
 
 ## Deterministic plan mapping
 

@@ -15,6 +15,9 @@ they do.
 - [ ] `npm run dev` running, browser on the hook screen, full screen, notifications off
 - [ ] `.env.local` has `DOMSCAN_API_KEY` (domain availability is a **live** call — if it fails
       the reveal still renders, just without live badges)
+- [ ] **Internet.** Two live calls now: domain lookup, and **Neo's own site generator**. Both
+      degrade rather than break, but the site is the better demo when it's live.
+- [ ] Run the flow once ~5 minutes before, so Neo's response is cached and the wait is shorter
 - [ ] Scripted input on your clipboard — paste it, don't type it live
 - [ ] A second tab open on `neo.space/ai-website-builder`, already at the category step
 
@@ -66,8 +69,9 @@ On the second tab, at Neo's category step:
 | 6 | **Emails and contacts** | "This one's on evidence: import intent is the strongest retention signal in the persona data." |
 | 7 | **Email and a site** | — |
 | 8 | Reveal builds | *Silence.* |
-| 9 | After it lands | "Domain — checked live, that availability is a real lookup. Mailboxes. The drafted site. And two features picked for *them*, because they told us orders come through DMs." |
-| 10 | **Claim it and start building** | "And this is the point — it enters your existing funnel, just further along. Domain picked, mailboxes known, plan fitted. We don't build the site; you already do that, and you already own the checkout." |
+| 9 | Site block builds | "That's not my copy. We're calling Neo's own AI site builder, server to server, and showing what it returns — their headline, their product names, their photos. Takes about 25 seconds, which is their generator, not ours." |
+| 10 | After it lands | "Domain — checked live, real availability lookup. Mailboxes. Two features picked for *them*, because they said orders come through DMs. And the plan and price come from your own pricing sheet, not from the model." |
+| 11 | **Claim it and start building** | "And this is the point — it enters your existing funnel, just further along. Domain picked, mailboxes known, plan fitted. We don't build the site; you already do that, and you already own the checkout." |
 
 **The one rule: don't talk over the reveal.**
 
@@ -85,6 +89,17 @@ Not "is this good". Three things:
 ---
 
 ## Questions you should expect
+
+**"Is that really our generator?"**
+Yes — `POST api.titan.email/neo/generate/unauth`, server to server, no auth and no CAPTCHA. Same
+endpoint your own front end calls. Two things worth saying unprompted: I'm rendering the content
+in my own card rather than your template layout, and **template selection isn't stable**. The
+same bakery description has come back as seven different templates — fashion_store, property
+("Real Estate"), bio_site, offline_services, logistics, speciality_retail, creator. Two of those
+pairs had the *same* industryKey and still differed.
+
+That's the strongest version of the argument: the category step feeds the 5,318-values problem
+*and* steers a design choice that isn't stable anyway.
 
 **"How is this different from the builder?"**
 The builder starts once someone has decided to build a site. This starts before they've decided
@@ -114,6 +129,8 @@ to seat bundles and annual billing. Maps to KR4 and the M3 retention metric.
 
 - **Prices are indicative, not Neo's** — deliberate, rather than a number I couldn't verify.
 - **The handoff isn't built.** The CTA is inert. Integrating with the builder is the next real work.
-- **It runs off a recorded model response.** The live path exists; the demo uses a recorded one
-  so it can't fail on venue wifi. Domain lookup *is* live.
+- **The profile/guess step runs off a recorded response.** That one is not live yet — it needs an
+  endpoint and a key. Domain lookup and **Neo's site generation are both genuinely live**.
+- **The site is Neo's content, not Neo's design.** We render their copy in our own card, and
+  template choice isn't deterministic (see below). Don't say "this is the site they'll get".
 - **Mailbox pricing isn't sourced.** Site plans are (₹269/₹359/₹899); mailbox plans aren't.

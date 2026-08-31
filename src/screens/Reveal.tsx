@@ -284,6 +284,14 @@ export default function Reveal({
             {rec.rationale} {CYCLE_LABEL[rec.cycle]} · cancel anytime · you finish the site in
             Neo's builder
           </div>
+          {/* Neo does not sell custom domains yet — the only live options are the free
+              .co.site subdomain or connecting one you already own. This recommender is built
+              for the service that hasn't shipped. Saying so is stronger than hiding it: it is
+              the reason the project exists. */}
+          <div className="plan-meta plan-note">
+            We'll copy {domain.name} for you — Neo's domain purchase is coming, so for now
+            you'll connect it under "use a domain I own".
+          </div>
         </div>
         <div className="row" style={{ marginTop: 0 }}>
           {/* A real link into Neo's funnel, carrying the business name and description their
@@ -296,6 +304,14 @@ export default function Reveal({
             target="_blank"
             rel="noopener noreferrer"
             autoFocus
+            onClick={() => {
+              /* Copy the chosen domain on the way out. Neo's domain step has no param that
+                 prefills its search box (tested: none of domain/domainName/q/search/sld/
+                 searchTerm work), and "Use a domain I own" is a button opening a modal, so it
+                 isn't deep-linkable either. Copying is the only thing that saves the retype.
+                 Best-effort: clipboard can be denied, and the handoff must still happen. */
+              void navigator.clipboard?.writeText(domain.name).catch(() => {});
+            }}
           >
             Claim it and start building
           </a>

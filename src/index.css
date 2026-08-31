@@ -1180,3 +1180,10 @@ a.btn {
   justify-content: center;
   text-decoration: none;
 }
+
+/* The honest note under the plan line. Quieter than the rationale — it is a caveat, not a
+   selling point, but it must be readable. */
+.plan-note {
+  margin-top: 6px;
+  color: var(--text-faint);
+}

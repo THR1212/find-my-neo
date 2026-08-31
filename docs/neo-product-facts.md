@@ -491,3 +491,45 @@ returned URLs load (HTTP 200, `image/jpeg`, ~150 KB).
 That is everything needed to render Neo's actual generated design ourselves. No iframe, no auth,
 no CAPTCHA. Subject to the three caveats above — undocumented, unauthenticated *today*, and
 production, so keep volume low and mark it `neotest`.
+
+---
+
+## Neo does not sell custom domains yet — the constraint this project is built around
+
+**This is the most important product fact on this page.** Confirmed 31 Aug 2026.
+
+On production today, the domain step offers exactly two things:
+
+1. **A free `.co.site` subdomain** — "RECOMMENDED", "Get my FREE domain".
+2. **"Use a domain I own"** — connect a domain you have already registered elsewhere.
+
+There is **no custom-domain purchase**. You cannot buy `proofandbutter.com` from Neo.
+
+### What that means for us
+
+Our recommender suggests custom domains with prices, which Neo cannot fulfil today. That is
+deliberate: **the tool is built for the custom-domain service Neo hasn't launched.** When it
+ships, this integrates with it. Until then the handoff routes to "use a domain I own".
+
+State it plainly rather than hiding it — "here is what this does the day you turn custom
+domains on" is a stronger position than pretending it works now, and it is the reason the
+project exists at all.
+
+**Do not substitute `.co.site` to make the flow complete.** A free subdomain is not the product
+being recommended, and swapping it in would quietly change what the tool claims to do.
+
+### Handoff limitations, tested
+
+- **No query param prefills Neo's domain search box.** Tested `domain`, `domainName`, `q`,
+  `search`, `sld`, `searchTerm` — with a distinct probe value each and a no-param control.
+  All empty. (An earlier "success" was stored browser state, not the URL — a false positive
+  worth remembering.)
+- **"Use a domain I own" is a `<button>` opening a modal**, not a route. Not deep-linkable.
+- **A cold visitor may be bounced to `/site/industry`.** Fresh loads of
+  `/site/domain-selection` — even carrying `bn`, `bd` and `hasUsedAiFlow=true` — redirected
+  back to the category picker. Only a tab with existing Neo flow state stayed. So the handoff
+  is not guaranteed to hold for someone arriving cold; worth one more capture to pin down what
+  state it actually needs.
+
+Current mitigation: the CTA copies the chosen domain to the clipboard on click, and the reveal
+says so, so at least nobody retypes it.

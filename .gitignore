@@ -36,3 +36,10 @@ dist-ssr
 neo_flows/
 *.har
 *.webm
+
+# Bookmarklet output embeds the Vercel share token — keep it local.
+tools/bookmarklet/bookmarklet.txt
+
+# Raw source data — real customer records. Never commit.
+analysis/data/
+analysis/.venv/

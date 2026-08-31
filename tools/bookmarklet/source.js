@@ -8,10 +8,13 @@
  * Run tools/bookmarklet/build.mjs to turn this into the `javascript:` URL you drag to the
  * bookmarks bar. Edit this file, never the minified one.
  *
- * ── Why this opens a tab instead of an in-page overlay ────────────────────────────────────
- * An embedded overlay would be the better demo, and it does not work: with Vercel Deployment
- * Protection ON, the protection layer sends frame-blocking headers and the iframe dies with
- * "vercel.com refused to connect".
+ * ── Overlay vs tab, and the one thing that decides it ─────────────────────────────────────
+ * The in-page overlay works ONLY while Vercel Deployment Protection is OFF. With it on, the
+ * request is redirected to Vercel's login page, which sends `X-Frame-Options: DENY` and
+ * `frame-ancestors 'none'` — the iframe dies with "vercel.com refused to connect".
+ *
+ * (Neo does not block this. Their headers are `frame-ancestors 'self'` / `SAMEORIGIN`, which
+ * stop others embedding *them*; they place no restriction on what their page may embed.)
  *
  * An earlier version tried the iframe and fell back on failure. That fallback was broken —
  * it used the frame's `load` event as the success signal, but **a blocked frame still fires
@@ -35,9 +38,11 @@
      not a credential — regenerate it from the deployment's Share dialog if it leaks. */
   var TOKEN = "SzPTraioqbHBhOx4ahUsJVj8HpskjOrd";
   var URL_WITH_TOKEN = APP + "?_vercel_share=" + TOKEN;
-  /* Only set true if Vercel Deployment Protection is OFF — otherwise the frame is blocked and
-     you get a blank overlay with no way to detect it. See the header comment. */
-  var USE_OVERLAY = false;
+  /* TRUE because Vercel Deployment Protection is currently OFF (verified 31 Aug: the page
+     serves a direct 200 with no X-Frame-Options and no frame-ancestors).
+     If protection is ever turned back on, SET THIS BACK TO FALSE — the frame will be blocked
+     and there is no reliable way to detect that from script. See the header comment. */
+  var USE_OVERLAY = true;
   var ID = "fmn-root";
 
   /* Clicking the bookmarklet twice should reset, not stack two overlays. */

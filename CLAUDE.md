@@ -33,6 +33,7 @@ Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
    and repo name only, never on screen, in the deck, or in a page title. See `docs/naming.md`.
 2. **The LLM never decides price or plan.** It emits a structured profile object only.
    `src/lib/rules.ts` maps profile → plan deterministically. Pricing lives in `src/data/plans.json`.
+   Same for features: `src/lib/features.ts` is a fixed bank using Neo's own verbatim names.
 3. **No API key ever reaches the browser.** All model calls go through `api/*` serverless functions.
 4. **Every external call must degrade, never block.** Three of them now: the LLM (`api/_lib/llm.ts`,
    replay mode), Neo's site generator (`api/_lib/neoSite.ts`, falls back to a *recorded real*
@@ -59,11 +60,18 @@ Budget prompt-iteration time on the guess screen and the reveal only.
    The model *suggests* which to ask next; `engine.ts` overrules it if that signal is already
    resolved or the id isn't real. Stops when confident, or at 4. Different businesses get
    different paths.
+   Questions are **multi-select where the world is** (`question.multi`) and most carry a
+   **free-text box**. Free text alone resolves the signal — someone who types instead of
+   picking has still answered.
 5. The reveal — domain with priced alternates, mailboxes, **Neo's own generated site**,
    why-this-plan features, and the plan + real price quietly underneath
 
 **Do not reintroduce a fixed screen order.** The adaptivity is the product.
 The narrowing meter (5,318 → single digits) is the gamification and must stay visible throughout.
+
+**Never compare a profile value with `===`.** Multi-select means a value may be an array; use
+`has()` from `engine.ts`. A direct equality check silently stops matching and nothing fails
+loudly to tell you.
 
 Option sets on screens 3–4 should reuse Neo's real persona survey values rather than invented ones —
 continuity with existing data is a pitch asset. The values transcribed in handoff §4 are a starting
@@ -141,6 +149,11 @@ read `docs/neo-product-facts.md` before claiming anything about what Neo does._
   profile → plan deterministically. Reveal shows e.g. "Neo Starter + Basic site ₹567/mo".
 - **Feature highlights** — `src/lib/features.ts`, names taken verbatim from Neo's own
   catalogue (`static.flock.co/meta/plan/feature/config/en-US.json`).
+- **Multi-select questions + per-question free text** — see DECISIONS 31 Aug.
+- **Error + degradation reporting** — `/api/log` into Vercel runtime logs. Four layers, incl.
+  `reportDegraded` for the silent fallbacks. `npx vercel logs <url>`, grep `[client-error]`.
+- **Demo bookmarklet** — `tools/bookmarklet/`, injects our button onto Neo's real pricing page
+  and opens the app as an in-page overlay.
 - **Neo brand skin** — Poppins, `#0066FF`, white, brand gradient.
 - Vercel project `hari-7720/find-my-neo`, GitHub auto-deploy connected, both API routes on the
   **Edge runtime** (required — see DECISIONS).
@@ -159,10 +172,13 @@ read `docs/neo-product-facts.md` before claiming anything about what Neo does._
   session tokens and the tester's email). Findings go in `docs/neo-product-facts.md`.
 
 **Sharing the deployment**
-Deployment Protection is ON. Use a **Shareable Link** (deployment page → Share), not the bare
-URL — the bare URL hits a Vercel login wall. Current link is in the outreach message to
-Moin/Darrel. Also: `neo-akinator.vercel.app` regenerates on every prod deploy and must be
-removed each time (trademarked name).
+**Deployment Protection is now OFF** (31 Aug) — the bare URL works for anyone, and that is what
+makes the bookmarklet's in-page overlay possible. If it is ever turned back on, also set
+`USE_OVERLAY = false` in `tools/bookmarklet/source.js` or the demo shows a dead white overlay
+with no way for the script to detect it.
+
+`neo-akinator.vercel.app` regenerates on every prod deploy and must be removed each time
+(trademarked name): `npx vercel alias rm neo-akinator.vercel.app --yes`.
 
 **Open questions**
 - Squad registration status for Ignite (deadline was 21 Aug noon, unconfirmed).

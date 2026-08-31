@@ -43,11 +43,15 @@ over Instagram."*
 allowed to make people wait — waiting to *read* something is different from waiting to be shown
 something. Currently runs off a saved answer, not a live model call.
 
-### 4. Adaptive questions (up to 4)
+### 4. Adaptive questions (up to 4, multi-select)
 `engine.ts` picks whichever unresolved question narrows the most. The model *suggests* what to
 ask next; the engine overrules it if that's already answered or the id is fake.
 
 **Remember:**
+- Some questions take **several answers at once** — people really do use Gmail *and* Outlook.
+  Others stay single (headcount, mail-vs-site) because the options are genuinely exclusive.
+- Most have a **free-text box**, and typing alone counts as an answer. Neo's own survey does
+  the same thing, and that's where their interesting answers live.
 - The model makes it feel intelligent. It cannot break it. That separation is deliberate.
 - Two different businesses get two different question paths — Neo's picker structurally can't.
 - It stops when confident, not at a fixed count. Hence "a few questions", never a number.
@@ -93,6 +97,9 @@ where a fallback could mislead, the screen says so.
 A working, deployed prototype that does one thing genuinely well: it takes a sentence and returns
 a personalised, mostly-real setup. Live domain availability, live site generation from Neo's own
 API, real Neo pricing, deterministic plan and feature logic.
+
+**Now also true:** crashes and silent degradations report into Vercel's logs, and a bookmarklet
+puts the entry button on Neo's real pricing page so the demo shows it where it would live.
 
 **Honest gaps:**
 - The profile/guess step is still a saved answer. Everything else is live.

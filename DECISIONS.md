@@ -518,3 +518,85 @@ Removed twice now; Vercel recreates it from the original project name each time.
 Deployment Protection so nobody can reach it, but the trademarked name should not sit on a URL.
 The permanent fix is in the dashboard's Domains settings, not the CLI. Until then, remove it
 after each production deploy: `npx vercel alias rm neo-akinator.vercel.app --yes`.
+
+---
+
+### 2026-08-31 · Questions are multi-select, with a free-text box on most
+
+Two changes to the question screens, and they belong together.
+
+**Multi-select where the world is multi-select.** `question.multi` decides per question. True
+for "where do customers reach you" and "what do you use for mail" — people genuinely take
+orders on Instagram *and* over the phone, and genuinely use Gmail *and* Outlook. False for
+headcount and mail-vs-site, where the options really are exclusive. Forcing one answer
+everywhere gives a tidier dataset and a worse profile.
+
+**A free-text box under the options.** Neo's own persona survey has "Others (free text)" on its
+multi-selects, and ~6.6% of their Q1 answers land there. It is also the only place after screen
+one where someone can tell us something we didn't think to ask.
+
+Free text alone is a valid answer: type without picking anything and the signal counts as
+resolved, so the engine won't ask again. Someone who writes "we sell at weekend markets" has
+told us more than any option would have.
+
+**The trap this created, and the fix.** Multi-select means a profile value can now be an
+ARRAY. Every `p.customerChannel === "social"` in `features.ts` and `rules.ts` would have
+silently stopped matching, with nothing failing loudly to say so. All of them now go through
+`has()` in `engine.ts`, which handles scalar and array. **Never compare a profile value with
+`===` again** — use `has()`.
+
+---
+
+### 2026-08-31 · Client error and degradation reporting
+
+The app is on a public link people open unattended, so a crash was previously a blank page
+nobody heard about. Four layers now report to `/api/log`, which writes one greppable line into
+Vercel's runtime logs (`npx vercel logs <url>`):
+
+| Source | Catches |
+|---|---|
+| `window.onerror` | any uncaught JS error |
+| `unhandledrejection` | failed promises / async errors |
+| `ErrorBoundary` | React **render** crashes — the other two miss these entirely |
+| **`reportDegraded`** | silent fallbacks |
+
+**The last one matters most.** The app swallows failures on purpose — `domains.ts` returns `[]`,
+`neoSite.ts` falls back to the recorded fixture. Without this, Neo's generator could be down for
+every visitor and we would cheerfully serve the bakery fixture forever, looking perfectly fine.
+Verified by simulating an outage; it logged `degraded: neo-site unreachable`.
+
+Three guards so telemetry can never become the problem: deduped by message, capped at 8 per
+session (a render loop must not flood the log), and `keepalive` so a report survives the page
+dying. It never throws.
+
+Bare `"Script error."` reports are dropped — that is cross-origin extension noise (Grammarly,
+`chrome.runtime`), not us.
+
+No Sentry, deliberately. If this ever needs to be more than "tell me it broke", use Sentry —
+which is what Neo themselves run (`sentry.eks.ops.titan.email` appears throughout their HARs).
+
+---
+
+### 2026-08-31 · Demo bookmarklet, and the framing saga
+
+`tools/bookmarklet/` injects our entry point onto Neo's **real** pricing page. That placement is
+the deployment story, and showing it beats describing it.
+
+**The overlay works only while Vercel Deployment Protection is OFF** (currently off). With it on,
+the request is redirected to Vercel's login page, which sends `X-Frame-Options: DENY` and
+`frame-ancestors 'none'`. `USE_OVERLAY` in `source.js` must be flipped back to `false` if
+protection is ever re-enabled.
+
+**Neo does not block this.** Their headers are `frame-ancestors 'self'` / `SAMEORIGIN`, which
+stop others embedding *them*; they place no restriction on what their page may embed. Verified
+by header trace, after wrongly assuming otherwise twice.
+
+**A mistake worth recording.** An earlier version tried the iframe and "fell back" on failure,
+using the frame's `load` event as the success signal. **A blocked frame still fires `load`** — so
+the failure was never detected, the test falsely passed, and the user got a dead white overlay.
+There is no reliable cross-origin way to distinguish "my app rendered" from "the error page
+rendered". The honest fix was to stop guessing and gate on a flag.
+
+Two demo-day notes: Neo's pricing page fires an **exit-intent modal** with a dark backdrop that
+will cover the button — the bookmarklet sets `site_last_exit_intent_shown_at` to suppress it.
+And injected JS does not survive a page reload.

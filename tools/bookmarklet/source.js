@@ -8,14 +8,20 @@
  * Run tools/bookmarklet/build.mjs to turn this into the `javascript:` URL you drag to the
  * bookmarks bar. Edit this file, never the minified one.
  *
- * ── Why it tries an overlay and then gives up on it ───────────────────────────────────────
- * With Vercel Deployment Protection on, the share link sets `_vercel_jwt` with `SameSite=Lax`.
- * Lax cookies are NOT sent on cross-site iframe requests, so an embedded overlay loads the
- * Vercel auth wall instead of our app. Top-level navigation is unaffected.
+ * ── Why this opens a tab instead of an in-page overlay ────────────────────────────────────
+ * An embedded overlay would be the better demo, and it does not work: with Vercel Deployment
+ * Protection ON, the protection layer sends frame-blocking headers and the iframe dies with
+ * "vercel.com refused to connect".
  *
- * So: we attempt the overlay, and if the frame hasn't proven itself alive quickly we fall back
- * to opening a tab. If you turn Deployment Protection off, the overlay just starts working —
- * no change needed here.
+ * An earlier version tried the iframe and fell back on failure. That fallback was broken —
+ * it used the frame's `load` event as the success signal, but **a blocked frame still fires
+ * `load`**, so the failure was never detected and the user got a dead white overlay. There is
+ * no reliable cross-origin way to tell "my app rendered" from "the error page rendered", so
+ * the honest fix is not to guess.
+ *
+ * If you turn Deployment Protection off (project → Settings → Deployment Protection), the page
+ * becomes publicly reachable and the overlay becomes possible again — flip USE_OVERLAY below.
+ * Leave it false while protection is on.
  *
  * ── Safety ───────────────────────────────────────────────────────────────────────────────
  * Runs only on a page you deliberately clicked it on. It injects a button and an overlay and
@@ -29,6 +35,9 @@
      not a credential — regenerate it from the deployment's Share dialog if it leaks. */
   var TOKEN = "SzPTraioqbHBhOx4ahUsJVj8HpskjOrd";
   var URL_WITH_TOKEN = APP + "?_vercel_share=" + TOKEN;
+  /* Only set true if Vercel Deployment Protection is OFF — otherwise the frame is blocked and
+     you get a blank overlay with no way to detect it. See the header comment. */
+  var USE_OVERLAY = false;
   var ID = "fmn-root";
 
   /* Clicking the bookmarklet twice should reset, not stack two overlays. */
@@ -71,6 +80,11 @@
   }
 
   cta.addEventListener("click", function () {
+    if (!USE_OVERLAY) {
+      openTab();
+      return;
+    }
+
     var overlay = document.createElement("div");
     overlay.className = "fmn-overlay";
 
@@ -92,20 +106,5 @@
     requestAnimationFrame(function () {
       overlay.classList.add("on");
     });
-
-    /* Cross-origin means we cannot inspect the frame's contents to see whether it rendered our
-       app or Vercel's auth wall. So we use load-timing as the signal: our app loads fast, and a
-       protection redirect either never fires `load` in time or lands somewhere unusable.
-       Crude, but it fails toward the path that always works. */
-    var settled = false;
-    frame.addEventListener("load", function () {
-      settled = true;
-    });
-    setTimeout(function () {
-      if (settled) return;
-      overlay.remove();
-      close.remove();
-      openTab();
-    }, 3500);
   });
 })();

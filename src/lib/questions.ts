@@ -41,6 +41,23 @@ export interface Question {
   sub?: string;
   options: QuestionOption[];
   /**
+   * Multi-select. True for anything where more than one answer is genuinely true at once —
+   * people really do take orders on Instagram AND over the phone, and really do use Gmail
+   * AND Outlook. Forcing one answer there produces a tidier dataset and a worse profile.
+   *
+   * This also matches Neo's own persona survey, where "Why are you signing up?" and "What do
+   * you use today?" are both multi-select. Continuity with their data is a pitch asset.
+   *
+   * Leave false where the options are mutually exclusive (team size, mail-only vs mail+site).
+   */
+  multi?: boolean;
+  /**
+   * Free-text box under the options. Neo's survey has "Others (free text)" on its multi-selects
+   * and it is where the interesting answers live — 6.6% of their Q1 responses. It is also the
+   * only place in the flow after screen 1 where someone can say something we didn't anticipate.
+   */
+  freeText?: { placeholder: string };
+  /**
    * How much this narrows the space, 0-1. Drives the confidence ring and the
    * "possible setups" counter. Ordered by real predictive value where we have it:
    * import intent is the strongest retention signal in the persona data.
@@ -55,6 +72,8 @@ export const QUESTIONS: Question[] = [
     prompt: "Bringing anything with you?",
     sub: "If your mail or contacts live somewhere else, we can move them across.",
     weight: 0.3,
+    /* Single: "start fresh" and "import emails" cannot both be true. */
+    freeText: { placeholder: "Something else you'd want moved across?" },
     options: [
       { id: "none", label: "No, I'll start fresh", resolves: { importIntent: "none" } },
       { id: "emails", label: "Yes, my emails", resolves: { importIntent: "emails" } },
@@ -68,6 +87,7 @@ export const QUESTIONS: Question[] = [
     prompt: "What needs standing up first?",
     sub: "You can add the other half later — nothing here is permanent.",
     weight: 0.25,
+    /* Single: the two options are the whole space, and "both" is already one of them. */
     options: [
       {
         id: "mail",
@@ -87,8 +107,10 @@ export const QUESTIONS: Question[] = [
     id: "channel",
     signal: "customerChannel",
     prompt: "Where do customers reach you today?",
-    sub: "Be honest — most people say Instagram.",
+    sub: "Pick all that apply — most people have more than one.",
     weight: 0.2,
+    multi: true,
+    freeText: { placeholder: "Somewhere else? WhatsApp, a marketplace, word of mouth…" },
     options: [
       { id: "social", label: "Social DMs", hint: "Instagram, WhatsApp, Facebook", resolves: { customerChannel: "social" } },
       { id: "personal", label: "A personal email address", resolves: { customerChannel: "personal_email" } },
@@ -100,8 +122,10 @@ export const QUESTIONS: Question[] = [
     id: "client",
     signal: "currentClient",
     prompt: "What do you use for mail right now?",
-    sub: "So we know what an import would involve.",
+    sub: "Pick all that apply.",
     weight: 0.2,
+    multi: true,
+    freeText: { placeholder: "Something else? Zoho, Proton, your host's webmail…" },
     options: [
       { id: "gmail", label: "Gmail", resolves: { currentClient: "gmail" } },
       { id: "outlook", label: "Outlook", resolves: { currentClient: "outlook" } },
@@ -115,6 +139,7 @@ export const QUESTIONS: Question[] = [
     prompt: "How many of you are there?",
     sub: "This decides how many mailboxes we set up.",
     weight: 0.15,
+    /* Single: a headcount is one number. */
     options: [
       { id: "1", label: "Just me", resolves: { teamSize: 1 } },
       { id: "2", label: "Two of us", resolves: { teamSize: 2 } },
@@ -128,6 +153,7 @@ export const QUESTIONS: Question[] = [
     prompt: "Do people pay you online?",
     sub: "Changes what your site needs to do.",
     weight: 0.15,
+    freeText: { placeholder: "Anything else about how you get paid?" },
     options: [
       { id: "yes", label: "Yes, I take orders or payments", resolves: { sellsOnline: true } },
       { id: "enquiry", label: "No — they enquire, then we arrange it", resolves: { sellsOnline: false } },

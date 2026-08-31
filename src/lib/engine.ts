@@ -23,12 +23,37 @@ export const STARTING_SETUPS = 5318;
 /** Floor, so the counter lands on something concrete rather than 1. */
 const FLOOR_SETUPS = 3;
 
-export type Profile = Record<string, string | number | boolean | null>;
+/**
+ * Profile values.
+ *
+ * A value may be an ARRAY once multi-select questions landed — someone can genuinely take
+ * orders on Instagram *and* over the phone. Never compare a profile value with `===` directly;
+ * use `has()` below, which handles both shapes.
+ */
+export type ProfileValue = string | number | boolean | null | string[];
+export type Profile = Record<string, ProfileValue>;
+
+/**
+ * Does this profile hold `value` for `key`?
+ *
+ * The one place that knows a value might be scalar or array. Every matcher in features.ts and
+ * rules.ts goes through this — a stray `p.customerChannel === "social"` silently stops matching
+ * the moment that question becomes multi-select, and nothing fails loudly to tell you.
+ */
+export function has(p: Profile, key: string, value: unknown): boolean {
+  const v = p[key];
+  return Array.isArray(v) ? v.includes(value as string) : v === value;
+}
+
+/** Free text a person typed on a question screen, keyed by question id. */
+export type FreeTextAnswers = Record<string, string>;
 
 export interface EngineState {
   profile: Profile;
   /** Question ids already answered, in order. */
   asked: string[];
+  /** Anything typed into a question's free-text box, by question id. */
+  freeText: FreeTextAnswers;
 }
 
 /** A signal counts as resolved once the profile carries a non-null value for it. */
@@ -112,16 +137,51 @@ export function shouldReveal(state: EngineState): boolean {
   return state.asked.length >= 2 && confidence(state.profile) >= CONFIDENT_ENOUGH;
 }
 
+/**
+ * Apply one or more selected options, plus any free text.
+ *
+ * Multi-select merges values into an array under the same key rather than letting the last
+ * click win — "Gmail and Outlook" has to survive as both, or the whole point of allowing it
+ * is lost. Single-select keeps the scalar so existing consumers stay simple.
+ */
 export function applyAnswer(
   state: EngineState,
   questionId: string,
-  optionId: string,
+  optionIds: string[],
+  freeText?: string,
 ): EngineState {
   const q = QUESTION_BY_ID.get(questionId);
-  const opt = q?.options.find((o) => o.id === optionId);
-  if (!q || !opt) return state;
+  if (!q) return state;
+
+  const chosen = q.options.filter((o) => optionIds.includes(o.id));
+  const profile: Profile = { ...state.profile };
+
+  for (const opt of chosen) {
+    for (const [k, v] of Object.entries(opt.resolves)) {
+      if (!q.multi) {
+        profile[k] = v;
+        continue;
+      }
+      const prev = profile[k];
+      if (Array.isArray(prev)) {
+        if (!prev.includes(String(v))) profile[k] = [...prev, String(v)];
+      } else if (prev === undefined || prev === null) {
+        profile[k] = [String(v)];
+      } else {
+        profile[k] = [String(prev), String(v)];
+      }
+    }
+  }
+
+  /* Free text alone resolves the signal too. Someone who skips the options and types
+     "we sell at weekend markets" has told us more than any option would have, and the
+     engine must not ask the same question again. */
+  const typed = freeText?.trim();
+  if (typed && chosen.length === 0) profile[q.signal] = typed;
+
   return {
-    profile: { ...state.profile, ...opt.resolves },
+    profile,
     asked: [...state.asked, questionId],
+    freeText: typed ? { ...state.freeText, [questionId]: typed } : state.freeText,
   };
 }

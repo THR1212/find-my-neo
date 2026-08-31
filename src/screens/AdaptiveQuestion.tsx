@@ -1,12 +1,23 @@
+import { useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import type { Question } from "../lib/questions";
 
 /**
- * One question, whichever the engine chose. Replaces the old fixed Import/Surface screens.
+ * One question, whichever the engine chose.
  *
- * The "why we're asking" line matters more than it looks: it is the difference between a
- * form interrogating you and a tool reasoning out loud. It is also where the retention
- * evidence surfaces to the user without becoming a statistics lesson.
+ * Two things here are deliberate and worth not undoing:
+ *
+ * **Multi-select where the world is multi-select.** People genuinely take orders on Instagram
+ * *and* over the phone, and genuinely use Gmail *and* Outlook. Forcing one answer gives a
+ * tidier dataset and a worse profile. `question.multi` decides per question — headcount and
+ * mail-vs-site stay single, because those options really are exclusive.
+ *
+ * **A free-text box on most questions.** Neo's own persona survey has "Others (free text)" on
+ * its multi-selects, and that is where the interesting answers live. It is also the only place
+ * after screen 1 where someone can tell us something we didn't think to ask.
+ *
+ * The "why we're asking" subline matters more than it looks: it is the difference between a
+ * form interrogating someone and a tool reasoning out loud.
  */
 export default function AdaptiveQuestion({
   question,
@@ -15,32 +26,102 @@ export default function AdaptiveQuestion({
 }: {
   question: Question;
   step: number;
-  onAnswer: (questionId: string, optionId: string) => void;
+  onAnswer: (questionId: string, optionIds: string[], freeText?: string) => void;
 }) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const [text, setText] = useState("");
+
+  const multi = question.multi === true;
+
+  function choose(optionId: string) {
+    if (!multi) {
+      // Single-select keeps the old one-tap feel — no Continue button needed.
+      onAnswer(question.id, [optionId], text.trim() || undefined);
+      return;
+    }
+    setPicked((prev) =>
+      prev.includes(optionId) ? prev.filter((id) => id !== optionId) : [...prev, optionId],
+    );
+  }
+
+  function submit(e?: FormEvent) {
+    e?.preventDefault();
+    // Free text alone is a valid answer — the engine treats it as resolving the signal.
+    if (picked.length === 0 && !text.trim()) return;
+    onAnswer(question.id, picked, text.trim() || undefined);
+  }
+
+  const canContinue = picked.length > 0 || text.trim().length > 0;
+
   return (
-    <div key={question.id}>
-      {/* No "of N" — the engine stops early when it's confident, so a denominator would be
-          a promise we might not keep. The narrowing meter already shows progress, and it
-          shows something more interesting than a count. */}
+    <form onSubmit={submit} key={question.id}>
+      {/* No "of N" — the engine stops early when confident, so a denominator would be a
+          promise we might not keep. The narrowing meter already shows progress. */}
       <p className="eyebrow">Question {step}</p>
       <h1>{question.prompt}</h1>
       {question.sub && <p className="lede">{question.sub}</p>}
 
-      <div className="options">
-        {question.options.map((opt, i) => (
-          <motion.button
-            key={opt.id}
-            className="option"
-            onClick={() => onAnswer(question.id, opt.id)}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 * i, duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
-          >
-            {opt.label}
-            {opt.hint && <span className="option-hint">{opt.hint}</span>}
-          </motion.button>
-        ))}
+      <div className="options" role={multi ? "group" : undefined}>
+        {question.options.map((opt, i) => {
+          const on = picked.includes(opt.id);
+          return (
+            <motion.button
+              key={opt.id}
+              type="button"
+              className={`option${on ? " option-on" : ""}`}
+              onClick={() => choose(opt.id)}
+              aria-pressed={multi ? on : undefined}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 * i, duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {multi && (
+                <span className="option-check" aria-hidden="true">
+                  {on ? "✓" : ""}
+                </span>
+              )}
+              <span className="option-body">
+                {opt.label}
+                {opt.hint && <span className="option-hint">{opt.hint}</span>}
+              </span>
+            </motion.button>
+          );
+        })}
       </div>
-    </div>
+
+      {question.freeText && (
+        <motion.input
+          className="field field-inline"
+          type="text"
+          value={text}
+          placeholder={question.freeText.placeholder}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submit();
+          }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 * question.options.length, duration: 0.38 }}
+        />
+      )}
+
+      {/* Multi-select needs an explicit commit; single-select advances on tap. The button also
+          appears for single-select questions that have a free-text box, so typing alone can be
+          submitted without picking anything. */}
+      {(multi || question.freeText) && (
+        <div className="row">
+          <button className="btn" type="submit" disabled={!canContinue}>
+            Continue
+          </button>
+          <span className="hint">
+            {multi
+              ? picked.length
+                ? `${picked.length} selected`
+                : "Pick as many as apply"
+              : "Or just tell us"}
+          </span>
+        </div>
+      )}
+    </form>
   );
 }

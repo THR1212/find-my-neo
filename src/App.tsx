@@ -29,7 +29,7 @@ const variants = {
   exit: { opacity: 0, y: -14 },
 };
 
-const emptyEngine: EngineState = { profile: {}, asked: [] };
+const emptyEngine: EngineState = { profile: {}, asked: [], freeText: {} };
 
 export default function App() {
   const [stage, setStage] = useState<Stage>("hook");
@@ -103,8 +103,8 @@ export default function App() {
    * question it already asked. State updaters must stay pure — the routing decision belongs here.
    */
   const answer = useCallback(
-    (questionId: string, optionId: string) => {
-      const next = applyAnswer(engine, questionId, optionId);
+    (questionId: string, optionIds: string[], freeText?: string) => {
+      const next = applyAnswer(engine, questionId, optionIds, freeText);
       setPreferredQuestionId(null); // consumed; engine picks from here on
       setEngine(next);
       setStage(shouldReveal(next) ? "reveal" : "question");

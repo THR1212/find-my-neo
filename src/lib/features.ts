@@ -33,7 +33,7 @@
  *   `neo_site`     = "AI-powered site builder"    -> one-page (asset is one_page_site.png)
  */
 
-import type { Profile } from "./engine";
+import { has, type Profile } from "./engine";
 
 export type FeatureSurface = "mail" | "site";
 
@@ -55,7 +55,9 @@ export interface Feature {
   priority: number;
 }
 
-const is = (p: Profile, k: string, v: unknown) => p[k] === v;
+/* Delegates to engine.has() because a profile value may be an ARRAY once the question is
+   multi-select. A direct `p[k] === v` silently stops matching and nothing tells you. */
+const is = (p: Profile, k: string, v: unknown) => has(p, k, v);
 
 export const FEATURES: Feature[] = [
   {
@@ -63,7 +65,7 @@ export const FEATURES: Feature[] = [
     name: "One-click import of existing emails & contacts",
     surface: "mail",
     because: "your existing mail comes across, so nothing is lost in the move",
-    matches: (p) => p.importIntent !== undefined && p.importIntent !== "none",
+    matches: (p) => p.importIntent !== undefined && !is(p, "importIntent", "none"),
     priority: 10,
   },
   {

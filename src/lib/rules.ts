@@ -11,7 +11,7 @@
  */
 
 import plansData from "../data/plans.json";
-import type { Profile } from "./engine";
+import { has, type Profile } from "./engine";
 
 export type BillingCycle = "monthly" | "quarterly" | "yearly" | "twoYearly" | "fourYearly";
 
@@ -68,8 +68,10 @@ function chooseCycle(profile: Profile): BillingCycle {
 function chooseMailPlan(profile: Profile, mailboxes: number): MailPlanJson {
   // Solo, no import, no site — Lite is genuinely enough, and saying so builds trust.
   const solo = mailboxes <= 1;
-  const importing = profile.importIntent !== undefined && profile.importIntent !== "none";
-  if (solo && !importing && profile.surface === "mail") return byId(MAIL, "lite");
+  /* has() rather than === : multi-select answers arrive as arrays. */
+  const importing =
+    profile.importIntent !== undefined && !has(profile, "importIntent", "none");
+  if (solo && !importing && has(profile, "surface", "mail")) return byId(MAIL, "lite");
 
   // Bigger teams get more storage and the fuller feature set.
   if (mailboxes >= 5) return byId(MAIL, "standard");
@@ -78,9 +80,9 @@ function chooseMailPlan(profile: Profile, mailboxes: number): MailPlanJson {
 }
 
 function chooseSitePlan(profile: Profile): SitePlanJson | null {
-  if (profile.surface === "mail") return null;
+  if (has(profile, "surface", "mail")) return null;
   // Selling online means products, images and a contact path — Basic's 1 GB gets tight.
-  if (profile.sellsOnline === true) return byId(SITE, "plus");
+  if (has(profile, "sellsOnline", true)) return byId(SITE, "plus");
   return byId(SITE, "basic");
 }
 
@@ -114,7 +116,7 @@ function buildRationale(
 ): string {
   const who = mailboxes === 1 ? "One mailbox" : `${mailboxes} mailboxes`;
   if (mailPlan.id === "lite") return `${who} is all you need for now — you can add more later.`;
-  if (profile.importIntent && profile.importIntent !== "none")
+  if (profile.importIntent && !has(profile, "importIntent", "none"))
     return `${who}, with your existing mail brought across.`;
   if (sitePlan) return `${who} plus a one-page site, on your own domain.`;
   return `${who} on your own domain.`;

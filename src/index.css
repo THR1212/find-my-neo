@@ -1115,3 +1115,59 @@ h1 {
   color: var(--highlight, #b8860b);
   font-weight: 500;
 }
+
+/* --- Multi-select options + inline free text ----------------------------- */
+/* Options are checkboxes when the question is multi-select, so the selected state has to be
+   unmistakable — people need to see what they've picked before they hit Continue. */
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.option-check {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: transparent;
+  background: var(--bg-raised);
+  transition: background 0.16s var(--ease-out), border-color 0.16s var(--ease-out),
+    color 0.16s var(--ease-out);
+}
+
+.option-body {
+  display: block;
+}
+
+.option-on {
+  border-color: var(--accent);
+  background: var(--bg-sunken);
+}
+
+.option-on .option-check {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* The "or just tell us" box. Visually quieter than the options — it is an escape hatch,
+   not the primary path, and it should not compete with them for attention. */
+.field-inline {
+  margin-top: 12px;
+  font-size: clamp(14px, 0.5vw + 13px, 15px);
+  padding: clamp(11px, 1.6vh, 13px) clamp(14px, 1.8vw, 16px);
+  border-radius: var(--radius);
+  background: transparent;
+}
+
+.field-inline:focus {
+  background: var(--bg-raised);
+}

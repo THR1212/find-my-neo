@@ -163,9 +163,9 @@ read `docs/neo-product-facts.md` before claiming anything about what Neo does._
 - **The LLM profile call is still fixture-backed.** `VITE_LLM_MODE=replay` is the default and
   `api/profile.ts` does not exist. Going live needs that endpoint plus an OpenAI key. Everything
   else in the flow is live. This is the biggest remaining gap.
-- **Handoff not wired.** `src/lib/handoff.ts` builds the URL but the CTA is still inert.
-  Neo's funnel takes plain query params (`bn`, `bd`) — no new API needed.
-- **Design chooser.** Neo offers three variants; we call once and show one.
+- **Design chooser** — Neo returns three variants; we call once and show one. This is probably
+  the best remaining demo beat.
+
 - Sound cues — must ship muted-by-default with a visible toggle.
 - Python `analysis/` folder for the persona/retention numbers — not started.
 - Screen recordings and HARs live in `neo_flows/` and are **gitignored** (~100MB, contain

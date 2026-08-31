@@ -7,7 +7,7 @@ import { recommend, CYCLE_LABEL } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
 import NeoSitePreview from "../components/NeoSitePreview";
 import NeoSiteGenerating from "../components/NeoSiteGenerating";
-import type { NeoSite } from "../lib/neoSite";
+import { block as blockData, type NeoSite } from "../lib/neoSite";
 import type { Profile } from "../lib/engine";
 
 /**
@@ -124,13 +124,21 @@ export default function Reveal({
 
   /**
    * The real handoff URL. Neo's funnel takes plain query params — no encoder, no signing —
-   * so we can drop someone in with `bn` and `bd` already filled. We deliberately send the
-   * business NAME derived from the chosen domain rather than the raw description, because
-   * that is the field their builder expects (55 char cap, enforced in handoff.ts).
-   */
+   * so we drop someone in with `bn` and `bd` already filled.
+   *
+   * `bn` prefers the business name NEO ITSELF extracted from the description (the header block
+   * of their generated site, e.g. "Proof & Butter Bakery"). That beats our domain slug — Neo's
+   * builder wants a readable name, and handing back the one their own model produced means the
+   * name they see next is the name they just saw. Slug is the fallback if generation hasn't
+   * landed. 55 char cap enforced in handoff.ts, matching their field limit. */
+  const neoName =
+    neoSite && typeof (blockData(neoSite, "header") as { title?: unknown })?.title === "string"
+      ? ((blockData(neoSite, "header") as { title: string }).title)
+      : null;
+
   const handoffUrl = buildHandoffUrl({
     profile,
-    businessName: (profile.brandName as string) ?? domain.name.split(".")[0],
+    businessName: neoName ?? (profile.brandName as string) ?? domain.name.split(".")[0],
     businessDescription: businessText ?? "",
   });
 

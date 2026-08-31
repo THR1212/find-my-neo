@@ -600,3 +600,38 @@ rendered". The honest fix was to stop guessing and gate on a flag.
 Two demo-day notes: Neo's pricing page fires an **exit-intent modal** with a dark backdrop that
 will cover the button — the bookmarklet sets `site_last_exit_intent_shown_at` to suppress it.
 And injected JS does not survive a page reload.
+
+---
+
+### 2026-08-31 · CTA is a real handoff; timeouts raised for venue wifi
+
+**The CTA now works.** It is an `<a>` to `join.neo.space/site/domain-selection` carrying `bn`,
+`bd`, `industryKey`, `source_hook=purchaseFlow` and `utm_content=neotest` so Neo can filter our
+traffic. Still an anchor a person clicks, never a scripted redirect (CLAUDE.md rule 5), and
+`target="_blank"` so the demo doesn't navigate away from the reveal mid-pitch.
+
+`bn` prefers **the business name Neo's own generator extracted** — the header block of the
+generated site, e.g. "Proof & Butter Bakery" — over our domain slug. Their builder wants a
+readable name, and handing back the one their model produced means the name they see next is
+the name they just saw. Verified live.
+
+**Timeouts raised: client 45s → 90s, server `sc` call 60s → 80s.** Generation measures 22–38s,
+so 45s left almost no margin, and hackathon venue wifi eats margin. Falling back shows the
+*recorded bakery* response to someone who typed a different business — the single most visible
+way this can embarrass itself in front of judges. Waiting is strictly better than being wrong,
+and Neo's own loader copy makes the wait read as intentional.
+
+---
+
+### 2026-08-31 · Repo renamed to `find-my-neo`
+
+Was `neo-akinator`. The earlier reasoning — renaming a remote mid-project breaks clones for no
+benefit — was outweighed once the deployment link went public: a trademarked name sitting in a
+public repo URL is exactly the exposure `docs/naming.md` exists to prevent.
+
+GitHub redirects the old URL, so existing clones keep working. Run
+`git remote set-url origin https://github.com/THR1212/find-my-neo.git` to stop relying on it.
+The local folder is still `Projects/neo-akinator` — harmless, nobody outside sees it.
+
+The **Vercel alias** `neo-akinator.vercel.app` is a separate thing and still regenerates on
+every production deploy; keep removing it.

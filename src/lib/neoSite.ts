@@ -13,6 +13,7 @@
  */
 
 import fixture from "../data/replay/neo-site.json";
+import { reportDegraded } from "./errorLog";
 
 export interface NeoBlock {
   key: string;
@@ -49,10 +50,20 @@ export async function fetchNeoSite(
   try {
     const qs = new URLSearchParams({ bn: businessName, bd: description, ik: industryKey });
     const res = await fetch(`/api/neo-site?${qs}`, { signal: controller.signal });
-    if (!res.ok) return FIXTURE;
-    const body = (await res.json()) as { site: NeoSite | null };
-    return body.site ? { ...body.site, source: "live" } : FIXTURE;
-  } catch {
+    if (!res.ok) {
+      reportDegraded("neo-site http", String(res.status));
+      return FIXTURE;
+    }
+    const body = (await res.json()) as { site: NeoSite | null; error?: string };
+    if (!body.site) {
+      reportDegraded("neo-site empty", body.error);
+      return FIXTURE;
+    }
+    return { ...body.site, source: "live" };
+  } catch (err) {
+    /* Includes the 45s timeout. Worth knowing: if this fires for everyone, Neo's generator is
+       down or has changed, and every visitor is silently seeing the bakery. */
+    reportDegraded("neo-site unreachable", err instanceof Error ? err.message : String(err));
     return FIXTURE;
   } finally {
     clearTimeout(timer);

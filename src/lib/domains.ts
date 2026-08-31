@@ -8,6 +8,8 @@
  * Keeping two sources of truth for the same fact wasn't worth it.
  */
 
+import { reportDegraded } from "./errorLog";
+
 export interface DomainInfo {
   domain: string;
   tld: string;
@@ -34,10 +36,15 @@ export async function lookupDomains(
       `/api/domains?name=${encodeURIComponent(stem)}&tlds=${encodeURIComponent(tlds.join(","))}`,
       { signal: controller.signal },
     );
-    if (!res.ok) return [];
+    if (!res.ok) {
+      reportDegraded("domains http", String(res.status));
+      return [];
+    }
     const body = (await res.json()) as { domains?: DomainInfo[] };
+    if (!body.domains?.length) reportDegraded("domains empty");
     return body.domains ?? [];
-  } catch {
+  } catch (err) {
+    reportDegraded("domains unreachable", err instanceof Error ? err.message : String(err));
     // Network failure, timeout, no key configured — the reveal must still render.
     // It falls back to the fixture's domains with no availability badge.
     return [];

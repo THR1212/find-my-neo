@@ -18,6 +18,17 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
       // loadEnv doesn't populate process.env, and domainService reads from there.
       if (env.DOMSCAN_API_KEY) process.env.DOMSCAN_API_KEY = env.DOMSCAN_API_KEY;
 
+      // Client error / degradation sink. Mirrors api/log.ts; prints to the dev terminal.
+      server.middlewares.use("/api/log", (req, res) => {
+        let body = "";
+        req.on("data", (c) => (body += c));
+        req.on("end", () => {
+          console.error("[client-error]", body.slice(0, 800));
+          res.statusCode = 204;
+          res.end();
+        });
+      });
+
       // Neo's own site generator. Same handler the Vercel function uses.
       server.middlewares.use("/api/neo-site", async (req, res) => {
         const u = new URL(req.url ?? "", "http://localhost");

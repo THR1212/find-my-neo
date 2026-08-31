@@ -18,8 +18,13 @@ messages, and in these docs. It must **never** appear in:
 - the deployed page `<title>`
 - a public URL
 
-The repo is private and stays named `neo-akinator` because renaming a remote mid-project breaks
-clones and CI for no benefit. That is a deliberate exception, not an oversight.
+**Update 31 Aug: the repo was renamed to `find-my-neo`.** The earlier reasoning — that renaming
+a remote mid-project breaks clones for no benefit — was outweighed once the link went public:
+a trademarked name in a public repo URL is exactly the exposure this file exists to prevent.
+GitHub redirects the old URL, so existing clones keep working; run
+`git remote set-url origin https://github.com/THR1212/find-my-neo.git` to stop relying on that.
+
+The local folder is still `Projects/neo-akinator`, which is harmless — nobody outside sees it.
 
 ## Why "Find My Neo" works
 

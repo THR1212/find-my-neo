@@ -157,7 +157,7 @@ read `docs/neo-product-facts.md` before claiming anything about what Neo does._
 - **Neo brand skin** — Poppins, `#0066FF`, white, brand gradient.
 - Vercel project `hari-7720/find-my-neo`, GitHub auto-deploy connected, both API routes on the
   **Edge runtime** (required — see DECISIONS).
-- Repo: https://github.com/THR1212/neo-akinator (branch `master`).
+- Repo: https://github.com/THR1212/find-my-neo (branch `master`).
 
 **Not done / next**
 - **The LLM profile call is still fixture-backed.** `VITE_LLM_MODE=replay` is the default and

@@ -45,7 +45,8 @@ right — that still needs eyes.
 2. Type (or paste) the scripted input:
    > We're a two-person bakery in Bandra called Proof & Butter, custom celebration cakes, and right now every order comes through Instagram DMs.
 3. Press Enter
-4. **That's us** → **Yes, emails and contacts** → **Email and a site**
+4. **That's us**, then answer whatever it asks — the questions aren't fixed, so you'll get a
+   different set depending on what you typed. Some let you pick several; most have a text box.
 5. The reveal builds itself line by line. That's the moment. Let it finish; don't talk over it.
 
 **Type whatever you like for the site — it's real.** Neo generates that from your actual words,

@@ -68,9 +68,9 @@ On the second tab, at Neo's category step:
 | 2 | Paste, Enter | "One free-text box. That's the difference from a category picker — 'bakery' works here." |
 | 3 | Guess appears | *Say nothing. Let them read it.* |
 | 4 | **That's us** | "It read the business back. Notice the counter — 5,318 possible setups down to about 1,600, from one sentence." |
-| 5 | **Social DMs** | "The questions aren't fixed. It asked this because the text mentioned Instagram — a different business gets a different path." |
-| 6 | **Emails and contacts** | "This one's on evidence: import intent is the strongest retention signal in the persona data." |
-| 7 | **Email and a site** | — |
+| 5 | Answer the first question — **pick more than one where you can** | "The questions aren't fixed: it asked this because the text mentioned Instagram. And it takes several answers, because people really do sell through Instagram *and* over the phone — that's your own persona survey's shape, not something we invented." |
+| 6 | Type something in the box under the options | "There's a free-text escape on most questions. Same as your 'Others' option — which is where about 7% of your Q1 answers land." |
+| 7 | Answer the rest | "Import intent is on evidence: it's the strongest retention signal in the persona data." |
 | 8 | Reveal builds | *Silence.* |
 | 9 | Site block builds | "That's not my copy. We're calling Neo's own AI site builder, server to server, and showing what it returns — their headline, their product names, their photos. Takes about 25 seconds, which is their generator, not ours." |
 | 10 | After it lands | "Domain — checked live, real availability lookup. Mailboxes. Two features picked for *them*, because they said orders come through DMs. And the plan and price come from your own pricing sheet, not from the model." |

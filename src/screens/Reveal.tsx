@@ -4,6 +4,7 @@ import type { RevealContent } from "../lib/session";
 import { lookupDomains, type DomainInfo } from "../lib/domains";
 import { pickFeatures, type FeatureSurface } from "../lib/features";
 import { recommend, CYCLE_LABEL } from "../lib/rules";
+import { buildHandoffUrl } from "../lib/handoff";
 import NeoSitePreview from "../components/NeoSitePreview";
 import NeoSiteGenerating from "../components/NeoSiteGenerating";
 import type { NeoSite } from "../lib/neoSite";
@@ -20,8 +21,8 @@ import type { Profile } from "../lib/engine";
  *  - Domain alternates are selectable and each carries its OWN price — TLDs are not priced
  *    alike, and picking the domain is the first real decision in the purchase.
  *  - Plan and price are shown quietly, last, and are never chosen by the model.
- *  - The CTA hands off into Neo's existing builder. It is a link a person clicks, never a
- *    silent redirect, and it is inert in this build.
+ *  - The CTA is a REAL link into Neo's funnel, carrying `bn`/`bd` as query params (their
+ *    handoff needs no encoder). Always an <a> a person clicks, never a scripted redirect.
  */
 
 const BEAT = 0.55;
@@ -39,6 +40,7 @@ export default function Reveal({
   surface,
   teamSize,
   profile,
+  businessText,
   neoSite,
   onRestart,
 }: {
@@ -48,6 +50,8 @@ export default function Reveal({
   surface: string | null;
   teamSize: number | null;
   profile: Profile;
+  /** The user's original free text — handed to Neo's builder verbatim as `bd`. */
+  businessText: string;
   /** Neo's real generated site. Null while it's still generating. */
   neoSite: NeoSite | null;
   onRestart: () => void;
@@ -117,6 +121,18 @@ export default function Reveal({
 
   /** Plan choice + price. Deterministic — see rules.ts. */
   const rec = recommend(profile, mailboxCount);
+
+  /**
+   * The real handoff URL. Neo's funnel takes plain query params — no encoder, no signing —
+   * so we can drop someone in with `bn` and `bd` already filled. We deliberately send the
+   * business NAME derived from the chosen domain rather than the raw description, because
+   * that is the field their builder expects (55 char cap, enforced in handoff.ts).
+   */
+  const handoffUrl = buildHandoffUrl({
+    profile,
+    businessName: (profile.brandName as string) ?? domain.name.split(".")[0],
+    businessDescription: businessText ?? "",
+  });
 
   return (
     <motion.div
@@ -262,9 +278,19 @@ export default function Reveal({
           </div>
         </div>
         <div className="row" style={{ marginTop: 0 }}>
-          <button className="btn" autoFocus>
+          {/* A real link into Neo's funnel, carrying the business name and description their
+              builder already consumes. An <a>, not a scripted redirect — CLAUDE.md rule 5:
+              the handoff is always a thing a person clicks.
+              target=_blank so the demo doesn't navigate away from the reveal mid-pitch. */}
+          <a
+            className="btn"
+            href={handoffUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            autoFocus
+          >
             Claim it and start building
-          </button>
+          </a>
           <button className="btn btn-ghost" onClick={onRestart}>
             Start over
           </button>

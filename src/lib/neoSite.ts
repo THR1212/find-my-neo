@@ -34,11 +34,16 @@ export interface NeoSite {
 const FIXTURE: NeoSite = { ...(fixture as unknown as NeoSite), source: "fixture" };
 
 /**
- * Generation takes real time on Neo's side — the browser flow shows a 12-step loader for up to
- * 24 seconds. We allow 45s before giving up, because falling back early would show the bakery
- * fixture to someone who typed something else, which is worse than waiting.
+ * Generation takes real time on Neo's side — measured at 22–38s, and their own UI shows a
+ * 12-step loader for up to 24s.
+ *
+ * 90s, not 45s. The earlier 45s was cutting it close against a measured 38s worst case, and on
+ * hackathon venue wifi that margin disappears. Falling back shows the RECORDED bakery response
+ * to someone who typed a different business — which is the single most visible way this demo
+ * can embarrass itself in front of judges. Waiting is strictly better than being wrong, and the
+ * loader (Neo's own step copy) makes the wait feel intentional rather than hung.
  */
-const TIMEOUT_MS = 45000;
+const TIMEOUT_MS = 90000;
 
 export async function fetchNeoSite(
   businessName: string,

@@ -196,6 +196,7 @@ export default function App() {
                 surface={(engine.profile.surface as string) ?? null}
                 teamSize={(engine.profile.teamSize as number) ?? null}
                 profile={engine.profile}
+                businessText={rawText}
                 neoSite={neoSite}
                 onRestart={restart}
               />

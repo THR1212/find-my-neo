@@ -110,7 +110,7 @@ async function generateContent(
         requireBlocksAsList: true,
       }),
     },
-    60000, // content generation is the slow one
+    80000, // content generation is the slow one; must outlast nothing but the client's 90s
   );
   return JSON.parse(out.v) as Omit<NeoSite, "images" | "source">;
 }

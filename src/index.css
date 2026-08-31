@@ -1171,3 +1171,12 @@ h1 {
 .field-inline:focus {
   background: var(--bg-raised);
 }
+
+/* The CTA is an <a>, not a <button> — it's a real link into Neo's funnel. Anchors don't
+   inherit button layout, so restore what .btn assumes. */
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}

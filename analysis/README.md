@@ -85,6 +85,45 @@ assuming this exists.
 
 ---
 
+## 5. And then — what would YOU add?
+
+**The list above is what we knew to ask for. It is almost certainly not the best of what's in
+that spreadsheet.** You know this data and this business far better than we do, so please treat
+those four as a floor, not a scope.
+
+Some directions that might be worth more than anything above, but we can't judge from outside:
+
+- **Anything in `Neo_vs_Non-neo_clients.xlsx` we haven't touched.** We've only looked at
+  `Retention-Raw`, `Sheet13` and `Persona responses`. `Import (Persona)`, `Import (gmail)`,
+  `Query` and `definition` are unexplored. If there's something better in there, take it.
+- **Segments we're designing for blind.** The product assumes 1–3 person businesses and
+  deliberately has no 50–200 branch. Is that the right cut? Where does retention actually break
+  by headcount?
+- **Which persona answers predict anything at all.** We lead the flow with import intent because
+  one line in a handoff doc said it was the strongest signal. If a different field predicts
+  better, that should change the question order in `src/lib/questions.ts` — that's a real
+  product change, not a slide.
+- **Where people drop out.** If there's funnel or chat-volume data (the 3,772 domain-selection
+  chats, 273 on Neo pricing), the shape of *where* people get stuck would tell us whether our
+  overlay is even in the right place.
+- **Anything that contradicts us.** Genuinely useful. The co.site-vs-custom-domain retention gap
+  already contradicts the 2026 strategy doc's assumption, and that's the sort of thing worth
+  knowing before someone says it in a meeting.
+- **Any other data you have access to.** Athena, Metabase, support tickets, Amplitude — if
+  there's a cut that would make this argument stronger or kill it faster, that's more valuable
+  than confirming a number we already quote.
+
+**A finding that kills an assumption is worth more to us than one that confirms it.** Several
+claims in `docs/handoff.md` and `docs/demo-script.md` are unverified and some are from a 2023–24
+product state. If the data says we're wrong, we would much rather hear it now than be corrected
+in front of the Neo product team.
+
+No need to ask permission before exploring something not on the list — just note in the PR what
+you looked at and why it did or didn't go anywhere. A short "checked X, nothing there" saves the
+next person repeating it.
+
+---
+
 ## Output contract
 
 Write `analysis/output/findings.json`. Keep it flat and boring:

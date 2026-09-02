@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { LineIn, ScreenIn } from "../components/ScreenIn";
 
 /**
  * The guess. The first of two moments carrying the pitch — the tool reflects the business
@@ -24,59 +25,78 @@ export default function Guess({
 }) {
   if (error) {
     return (
-      <div>
-        <p className="eyebrow">Something broke</p>
-        <h1>We couldn't read that.</h1>
-        <p className="lede">{error}</p>
-        <button className="btn" onClick={onReject}>
-          Try again
-        </button>
-      </div>
+      <ScreenIn>
+        <LineIn>
+          <p className="eyebrow">Something broke</p>
+        </LineIn>
+        <LineIn>
+          <h1>We couldn't read that.</h1>
+        </LineIn>
+        <LineIn>
+          <p className="lede">{error}</p>
+        </LineIn>
+        <LineIn>
+          <button className="btn" onClick={onReject}>
+            Try again
+          </button>
+        </LineIn>
+      </ScreenIn>
     );
   }
 
   if (loading || !summary) {
     return (
-      <div>
-        <p className="eyebrow">Reading that back</p>
-        <h1 style={{ color: "var(--text-faint)" }}>Working it out…</h1>
-        <div className="dots" aria-label="Loading">
-          <i />
-          <i />
-          <i />
-        </div>
-      </div>
+      <ScreenIn>
+        <LineIn>
+          <p className="eyebrow">Reading that back</p>
+        </LineIn>
+        <LineIn>
+          <h1 style={{ color: "var(--text-faint)" }}>Working it out…</h1>
+        </LineIn>
+        <LineIn>
+          <div className="dots" aria-label="Loading">
+            <i />
+            <i />
+            <i />
+          </div>
+        </LineIn>
+      </ScreenIn>
     );
   }
 
   return (
-    <div>
-      <p className="eyebrow">Here's what we think</p>
-      <h1>
-        You're{" "}
-        <motion.span
-          initial={{ opacity: 0, filter: "blur(8px)" }}
-          animate={{ opacity: 1, filter: "blur(0px)" }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="guess-highlight"
-        >
-          {summary}
-        </motion.span>
-        .
-      </h1>
-      <p className="lede">
-        {teamSize === 1 ? "Just you, for now." : teamSize ? `A team of ${teamSize}.` : ""} A
-        few quick questions and we'll have your setup.
-      </p>
-
-      <div className="row">
+    <ScreenIn>
+      <LineIn>
+        <p className="eyebrow">Here's what we think</p>
+      </LineIn>
+      <LineIn>
+        <h1>
+          You're{" "}
+          <motion.span
+            initial={{ opacity: 0, filter: "blur(8px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="guess-highlight"
+          >
+            {summary}
+          </motion.span>
+          .
+        </h1>
+      </LineIn>
+      <LineIn>
+        <p className="lede">
+          {teamSize === 1 ? "Just you, for now." : teamSize ? `A team of ${teamSize}.` : ""} A
+          few quick questions and we'll have your setup.
+        </p>
+      </LineIn>
+      <LineIn className="row">
         <button className="btn" onClick={onConfirm} autoFocus>
           That's us
         </button>
         <button className="btn btn-ghost" onClick={onReject}>
           Not quite
         </button>
-      </div>
-    </div>
+      </LineIn>
+    </ScreenIn>
   );
 }

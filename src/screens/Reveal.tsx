@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RevealContent } from "../lib/session";
 import { lookupDomains, type DomainInfo } from "../lib/domains";
 import { pickFeatures, type FeatureSurface } from "../lib/features";
@@ -9,6 +9,7 @@ import NeoSitePreview from "../components/NeoSitePreview";
 import NeoSiteGenerating from "../components/NeoSiteGenerating";
 import { block as blockData, type NeoSite } from "../lib/neoSite";
 import type { Profile } from "../lib/engine";
+import { playSound } from "../sound";
 
 /**
  * THE screen. Everything else exists to set it up.
@@ -63,6 +64,7 @@ export default function Reveal({
    * Deliberately non-blocking — the reveal must never wait on a third-party service.
    */
   const [live, setLive] = useState<Record<string, DomainInfo>>({});
+  const revealCuePlayed = useRef(false);
 
   /** Stem drives the lookup, so switching the selected domain doesn't refetch. */
   const stem = reveal?.domains[0]?.name.split(".")[0] ?? "";
@@ -77,6 +79,13 @@ export default function Reveal({
       cancelled = true;
     };
   }, [stem]);
+
+  useEffect(() => {
+    if (error || loading || !reveal) return;
+    if (revealCuePlayed.current) return;
+    revealCuePlayed.current = true;
+    playSound("reveal");
+  }, [error, loading, reveal]);
 
   if (error) {
     return (
@@ -305,11 +314,7 @@ export default function Reveal({
             rel="noopener noreferrer"
             autoFocus
             onClick={() => {
-              /* Copy the chosen domain on the way out. Neo's domain step has no param that
-                 prefills its search box (tested: none of domain/domainName/q/search/sld/
-                 searchTerm work), and "Use a domain I own" is a button opening a modal, so it
-                 isn't deep-linkable either. Copying is the only thing that saves the retype.
-                 Best-effort: clipboard can be denied, and the handoff must still happen. */
+              playSound("cta");
               void navigator.clipboard?.writeText(domain.name).catch(() => {});
             }}
           >

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import {
@@ -15,6 +15,8 @@ import type { RevealContent } from "./lib/session";
 
 import NarrowingMeter, { type MeterVariant } from "./components/NarrowingMeter";
 import MeterPreviewSwitch from "./components/MeterPreviewSwitch";
+import SoundToggle from "./components/SoundToggle";
+import { playSound } from "./sound";
 import Hook from "./screens/Hook";
 import Describe from "./screens/Describe";
 import Guess from "./screens/Guess";
@@ -23,11 +25,11 @@ import Reveal from "./screens/Reveal";
 
 type Stage = "hook" | "describe" | "guess" | "question" | "reveal";
 
-const transition = { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const };
+const transition = { duration: 0.32, ease: [0.16, 1, 0.3, 1] as const };
 const variants = {
-  enter: { opacity: 0, y: 18 },
+  enter: { opacity: 0, y: 10 },
   center: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -14 },
+  exit: { opacity: 0, y: -8 },
 };
 
 const emptyEngine: EngineState = { profile: {}, asked: [], freeText: {} };
@@ -140,6 +142,16 @@ export default function App() {
 
   const showMeter = stage === "guess" || stage === "question" || stage === "reveal";
   const stepNumber = engine.asked.length + 1;
+  const screenKey = stage === "question" ? `q-${current?.id ?? "none"}` : stage;
+  const skipSoundOnFirstPaint = useRef(true);
+
+  useEffect(() => {
+    if (skipSoundOnFirstPaint.current) {
+      skipSoundOnFirstPaint.current = false;
+      return;
+    }
+    playSound(stage === "reveal" ? "reveal" : "advance");
+  }, [screenKey, stage]);
 
   const chooseMeter = useCallback((next: MeterVariant) => {
     setMeterVariant(next);
@@ -178,12 +190,13 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      <SoundToggle />
       <MeterPreviewSwitch value={meterVariant} onChange={chooseMeter} />
 
       <main className="stage">
         <AnimatePresence mode="wait">
           <motion.div
-            key={stage === "question" ? `q-${current?.id ?? "none"}` : stage}
+            key={screenKey}
             className="screen"
             variants={variants}
             initial="enter"

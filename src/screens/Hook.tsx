@@ -1,5 +1,6 @@
 import { HOOK_COPY } from "../lib/brand";
 import Wordmark from "../components/Wordmark";
+import { LineIn, ScreenIn } from "../components/ScreenIn";
 
 /**
  * The entry point. On the real pricing page this is a small inline prompt that opens a
@@ -9,19 +10,25 @@ import Wordmark from "../components/Wordmark";
  */
 export default function Hook({ onStart }: { onStart: () => void }) {
   return (
-    <div>
-      <Wordmark />
-      <h1>{HOOK_COPY}</h1>
-      <p className="lede">
-        Tell us what you do. We'll find your domain, set up your mailboxes, and draft your
-        site — before you pay for anything.
-      </p>
-      <div className="row">
+    <ScreenIn>
+      <LineIn>
+        <Wordmark />
+      </LineIn>
+      <LineIn>
+        <h1>{HOOK_COPY}</h1>
+      </LineIn>
+      <LineIn>
+        <p className="lede">
+          Tell us what you do. We'll find your domain, set up your mailboxes, and draft your
+          site — before you pay for anything.
+        </p>
+      </LineIn>
+      <LineIn className="row">
         <button className="btn" onClick={onStart} autoFocus>
           Start
         </button>
         <span className="hint">Takes about a minute</span>
-      </div>
-    </div>
+      </LineIn>
+    </ScreenIn>
   );
 }

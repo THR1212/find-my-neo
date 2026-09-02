@@ -110,6 +110,7 @@ export default function App() {
             /* Model wording for this business. Lands in engine state so it persists with the
                rest of the run and `nextQuestion` can overlay it. */
             ...(res.surface ? { surface: res.surface } : {}),
+            ...(res.meterGuess ? { meterGuess: res.meterGuess } : {}),
             profile: {
               ...prev.profile,
               industry: res.profile.industry,
@@ -259,6 +260,11 @@ export default function App() {
             stage={stage}
             lastQuestionId={engine.asked[engine.asked.length - 1] ?? null}
             profile={engine.profile}
+            copyContext={{
+              surface: engine.surface,
+              meterGuess: engine.meterGuess,
+              pickedOptionIds: engine.trail?.[engine.trail.length - 1]?.pickedOptionIds,
+            }}
           />
         </motion.div>
       </AnimatePresence>

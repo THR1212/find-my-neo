@@ -32,11 +32,10 @@ const KEY = "findmyneo.session";
  * the snapshot instead of deserialising yesterday's shape into today's fields, which fails
  * silently and looks like an engine bug.
  */
-const VERSION = 2;
-/* v2: EngineState gained `surface` (model-written wording) and `trail` (what was shown).
-   Both live inside `engine`, so they ride along in the snapshot automatically — but a v1
-   snapshot restored into v2 would have neither, and every question would silently revert to
-   fixed wording mid-run. Discarding is cheaper to reason about than half-restoring. */
+const VERSION = 3;
+/* v3: EngineState gained `meterGuess` (model-written counter subtitle). A v2 snapshot
+   would restore without it and the meter would silently drop back to fixed copy. */
+/* v2: EngineState gained `surface` (model-written wording) and `trail` (what was shown). */
 
 /**
  * RESOLVED 02 Sep — kept because the reasoning still governs the design.

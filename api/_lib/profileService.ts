@@ -157,6 +157,8 @@ interface ModelProfile {
   domainNotes: string[];
   /** One short line per mailbox saying what it is for. */
   mailboxLabels: string[];
+  /** Counter subtitle after the guess, before any question. No digits. */
+  meterGuess: string;
   /** Reworded questions for this specific business. Surface only. */
   questions: ModelQuestion[];
 }
@@ -166,7 +168,7 @@ interface ModelQuestion {
   prompt: string;
   sub: string;
   placeholder: string;
-  options: { optionId: string; label: string; hint: string }[];
+  options: { optionId: string; label: string; hint: string; meter: string }[];
 }
 
 const SCHEMA = {
@@ -182,6 +184,7 @@ const SCHEMA = {
     "mailboxLabels",
     "nextQuestionId",
     "domainNotes",
+    "meterGuess",
     /* strict mode requires EVERY property here, not just the mandatory-feeling ones. */
     "questions",
   ],
@@ -231,6 +234,12 @@ const SCHEMA = {
       description:
         "One short reason per domain, in order .com then .in then .co. Never mention price.",
     },
+    meterGuess: {
+      type: "string",
+      description:
+        "Subtitle for the narrowing counter on the guess screen. Names this kind of " +
+        "business. No digits. Under 52 characters. e.g. 'bakeries taking orders over Instagram'.",
+    },
     questions: {
       type: "array",
       minItems: 6,
@@ -260,13 +269,20 @@ const SCHEMA = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["optionId", "label", "hint"],
+              required: ["optionId", "label", "hint", "meter"],
               properties: {
                 optionId: { type: "string" },
                 label: { type: "string", description: "Under 34 characters." },
                 hint: {
                   type: "string",
                   description: "Under 46 characters. Empty string if it adds nothing.",
+                },
+                meter: {
+                  type: "string",
+                  description:
+                    "Subtitle for the narrowing counter AFTER they pick this option. " +
+                    "Names similar businesses, not a count. No digits. Under 52 characters. " +
+                    "e.g. 'who take cake orders in DMs' or 'who still use a personal inbox'.",
                 },
               },
             },
@@ -310,6 +326,16 @@ const SYSTEM = [
   "question, the clarifying line, the free-text placeholder, and every option's label and",
   "hint. Return every questionId and every optionId exactly as given. You are rewriting",
   "words, never structure, and never what an option means.",
+  "",
+  "For each option also write meter: the line under the narrowing counter AFTER they pick",
+  "that option. It names similar businesses in their situation. Never a number, never a",
+  "price, never what this product will do.",
+  "  GOOD: 'who take cake orders in DMs'",
+  "  GOOD: 'who still use a personal inbox'",
+  "  BAD:  '1,204 bakeries like you'     - never a count",
+  "  BAD:  'we'll set up Instagram checkout' - a product promise",
+  "meterGuess is the same idea for the guess screen, before any question, e.g.",
+  "'bakeries taking cake orders over Instagram'.",
   "",
   "The rule that matters more than the rest: AN OPTION DESCRIBES THE CUSTOMER'S OWN",
   "SITUATION. It never describes what this product does and never promises a capability.",
@@ -368,6 +394,7 @@ function derivedProfile(businessText: string): ModelProfile {
     mailboxLabels: ["For enquiries and new customers", "For everything else"],
     nextQuestionId: null,
     domainNotes: ["The one people will guess", "Reads as local", "Short, room to grow"],
+    meterGuess: "",
     /* No generated wording: every question falls back to the fixed bank. */
     questions: [],
   };
@@ -406,7 +433,7 @@ function validateQuestions(raw: ModelQuestion[] | undefined): {
       continue;
     }
 
-    const options: Record<string, { label?: string; hint?: string }> = {};
+    const options: Record<string, { label?: string; hint?: string; meter?: string }> = {};
     let kept = 0;
     for (const o of q.options ?? []) {
       if (!(o.optionId in shape.options)) {
@@ -420,6 +447,11 @@ function validateQuestions(raw: ModelQuestion[] | undefined): {
       options[o.optionId] = {
         label: String(o.label ?? "").slice(0, 34),
         hint: String(o.hint ?? "").slice(0, 46),
+        meter: String(o.meter ?? "")
+          .replace(/\d[\d,]*/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 52),
       };
       kept++;
     }
@@ -468,7 +500,7 @@ export async function handleProfile(
       schemaName: "business_profile",
       /* The output is small and fixed-shape. A tight ceiling makes truncation cheap to
          detect (llm.ts checks finish_reason) rather than surfacing as a JSON parse error. */
-      maxOutputTokens: 3000,
+        maxOutputTokens: 3400,
     });
   } catch (err) {
     reason = err instanceof Error ? err.message : String(err);
@@ -558,6 +590,11 @@ export async function handleProfile(
        * than a partial breakage.
        */
       surface,
+      meterGuess: String(profile.meterGuess ?? "")
+        .replace(/\d[\d,]*/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 52),
       degraded,
       /* Greppable record of what validation refused. */
       ...(dropped.length ? { surfaceDropped: dropped } : {}),

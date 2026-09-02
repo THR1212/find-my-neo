@@ -2,15 +2,36 @@
  * Layperson labels for the numbers meter. The count is still remaining(); this only
  * names *what* those matches have in common after the last screen they completed.
  *
- * Guess (free text) → businesses like yours
- * After a question → the last answer, in plain English
- * Reveal → setups that fit you
+ * When Hari's profile call lands, each option carries a model-written `meter` line so
+ * "Social DMs" and "A personal email" produce different motion copy. Missing lines fall
+ * back to the fixed phrases below. The count itself is never model-written.
  *
  * Opening count is 5,318 distinct industries, confirmed in analysis/output/findings.json.
- * Cutoffs and remaining() still come from the engine. Do not invent a remaining figure here.
  */
 
+import type { SurfaceMap } from "../lib/questions";
+
 export type MeterStage = "hook" | "describe" | "guess" | "question" | "reveal";
+
+export type MeterCopyContext = {
+  surface?: SurfaceMap;
+  pickedOptionIds?: string[];
+  meterGuess?: string;
+};
+
+function generatedSituation(
+  lastQuestionId: string | null,
+  ctx?: MeterCopyContext,
+): string | undefined {
+  if (!lastQuestionId || !ctx?.surface || !ctx.pickedOptionIds?.length) return undefined;
+  const options = ctx.surface[lastQuestionId]?.options;
+  if (!options) return undefined;
+  for (const id of ctx.pickedOptionIds) {
+    const line = options[id]?.meter?.trim();
+    if (line) return line;
+  }
+  return undefined;
+}
 
 /**
  * Compatible with engine Profile without importing lib.
@@ -141,14 +162,20 @@ export function numbersMeterLabel(
   stage: MeterStage,
   lastQuestionId: string | null,
   profile: MeterProfile,
+  ctx?: MeterCopyContext,
 ): string {
   if (stage === "reveal") {
     return "ready for you";
   }
 
   if (stage === "guess" || !lastQuestionId) {
+    const guess = ctx?.meterGuess?.trim();
+    if (guess) return guess;
     return remaining === 1 ? "business like yours" : "businesses like yours";
   }
+
+  const generated = generatedSituation(lastQuestionId, ctx);
+  if (generated) return generated;
 
   switch (lastQuestionId) {
     case "channel":
@@ -182,12 +209,16 @@ export function wordsMeterCopy(
   stage: MeterStage,
   lastQuestionId: string | null,
   profile: MeterProfile,
+  ctx?: MeterCopyContext,
 ): { title: string; sub: string } {
   if (stage === "reveal") return { title: "Your setup", sub: "ready for you" };
   if (stage === "guess" || !lastQuestionId) {
+    const guess = ctx?.meterGuess?.trim();
+    if (guess) return { title: guess, sub: "from what you do" };
     return { title: "Finding your setup", sub: "from what you do" };
   }
-  const line = numbersMeterLabel(99, stage, lastQuestionId, profile);
+  const generated = generatedSituation(lastQuestionId, ctx);
+  const line = generated ?? numbersMeterLabel(99, stage, lastQuestionId, profile, ctx);
   return { title: line, sub: "getting more specific" };
 }
 

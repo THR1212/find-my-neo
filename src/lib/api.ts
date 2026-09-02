@@ -33,6 +33,11 @@ export interface ProfileResult {
    */
   surface?: SurfaceMap;
   /**
+   * Model-written subtitle for the narrowing counter on the guess screen.
+   * Empty or absent falls back to "businesses like yours". Never a count.
+   */
+  meterGuess?: string;
+  /**
    * Which question the model thinks is most worth asking first, given what the free text
    * already revealed. Advisory only — engine.ts overrules it if that signal is already
    * resolved or the id isn't real, so a bad suggestion can't break the flow.
@@ -49,8 +54,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export async function buildProfile(businessText: string): Promise<ProfileResult> {
   if (MODE === "replay") {
     await sleep(REPLAY_DELAY_MS);
-    const { profile, reveal, nextQuestionId } = demoFixture as unknown as ProfileResult;
-    return { profile, reveal, nextQuestionId };
+    const fixture = demoFixture as unknown as ProfileResult;
+    const { profile, reveal, nextQuestionId, surface, meterGuess } = fixture;
+    return { profile, reveal, nextQuestionId, surface, meterGuess };
   }
 
   try {

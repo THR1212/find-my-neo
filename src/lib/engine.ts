@@ -91,6 +91,8 @@ export interface EngineState {
    * Absent means every question uses the fixed bank verbatim.
    */
   surface?: SurfaceMap;
+  /** Model-written guess-screen meter line. Empty means use the fixed "businesses like yours". */
+  meterGuess?: string;
   /** What was actually shown and answered, in order. Append-only. */
   trail?: QuestionTrace[];
 }

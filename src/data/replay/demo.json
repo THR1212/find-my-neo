@@ -14,6 +14,89 @@
   "_nextQuestionIdNote": "The model's suggestion for what to ask first. The engine overrules it if the signal is already resolved, so this can never break the flow. 'channel' is chosen here because the free text already mentions Instagram — asking it back makes the tool look like it was listening.",
   "nextQuestionId": "channel",
 
+  "meterGuess": "bakeries taking cake orders over Instagram",
+
+  "surface": {
+    "channel": {
+      "prompt": "Where do cake orders reach you today?",
+      "sub": "Pick all that apply — most bakeries have more than one.",
+      "placeholder": "Somewhere else? WhatsApp, a marketplace…",
+      "options": {
+        "social": {
+          "label": "Instagram and WhatsApp DMs",
+          "hint": "Where the cake orders live now",
+          "meter": "who take cake orders in DMs"
+        },
+        "personal": {
+          "label": "A personal email address",
+          "hint": "",
+          "meter": "who still use a personal inbox"
+        },
+        "phone": {
+          "label": "Phone or in person",
+          "hint": "Walk-ins and calls",
+          "meter": "who take orders in person"
+        },
+        "site": {
+          "label": "I already have a website",
+          "hint": "",
+          "meter": "who already have a bakery site"
+        }
+      }
+    },
+    "import": {
+      "prompt": "Bringing anything with you?",
+      "sub": "Existing mail or contacts from how you take orders now.",
+      "placeholder": "Something else you'd want moved across?",
+      "options": {
+        "none": { "label": "No, I'll start fresh", "hint": "", "meter": "who are starting their mail fresh" },
+        "emails": { "label": "Yes, my emails", "hint": "", "meter": "who are bringing their mail across" },
+        "both": { "label": "Emails and contacts", "hint": "", "meter": "who are moving mail and contacts" },
+        "contacts": { "label": "Just my contacts", "hint": "", "meter": "who are bringing their contacts" }
+      }
+    },
+    "surface": {
+      "prompt": "What needs standing up first?",
+      "sub": "You can add the other half later.",
+      "placeholder": "",
+      "options": {
+        "mail": { "label": "Just email", "hint": "hello@ on your own domain", "meter": "who need bakery email first" },
+        "both": { "label": "Email and a site", "hint": "", "meter": "who want mail and a cake site" }
+      }
+    },
+    "client": {
+      "prompt": "What do you use for mail right now?",
+      "sub": "Pick all that apply.",
+      "placeholder": "Something else?",
+      "options": {
+        "gmail": { "label": "Gmail", "hint": "", "meter": "who run the bakery from Gmail" },
+        "outlook": { "label": "Outlook", "hint": "", "meter": "who run the bakery from Outlook" },
+        "apple": { "label": "Apple Mail", "hint": "", "meter": "who use Apple Mail today" },
+        "none": { "label": "Nothing set up yet", "hint": "", "meter": "who have no bakery inbox yet" }
+      }
+    },
+    "team": {
+      "prompt": "How many email addresses do you need?",
+      "sub": "Addresses, not people — hello@ and orders@ count.",
+      "placeholder": "",
+      "options": {
+        "1": { "label": "Just one", "hint": "", "meter": "one-address bakery setups" },
+        "2": { "label": "Two", "hint": "Yours plus a hello@", "meter": "two-address bakery setups" },
+        "3-5": { "label": "Three to five", "hint": "", "meter": "small bakery teams like yours" },
+        "6+": { "label": "More than five", "hint": "", "meter": "bigger bakery teams like yours" }
+      }
+    },
+    "sells": {
+      "prompt": "Do people pay you online?",
+      "sub": "Changes what a cake site needs to do.",
+      "placeholder": "Anything else about how you get paid?",
+      "options": {
+        "yes": { "label": "Yes, I take orders or payments", "hint": "", "meter": "who take cake payments online" },
+        "enquiry": { "label": "No, they enquire first", "hint": "", "meter": "who take cake enquiries first" }
+      }
+    }
+  },
+
   "reveal": {
     "_domainsNote": "Availability and price are overridden at runtime by the live DomScan lookup (/api/domains). These values are the FALLBACK shown only when that call fails. They are set to the measured live figures rather than invented ones, so the fallback path can never contradict the happy path in front of an audience. The stem must match domainStem above — the lookup keys off it.",
 

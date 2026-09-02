@@ -226,7 +226,7 @@ export interface QuestionSurface {
   sub?: string;
   placeholder?: string;
   /** Keyed by the EXISTING option id. Unknown ids are dropped server-side. */
-  options?: Record<string, { label?: string; hint?: string }>;
+  options?: Record<string, { label?: string; hint?: string; meter?: string }>;
 }
 
 /** Surface overrides by question id, as validated by the server. */

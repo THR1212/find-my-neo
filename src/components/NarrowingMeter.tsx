@@ -5,6 +5,7 @@ import {
   closerMeterCopy,
   numbersMeterLabel,
   wordsMeterCopy,
+  type MeterCopyContext,
   type MeterProfile,
   type MeterStage,
 } from "./meterNumbersCopy";
@@ -101,6 +102,7 @@ export default function NarrowingMeter({
   stage = "guess",
   lastQuestionId = null,
   profile = {},
+  copyContext,
 }: {
   confidence: number;
   remaining: number;
@@ -108,6 +110,7 @@ export default function NarrowingMeter({
   stage?: MeterStage;
   lastQuestionId?: string | null;
   profile?: MeterProfile;
+  copyContext?: MeterCopyContext;
 }) {
   const count = useMotionValue(DISTINCT_INDUSTRY_VALUES);
   const spring = useSpring(count, { stiffness: 55, damping: 18 });
@@ -140,13 +143,13 @@ export default function NarrowingMeter({
 
   const dropping = drop !== null;
   const tight = Boolean(drop?.tight);
-  const words = wordsMeterCopy(stage, lastQuestionId, profile);
+  const words = wordsMeterCopy(stage, lastQuestionId, profile, copyContext);
   const closer = closerMeterCopy(confidence);
   const ringLine =
     stage === "reveal" ? "Your setup" : closer.title === "Your setup" ? "Almost there" : closer.title;
   const numberLabel = hideCount
     ? "ready for you"
-    : numbersMeterLabel(remaining, stage, lastQuestionId, profile);
+    : numbersMeterLabel(remaining, stage, lastQuestionId, profile, copyContext);
 
   return (
     <div

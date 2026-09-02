@@ -13,7 +13,7 @@ export default function MeterPreviewSwitch({
 
   return (
     <div className="meter-demo">
-      <p className="meter-demo-kicker">Team preview — numbers from persona data</p>
+      <p className="meter-demo-kicker">Team preview — Numbers shows 5,318 on the pill</p>
       <div className="meter-demo-row" role="tablist" aria-label="Meter treatments">
         {METER_VARIANTS.map((v) => (
           <button

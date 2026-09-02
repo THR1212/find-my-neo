@@ -683,3 +683,43 @@ so it has no business intercepting pointer events at all.
 **Worth generalising:** anything `position: fixed` floating over the flow needs
 `pointer-events: none` unless it is genuinely clickable. Check this again after Moin's
 animation pass - a new fixed overlay is the obvious way to reintroduce it.
+
+### 2026-09-02 · Correction: the dock did not cause the double-advance
+
+Earlier the same day I wrote that the meter-dock overlay "explains both oddities". It explains
+one. The dock **swallowed** clicks; the other symptom was one click producing **two**
+`applyAnswer` calls. Opposite failure modes - an overlay cannot manufacture a click.
+
+Instrumented `applyAnswer` with question id + `performance.now()` and re-ran the flow. One
+click produces exactly one call, four questions, four entries. **The double-advance was a
+stale-uid artifact of the browser automation, not app behaviour.** Instrumentation removed.
+
+While proving that, two things did turn up that are real:
+
+- **The outgoing screen stays clickable for ~700ms+** after an answer. `AnimatePresence
+  mode="wait"` keeps it mounted through the exit, and `elementFromPoint` at the option's centre
+  still returns that option the whole time. Two clicks 150ms apart both fire - reproduced.
+- **It happens to be harmless.** `answer()` computes `applyAnswer(engine, ...)` from the
+  current `engine`, and both clicks run before React commits, so both derive the same result
+  from the same base state. Idempotent, `asked` picks up no duplicate. Verified.
+
+That second point is luck, not design, and it holds *only* while a repeat click hits the same
+question. If the incoming screen ever becomes reachable at that coordinate mid-transition, the
+second call would compute from the stale `engine` and **drop the first answer**. So Moin's
+click-feedback task is not only polish - it removes the reason a person clicks twice at all.
+Whoever adds a post-advance input lockout should not treat this as merely cosmetic.
+
+### 2026-09-02 · Two follow-ups on the persistence work
+
+- **`rejectGuess` now clears `neoSite`.** `restart()` always did; "Not quite" did not. Neo's
+  site was generated from the description the user is about to rewrite, so keeping it lets the
+  reveal show the *previous* business's site until the new generation lands - the same
+  wrong-content failure the 90s timeout exists to prevent. Pre-existing, but persistence would
+  have carried it across a reload too.
+- **The resume effect only fires for `guess` / `question` / `reveal`.** Parked on Describe the
+  user is about to retype, so re-firing a profile call and a Neo generation for the text being
+  replaced is pure waste, and Neo's generator is the one call worth not wasting.
+
+Version and TTL guards tested rather than assumed, each against a control: `v: 0` -> hook
+screen; `savedAt` 3h old -> hook screen; a byte-identical snapshot with a fresh `savedAt` ->
+restores to question 2. Without that last control, "did not restore" would prove nothing.

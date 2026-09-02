@@ -135,6 +135,12 @@ export default function App() {
     if (resumed.current) return;
     resumed.current = true;
     if (!restored?.rawText) return;
+    /* Only stages that actually consume the results. Parked on Describe the user is about to
+       rewrite the description, so firing a profile and a Neo generation for the text they are
+       replacing is pure waste — and Neo's generator is the one call worth not wasting. */
+    if (restored.stage !== "guess" && restored.stage !== "question" && restored.stage !== "reveal") {
+      return;
+    }
 
     const needProfile = restored.reveal === null;
     const needSite = restored.neoSite === null;
@@ -175,6 +181,10 @@ export default function App() {
     setReveal(null);
     setError(null);
     setEngine(emptyEngine);
+    /* Clear Neo's site too. It was generated from the description they are about to rewrite,
+       so keeping it means the reveal can show the PREVIOUS business's site until the new
+       generation lands — the same wrong-content failure the 90s timeout exists to avoid. */
+    setNeoSite(null);
   }, []);
 
   const restart = useCallback(() => {

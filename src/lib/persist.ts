@@ -27,11 +27,27 @@ export type Stage = "hook" | "describe" | "guess" | "question" | "reveal";
 const KEY = "findmyneo.session";
 
 /**
- * Bump this whenever the snapshot shape changes. A version mismatch discards the snapshot
- * instead of deserialising yesterday's shape into today's fields, which fails silently and
- * looks like an engine bug.
+ * Bump this whenever the snapshot shape changes — and also whenever anything a live snapshot
+ * *references* changes: question ids, signal ids, MAX_QUESTIONS. A version mismatch discards
+ * the snapshot instead of deserialising yesterday's shape into today's fields, which fails
+ * silently and looks like an engine bug.
  */
 const VERSION = 1;
+
+/**
+ * READ THIS BEFORE WIRING GENERATED QUESTIONS.
+ *
+ * `engine.asked` stores question *ids*, not questions. That round-trips today only because
+ * QUESTIONS is a static import with stable ids, so a restored id always resolves.
+ *
+ * The moment questions are generated per session, it stops being true: a reload restores
+ * `asked: ["q_a1b2"]` against a bank that no longer contains it, `nextQuestion` returns null,
+ * and `{stage === "question" && current && ...}` in App renders NOTHING. A blank screen with
+ * no error — which is exactly the failure that has already cost us two rounds of debugging.
+ *
+ * The fix is to add the generated questions themselves to Snapshot and rehydrate the bank from
+ * it, then bump VERSION. Cheap now, expensive once generation is live.
+ */
 
 /** Long enough to survive a refresh or a closed lid; short enough that a stale run never returns. */
 const TTL_MS = 2 * 60 * 60 * 1000;

@@ -132,7 +132,7 @@ what decides each one. This table is the same thing in text, with the actual fun
 |---|---|---|---|---|
 | 1 | `Hook.tsx` | nothing | - | - |
 | 2 | `Describe.tsx` | `App.submitDescription` -> `kickOff` | starts 3 and 4 **in parallel**, then advances immediately | - |
-| 3 | *(background)* | `api.buildProfile` | `POST /api/profile` | **Route does not exist.** Falls back to `src/data/replay/demo.json`. When built it calls `api/_lib/llm.ts` `complete()` -> GPT-5.6 |
+| 3 | *(background)* | `api.buildProfile` | `POST /api/profile` -> `profileService.handleProfile()` -> `llm.complete()` -> gpt-5.6-luna | Summary, industry (one of Titan's 16), headcount, domain stem, mailboxes, and which question to ask first. On failure returns a derived profile with `degraded: true` rather than an error |
 | 4 | *(background)* | `neoSite.fetchNeoSite` | `GET /api/neo-site` -> `generateNeoSite()` -> 3 chained calls to `api.titan.email` | Real site: 17 blocks, font, pallet, Pexels URLs. 22-38s. Falls back to `neo-site.json` after 90s |
 | 5 | `Guess.tsx` | - | - | Shows `profile.summary` while 3 and 4 are still resolving |
 | 6 | `AdaptiveQuestion.tsx` | `engine.nextQuestion` picks the question; `App.answer` -> `engine.applyAnswer` | nothing leaves the browser | Meter redraws from `confidence()` and `remainingSetups()`; `persist.saveSnapshot()` writes the run |
@@ -149,9 +149,9 @@ visitor sees (the counter, the plan, the price, the domain price) is computed by
 `rules.ts`, `features.ts` and `domainService.ts`. No model picks a plan or a price. That is
 deliberate, and it is why the numbers can be defended in a demo.
 
-**What is live today vs stubbed:** Neo's site generation, domain availability and pricing, the
-plan and price maths, persistence and the handoff link are all real. Step 3 is the only stub -
-so whatever business you type, the guess screen currently says "two-person bakery".
+**What is live today:** all of it. Neo's site generation, domain availability and pricing, the
+plan and price maths, persistence, the handoff link, and now the profile step. Set
+`VITE_LLM_MODE=replay` to run the whole flow off fixtures with no spend.
 
 ---
 
@@ -235,10 +235,10 @@ name and description Neo's own generator produced. It stays a link a person clic
 automatic redirect. Cold visitors still land on `/site/industry` rather than the domain step -
 that's the remaining gap.
 
-**There is no `api/profile.ts`.** `buildProfile` posts to `/api/profile`, which does not exist,
-so the flow runs on the recorded fixture in `src/data/replay/demo.json` - the guess screen says
-"two-person bakery" whatever you type. `api/_lib/llm.ts` is written and correct but imported by
-nothing. This is the last stubbed step, and the first one to build now the API key is in hand.
+**The profile step is live.** `api/profile.ts` + `api/_lib/profileService.ts` call gpt-5.6-luna
+and return a real profile. Nothing in the flow is fixture-backed any more. `VITE_LLM_MODE=replay`
+still serves the recorded fixture instantly, which is the right setting for rehearsing the demo
+without spending tokens.
 
 ---
 

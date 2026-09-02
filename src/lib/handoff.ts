@@ -51,9 +51,33 @@ const INDUSTRY_KEYS: Record<string, string> = {
   "photography & videography": "photography_and_videography",
 };
 
+/**
+ * Titan's 16-industry taxonomy -> Neo's builder keys.
+ *
+ * `api/profile.ts` constrains the model to Titan's 16 industries, because Neo's free-text
+ * `business_industry` field has 5,318 distinct values and routes nothing. Those 16 labels are
+ * not spelled the way Neo's builder spells its categories, so without this map
+ * `industryKeyFor` returned null for everything the model produced and the handoff URL simply
+ * never carried an `industryKey` — which is what was happening in production.
+ *
+ * Only meanings that actually correspond are mapped. Nine of the sixteen have no observed Neo
+ * key and stay unmapped on purpose: omitting the param lets Neo pick, whereas guessing a near
+ * neighbour is how a painter gets a photography template. "Arts & Creative Services" is the
+ * tempting one to point at `photography_and_videography` — don't; it is a subset, not a match.
+ */
+const TAXONOMY_TO_NEO: Record<string, string> = {
+  "food & beverage": "food_and_beverages",
+  "e-commerce & retail": "ecommerce_and_retail",
+  "marketing & advertising": "marketing_and_advertising",
+  "professional & business services": "business_management_consulting",
+  "media & entertainment": "media_and_entertainment",
+  "technology & it services": "it_and_web_development_services",
+};
+
 function industryKeyFor(industry: unknown): string | null {
   if (typeof industry !== "string") return null;
-  return INDUSTRY_KEYS[industry.trim().toLowerCase()] ?? null;
+  const k = industry.trim().toLowerCase();
+  return INDUSTRY_KEYS[k] ?? TAXONOMY_TO_NEO[k] ?? null;
 }
 
 export interface HandoffInput {

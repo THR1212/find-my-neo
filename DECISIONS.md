@@ -783,3 +783,56 @@ is correlational, and a yearly default may sort customers rather than save them.
 
 No fixed screen order was reintroduced — this is a reweighting, and the engine still asks
 whichever unresolved signal narrows most (CLAUDE.md). Full workings in `docs/data-findings.md`.
+
+---
+
+### 2026-09-02 · The profile step goes live, on Titan's own taxonomy
+
+`api/profile.ts` + `api/_lib/profileService.ts`. The logic sits in the service, not the route,
+so `vite.config.ts` can mount the same function and `npm run dev` behaves like the deployed
+build — the pattern `domainService.ts` already set.
+
+**The model is constrained to Titan's 16-industry taxonomy** as a strict enum. This is the part
+worth defending: Neo's `business_industry` field is free text with 5,318 distinct values, 78% of
+them appearing exactly once and 1,128 of them the same answer typed differently, so it routes
+nothing. The 16 are Titan's own, applied across 1.3M domains — normalising into *their*
+categories is far harder to argue with than inventing ours. "Bakery" now resolves to Food &
+Beverage instead of matching nothing. Darrel's §6.
+
+That fixed a live bug on the way. `industryKeyFor()` only knew Neo's builder spellings, so it
+returned null for everything and **the handoff URL never carried `industryKey` at all**. Verified
+in production earlier that day. `TAXONOMY_TO_NEO` maps the six industries with a real
+equivalent; the other ten stay unmapped deliberately — omitting the param lets Neo pick, whereas
+guessing a near neighbour is how a painter gets a photography template.
+
+**The model still decides nothing that costs money.** No price, no plan, no billing cycle, and
+explicitly not the mailbox count — the prompt says so, because headcount and address count
+diverge for most Neo customers (§7). Domain entries come back with `priceInr: null`; DomScan
+fills them in.
+
+**gpt-5.6-luna, not terra.** Same industry, headcount, stem and mailboxes on the same inputs,
+at a tenth of the price — roughly $0.0005 a call, so ~30,000 calls inside a $15 budget against
+~3,300 on terra. One prompt fix was needed: luna read "one lowercase noun phrase" literally and
+flattened proper nouns to "a two-person bakery in bandra called proof & butter". The schema now
+says to keep proper-noun capitalisation.
+
+### 2026-09-02 · Two silent failures found while wiring it up
+
+**`llm.ts` captured `LLM_MODE` into a module-level const.** `vite.config.ts` copies the LLM vars
+into `process.env` from inside `configureServer`, which runs *after* the config module graph is
+imported — so the const captured `undefined`, defaulted to `"replay"`, and the dev server served
+fixtures while `.env.local` plainly said `LLM_MODE=live`. There was no symptom: replay threw "no
+fixture for profile", the route caught it and degraded, and the response was an ordinary HTTP
+200. You would iterate prompts against an LLM that was switched off. `mode()`, `model()` and the
+client are now read at call time. On Vercel the env exists before any import, so this only ever
+bit in dev — which is exactly where prompts get written.
+
+**`Guess.tsx` treated an empty summary as "still loading".** The condition was
+`if (loading || !summary)`. A degraded profile has an empty summary, so the screen that exists to
+keep the flow alive when the model fails instead hung on "Working it out…" forever. Degradation
+now has its own state — "We didn't catch enough to guess", with *Keep going* and *Rewrite it*.
+The questions work fine without a summary; the engine simply asks more of them, which is correct
+when we know less.
+
+Both were invisible in normal use and only surfaced because the degraded path was deliberately
+exercised. Worth remembering that a fallback nobody tests is a fallback that does not work.

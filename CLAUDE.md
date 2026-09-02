@@ -160,9 +160,13 @@ read `docs/neo-product-facts.md` before claiming anything about what Neo does._
 - Repo: https://github.com/THR1212/find-my-neo (branch `master`).
 
 **Not done / next**
-- **The LLM profile call is still fixture-backed.** `VITE_LLM_MODE=replay` is the default and
-  `api/profile.ts` does not exist. Going live needs that endpoint plus an OpenAI key. Everything
-  else in the flow is live. This is the biggest remaining gap.
+- ~~The LLM profile call is still fixture-backed~~ — **done 02 Sep.** `api/profile.ts` +
+  `api/_lib/profileService.ts`, live on gpt-5.6-**luna**. The model is constrained to Titan's
+  16-industry taxonomy (docs/data-findings.md §6), so "bakery" resolves to Food & Beverage
+  instead of matching nothing. It emits no price, no plan and no mailbox count. On failure it
+  degrades to a derived profile rather than erroring.
+  **Production needs the env vars set on Vercel** (`LLM_MODE`, `LLM_MODEL`, `LLM_API_KEY`) or
+  it will silently serve degraded profiles.
 - **Design chooser** — Neo returns three variants; we call once and show one. This is probably
   the best remaining demo beat.
 

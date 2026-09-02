@@ -176,6 +176,15 @@ those two — undo (`Ctrl+Z`) and try again.
 
 ## When something breaks
 
+**A green build does not mean a working deploy.** Vercel's unsupported-module check runs at
+"Deploying outputs", after the build. `npm run build` and even `npx vercel build` can both say
+success while every production deploy fails. Run `npx vercel deploy` and hit the real URL.
+
+And when an Edge function is blamed for importing something it does not import: Vercel bundles
+Edge functions into one shared namespace, so the function named in the error is often not the
+one at fault. Look for whatever new route pulled a Node-only module into the bundle.
+
+
 **No "Available" badge, and no price on the domains.** The `DOMSCAN_API_KEY` is missing or wrong.
 Check `.env.local` exists and has the line `DOMSCAN_API_KEY=dsk_...`. **You must restart
 `npm run dev` after editing `.env.local`** — it's read once at startup. To confirm the key

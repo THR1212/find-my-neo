@@ -846,3 +846,81 @@ when we know less.
 
 Both were invisible in normal use and only surfaced because the degraded path was deliberately
 exercised. Worth remembering that a fallback nobody tests is a fallback that does not work.
+
+---
+
+### 2026-09-02 · Every production deploy was failing, and neither build caught it
+
+Since `api/profile.ts` landed, every push to master produced `● Error` in production while
+previews stayed `● Ready`. The message:
+
+    The Edge Function "api/domains" is referencing unsupported modules:
+      - api/_lib/replay.js: node:fs/promises, node:path
+      - openai: #x509-transport-state
+
+Adding the profile route pulled `llm.ts` -> `replay.ts` (node:fs) and the OpenAI SDK into the
+Edge bundle, where neither exists.
+
+**Three things worth keeping from this.**
+
+It blames `api/domains`, which imports neither module. Vercel bundles Edge functions into one
+shared namespace, so the function named in the error is not the function at fault. Chasing
+`api/domains` would have wasted the afternoon.
+
+It fires at "Deploying outputs" — after the build. `npm run build` passed, and so did a local
+`vercel build` (`"status": "ok"`). **Only `npx vercel deploy` reproduces it.** Add that to the
+verification loop alongside "test on the deployed URL".
+
+And `api/` was never typechecked at all. `tsconfig.app` covers `src/`, `tsconfig.node` covers
+`vite.config.ts`, and nothing covered `api/` — so eleven pre-existing "Cannot find name
+'process'" errors in `domainService`, `llm` and `replay` had been reaching Vercel unseen for
+days. `api/tsconfig.json` now covers it, referenced from the root so `tsc -b` builds it.
+
+**Fixed by moving the route to the Node runtime**, which is where it belonged: no Edge CPU
+ceiling on a multi-second model call, and the OpenAI SDK is supported rather than tolerated.
+The other three routes stay on Edge — they are plain fetch-and-shape handlers. The value must
+be `"nodejs"`; `"nodejs20.x"` is rejected at deploy time.
+
+### 2026-09-02 · The reveal claimed a taken domain was available
+
+Found by running the flow, not by reading it. A florist was shown
+**"thistletwine.com — Available"**. DomScan says it is taken.
+
+Three things lined up. `api/profile.ts` emitted `available: true` "optimistically for the
+first paint". The client lookup then aborted at its 6s timeout — a cold lookup spends 4
+credits across several upstream calls and measured past that. And `Reveal.tsx` renders the
+green badge on `(live ?? fallback) === true`, so the optimism became the answer.
+
+`available` is now `boolean | null`, and **null is load-bearing: it means we do not know.** A
+badge prints only for an explicit true or false. Timeout raised to 12s, which costs nothing —
+the reveal is already waiting on Neo's 22-38s generator.
+
+The generalisable bit: an optimistic default is a lie with a delay on it. For anything a
+person can check in one keystroke, silence beats a guess.
+
+Separately, `chosenDomain` was pinned to 0, so a taken `.com` stayed on the hero and drove
+the mailbox addresses, the plan line and the handoff URL — while the alternates that exist for
+exactly that case sat below it. The selection now moves to the first domain DomScan explicitly
+says is free, but only if the person has not chosen one themselves. `available === true`,
+never `!== false`.
+
+### 2026-09-02 · A domain of your own, and the TLD cap was set on a guess
+
+Our three suggestions all come from one stem the model guessed, so when that guess is wrong —
+or when everything is taken — the flow had no answer but "start over". The reveal now takes a
+typed domain, checks it through the same live lookup, and appends it as a fourth option,
+selected only if DomScan says it is free.
+
+`MAX_TLDS` 3 -> 6. The cap predated understanding the credit model: `/v1/status` costs 1
+credit **per request** regardless of how many TLDs are batched, so availability for six costs
+exactly what three cost. Only `/v1/prices` bills per TLD, so a cold lookup goes ~4 -> ~7
+against a balance of ~9,900 free credits a month (~1,400 cold sessions).
+
+That exposed a sanitiser bug: the TLD filter stripped dots, turning `co.uk` into `couk` and
+asking DomScan about a TLD that does not exist. Multi-label TLDs are real and anyone typing
+their own domain will use one.
+
+**Still crooked, and not fixed:** the suggested TLDs are `com/in/co`. An Edinburgh florist is
+offered `.in` with a model-written note about serving customers in India. It is the honest
+consequence of an India-first default and the custom input only mitigates it; locale-aware
+suggestions are the real fix.

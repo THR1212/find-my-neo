@@ -175,3 +175,25 @@ export function numbersMeterLabel(
       return remaining === 1 ? "match like yours" : "matches like yours";
   }
 }
+
+/** Number-free headline from the last answer. Always plural — we are not claiming a count. */
+export function wordsMeterCopy(
+  stage: MeterStage,
+  lastQuestionId: string | null,
+  profile: MeterProfile,
+): { title: string; sub: string } {
+  if (stage === "reveal") return { title: "Your setup", sub: "ready for you" };
+  if (stage === "guess" || !lastQuestionId) {
+    return { title: "Finding your setup", sub: "from what you do" };
+  }
+  const line = numbersMeterLabel(99, stage, lastQuestionId, profile);
+  return { title: line, sub: "getting more specific" };
+}
+
+export function closerMeterCopy(confidence: number): { title: string; sub: string } {
+  if (confidence < 0.2) return { title: "Finding your setup", sub: "start with what you do" };
+  if (confidence < 0.45) return { title: "Getting closer", sub: "that narrowed it" };
+  if (confidence < 0.7) return { title: "Taking shape", sub: "a few more details" };
+  if (confidence < 0.88) return { title: "Almost there", sub: "nearly locked in" };
+  return { title: "Your setup", sub: "ready for you" };
+}

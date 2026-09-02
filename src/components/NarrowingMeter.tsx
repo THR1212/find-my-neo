@@ -1,18 +1,41 @@
-import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { numbersMeterLabel, type MeterProfile, type MeterStage } from "./meterNumbersCopy";
+import {
+  closerMeterCopy,
+  wordsMeterCopy,
+  type MeterProfile,
+  type MeterStage,
+} from "./meterNumbersCopy";
 
 /**
- * The narrowing indicator: a ring that fills and a count that collapses.
- *
- * Copy under the count follows the last answer in plain English. On the last screen the
- * leftover floor (3) is hidden — that number is an engine detail, not three products.
+ * Number-free narrowing. The engine still tells us *that* the set shrank (pulse),
+ * but we never print 5,318 — we do not have data to stand behind that figure.
  */
 
 const SIZE = 54;
 const STROKE = 3;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+export type MeterVariant = "words" | "closer" | "ring";
+
+export const METER_VARIANTS: { id: MeterVariant; label: string; hint: string }[] = [
+  {
+    id: "words",
+    label: "Words",
+    hint: "Recommended without data. Ring + what we just learned (DMs, Gmail…). No count.",
+  },
+  {
+    id: "closer",
+    label: "Closer",
+    hint: "“Getting closer” and five dots as the ring fills. Honest progress, no specifics.",
+  },
+  {
+    id: "ring",
+    label: "Ring",
+    hint: "Only the ring and a short status. Quietest option.",
+  },
+];
 
 function MeterRing({
   confidence,
@@ -58,87 +81,86 @@ function MeterRing({
   );
 }
 
+function MatchPips({ confidence }: { confidence: number }) {
+  const filled = Math.min(5, Math.max(0, Math.round(confidence * 5)));
+  return (
+    <div className="meter-pips" aria-hidden="true">
+      {Array.from({ length: 5 }, (_, i) => (
+        <i key={i} className={i < filled ? "is-on" : undefined} />
+      ))}
+    </div>
+  );
+}
+
 export default function NarrowingMeter({
   confidence,
   remaining,
+  variant,
   stage = "guess",
   lastQuestionId = null,
   profile = {},
 }: {
   confidence: number;
   remaining: number;
+  variant: MeterVariant;
   stage?: MeterStage;
   lastQuestionId?: string | null;
   profile?: MeterProfile;
 }) {
-  const count = useMotionValue(remaining);
-  const spring = useSpring(count, { stiffness: 55, damping: 18 });
-  const rounded = useTransform(spring, (v) => Math.round(v).toLocaleString("en-IN"));
   const reduceMotion = useReducedMotion();
   const prevRemaining = useRef(remaining);
-  const [drop, setDrop] = useState<{ delta: number; tight: boolean } | null>(null);
-
-  useEffect(() => {
-    count.set(remaining);
-  }, [remaining, count]);
+  const [drop, setDrop] = useState(false);
 
   useEffect(() => {
     const previous = prevRemaining.current;
     if (remaining < previous) {
-      setDrop({ delta: previous - remaining, tight: remaining <= 12 });
-      const id = window.setTimeout(() => setDrop(null), 780);
+      setDrop(true);
+      const id = window.setTimeout(() => setDrop(false), 780);
       prevRemaining.current = remaining;
       return () => window.clearTimeout(id);
     }
     prevRemaining.current = remaining;
   }, [remaining]);
 
-  const dropping = drop !== null;
-  const tight = Boolean(drop?.tight);
-  const label = numbersMeterLabel(remaining, stage, lastQuestionId, profile);
+  const dropping = drop;
+  const words = wordsMeterCopy(stage, lastQuestionId, profile);
+  const closer = closerMeterCopy(confidence);
+  const ringLine =
+    stage === "reveal" ? "Your setup" : closer.title === "Your setup" ? "Almost there" : closer.title;
 
   return (
-    <div
-      className={`meter meter--numbers${dropping ? " is-dropping" : ""}${tight && dropping ? " is-tight" : ""}`}
-    >
+    <div className={`meter meter--${variant}${dropping ? " is-dropping" : ""}`}>
       <MeterRing confidence={confidence} dropping={dropping} reduceMotion={reduceMotion} />
 
-      <div className="meter-readout" aria-live="polite" aria-atomic="true">
-        {stage === "reveal" ? (
-          <>
-            <span className={`meter-headline${dropping ? " is-dropping" : ""}`}>Your setup</span>
-            <span className="meter-label">{label}</span>
-          </>
-        ) : (
-          <>
-            <div className="meter-count-row">
-              <motion.span
-                className={`meter-count${dropping ? " is-dropping" : ""}`}
-                initial={false}
-                animate={dropping && !reduceMotion ? { scale: [1, 1.16, 1] } : { scale: 1 }}
-                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                style={{ originX: 0, originY: 0.5 }}
-              >
-                {rounded}
-              </motion.span>
-              {drop ? (
-                <span className="meter-delta" aria-hidden="true">
-                  −{drop.delta.toLocaleString("en-IN")}
-                </span>
-              ) : null}
-            </div>
-            <motion.span
-              key={label}
-              className="meter-label"
-              initial={{ opacity: 0, y: 3 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            >
-              {label}
-            </motion.span>
-          </>
-        )}
-      </div>
+      {variant === "words" && (
+        <div className="meter-readout" aria-live="polite" aria-atomic="true">
+          <motion.span
+            key={words.title}
+            className={`meter-headline${dropping ? " is-dropping" : ""}`}
+            initial={{ opacity: 0, y: 3 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {words.title}
+          </motion.span>
+          <span className="meter-label">{dropping ? "that helped" : words.sub}</span>
+        </div>
+      )}
+
+      {variant === "closer" && (
+        <div className="meter-readout" aria-live="polite" aria-atomic="true">
+          <span className={`meter-headline${dropping ? " is-dropping" : ""}`}>{closer.title}</span>
+          <MatchPips confidence={confidence} />
+          <span className="meter-label">{dropping ? "that helped" : closer.sub}</span>
+        </div>
+      )}
+
+      {variant === "ring" && (
+        <div className="meter-readout" aria-live="polite" aria-atomic="true">
+          <span className={`meter-headline${dropping ? " is-dropping" : ""}`}>{ringLine}</span>
+          <span className="meter-label">{stage === "reveal" ? "ready for you" : "matching you"}</span>
+        </div>
+      )}
     </div>
   );
 }

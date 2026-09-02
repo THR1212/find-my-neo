@@ -35,8 +35,22 @@ import { replayFixture } from "./replay.js";
  *
  * On Vercel the env is present before any import, so this only ever bites in dev — which is
  * exactly where every prompt gets iterated. Keep these lazy.
+ *
+ * Preview vs Production is a second trap. Vercel env vars are per-environment. Production
+ * had LLM_MODE=live, so master answered a cinema description. The moin-version preview URL
+ * had LLM_MODE unset (defaults replay) or copied from .env.example as replay. Replay looks
+ * for src/data/replay/profile.json, that file is not in the repo, complete() throws, and
+ * /api/profile returns 200 with an empty summary. The guess screen then says it could not
+ * read the business — which looks like "the branch is broken" next to a working master URL.
+ * If we are on Vercel and a key exists, call the model. Replay stays the local rehearsal path.
  */
-const mode = () => process.env.LLM_MODE ?? "replay";
+export function llmMode(): "replay" | "live" {
+  const requested = (process.env.LLM_MODE ?? "replay").toLowerCase() === "live" ? "live" : "replay";
+  if (requested === "replay" && process.env.VERCEL && process.env.LLM_API_KEY) {
+    return "live";
+  }
+  return requested;
+}
 
 // gpt-5.6-terra: $2/$12 per 1M in/out, proven in flock-partner-analysis.
 // gpt-5.6-luna: $0.2/$1.2 — 10x cheaper, likely fine for profile extraction.
@@ -81,8 +95,19 @@ export async function complete<T>({
   schemaName,
   maxOutputTokens = 4096,
 }: CompleteArgs): Promise<T> {
-  if (mode() === "replay") {
-    return replayFixture<T>(key, user);
+  if (llmMode() === "replay") {
+    try {
+      return await replayFixture<T>(key, user);
+    } catch (err) {
+      /* Local rehearsal with no fixture and no key should still fail loudly. A deployed
+         preview that has a key should not degrade to an empty guess because profile.json
+         was never recorded. */
+      if (!process.env.LLM_API_KEY) throw err;
+      console.error(
+        "[llm] replay fixture missing; falling through to live",
+        JSON.stringify({ key, reason: err instanceof Error ? err.message : String(err) }),
+      );
+    }
   }
 
   /**

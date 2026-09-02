@@ -14,7 +14,7 @@
  * "Not quite" beats a dead screen mid-demo. The payload carries `degraded: true`.
  */
 
-import { complete } from "./llm.js";
+import { complete, llmMode } from "./llm.js";
 
 /**
  * Titan's analytics industry taxonomy — 16 industries over 103 sub-industries.
@@ -283,7 +283,7 @@ export async function handleProfile(
       sid,
       ms: Date.now() - startedAt,
       model: process.env.LLM_MODEL ?? "default",
-      mode: process.env.LLM_MODE ?? "replay",
+      mode: llmMode(),
       chars: businessText.length,
       degraded,
       ...(reason ? { reason: reason.slice(0, 200) } : {}),

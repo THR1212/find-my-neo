@@ -20,7 +20,7 @@
  * So no generation can change what an answer means, only how it reads.
  */
 
-import { complete } from "./llm.js";
+import { complete, llmMode } from "./llm.js";
 
 /**
  * The fixed question structure, mirrored from src/lib/questions.ts.
@@ -307,6 +307,7 @@ export async function handleQuestions(
       sid,
       ms: Date.now() - startedAt,
       model: process.env.LLM_MODEL ?? "default",
+      mode: llmMode(),
       surfaced: Object.keys(surface).length,
       dropped: dropped.length,
       ...(reason ? { reason: reason.slice(0, 200) } : {}),

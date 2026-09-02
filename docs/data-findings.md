@@ -259,24 +259,84 @@ are there?" asks about headcount when the thing being bought is *addresses*. "Ho
 addresses do you need — info@, sales@, bookings@?" matches what people actually do, and
 lands better with a solo operator who wants three role addresses.
 
-## 8. Field coverage — the "most predictive, least populated" line needs restating
+## 8. Field coverage — "least populated" confirmed, "most predictive" contradicted
 
-Against `Sheet13`'s 13,968 rows:
+Script: `analysis/scripts/field_coverage.py`. Output: `analysis/output/field_coverage.json`.
 
-| Field | Filled | Share |
+**The coverage half of the pitch line is exactly right.** On `Retention-Raw` deduped:
+`import_emails_contacts` and `current_email_app` are each filled on **2,484 of 18,399
+orders = 13.5%**, precisely as claimed.
+
+Both numbers that have been floating around are correct — they are different sheets:
+
+| Sheet | Filled | Share |
 |---|---|---|
-| `employee_count` | 13,843 | **99.1%** |
-| `signup_reason` | 8,104 | 58.0% |
-| `import_emails_contacts` | 2,667 | **19.1%** |
-| `current_email_app` | 2,669 | **19.1%** |
+| `Retention-Raw` (18,399 deduped orders) | 2,484 | **13.5%** ← the brief's number |
+| `Sheet13` (13,968 rows) | 2,667 / 2,669 | **19.1%** |
 
-**The brief claims ~13% (2,484 of 18,399). Against `Sheet13` it is 19.1% (2,667 of
-13,968) — a different denominator.** Don't say "13%" without saying which base.
+Always say which sheet. And for context on `Sheet13`: `employee_count` is filled on 99.1%,
+`signup_reason` 58.0%.
 
-And note the app leads with the import question (`src/lib/questions.ts:70`) despite
-import intent being the *worst-covered* field in Neo's data. §1c resolves why: it is a
-later-stage onboarding field, so its coverage and its retention both measure how far
-someone got, not what they wanted.
+**A detail that settles the mechanism:** the two fields cover the *identical* 2,484 orders
+— zero orders have one filled without the other. That is what two questions sitting on the
+same later onboarding step look like, and it is why "answered" is a progress marker.
+
+### The "most predictive" half is backwards
+
+The claim conflates three different numbers. Separating them:
+
+- **coverage** — how often the field is filled
+- **V** — Cramér's V between *which answer was given* and retention, on answered rows only,
+  over answer values with n≥30. This is what "predictive" should mean.
+- **gap** — retention when filled minus when blank. The selection effect.
+
+| Field | cov % | V | levels | gap pt |
+|---|---|---|---|---|
+| `business_industry` | 71.1 | 0.350 ⚠ | 41 | −11.1 |
+| `role_in_business` | 71.2 | 0.192 ⚠ | 25 | −11.1 |
+| **`billing_cycle`** | 100.0 | **0.177** | 3 | — |
+| `login_tag` | 100.0 | 0.153 | 2 | — |
+| `client_used` | 100.0 | 0.147 | 4 | — |
+| `neo_offering` | 100.0 | 0.140 | 2 | — |
+| `employee_count_modified` | 71.2 | 0.122 ⚠ | 20 | −11.1 |
+| `signup_reason` | 41.9 | 0.064 | 4 | +11.9 |
+| **`current_email_app`** | 13.5 | **0.058** | 8 | **+49.8** |
+| `mailbox_count` | 100.0 | 0.051 | 10 | — |
+| **`import_emails_contacts`** | 13.5 | **0.041** | 4 | **+49.8** |
+
+⚠ = high cardinality inflates V; only ~a third of answered rows clear n≥30. Don't read
+these as beating `billing_cycle`.
+
+**`import_emails_contacts` is the weakest of the 11 non-leaky fields** (rank 1 of 11) and
+`current_email_app` is third weakest. `billing_cycle` is **4.3× more associated on fewer
+levels** (3 vs 4), so this is not a cardinality artifact.
+
+What made them look predictive is the **+49.8pt answered-vs-blank gap — the largest of any
+field** — which §1c shows is selection, not signal.
+
+Three fields are excluded as outcome leaks: `status` (V=0.943 — it *is* the retention flag),
+`plan_type` (0.379) and `init_plan_type` (0.142). Recorded so nobody rediscovers them.
+
+### The pitch line, rewritten
+
+The brief calls "most predictive, least populated" one of the strongest things in the pitch.
+As written it will not survive a data-literate question. The honest version is stronger,
+because it indicts the whole persona survey rather than one field:
+
+> Neo asks six persona questions. The best-covered of them — industry, filled on **99.0%**
+> of rows — has **5,318 distinct values, 78% of them appearing exactly once**, so it routes
+> nothing. The two fields that look most predictive are filled on **13.5%** of orders, and
+> their apparent power is an artifact: *"No, don't want to import"* retains at **79.5%**
+> against 82.4% for *"yes, both"*. Meanwhile the strongest retention signal in the whole
+> dataset — **billing commitment, 73.0% two-yearly vs 30.9% monthly** — is never asked as a
+> question at all. It is a checkout radio button.
+
+(Coverage figures in that paragraph are `Sheet13`; the 13.5% and the retention rates are
+`Retention-Raw` deduped. The six fields are `signup_reason` 58.0%, `employee_count` 99.1%,
+`role_in_business` 99.1%, `business_industry` 99.0%, `import_emails_contacts` 19.1%,
+`current_email_app` 19.1%.)
+
+Every number in that paragraph is computed in this repo, with `n`, from source.
 
 ---
 

@@ -1,0 +1,246 @@
+{
+  "_source": "Neo_vs_Non-neo_clients.xlsx, sheet Retention-Raw, deduped on order_id",
+  "_dateRange": "2023-03-15 to 2024-02-21",
+  "_computedOn": "2026-09-02",
+  "_computedBy": "analysis/scripts/field_coverage.py",
+  "_caveats": [
+    "cramersV is computed on answered rows only, over answer values with n>=30, so it measures whether the ANSWER predicts - not whether answering predicts.",
+    "status/plan_type/init_plan_type encode or trail the outcome and are excluded from the ranking; status V=0.94 is leakage, not a finding.",
+    "business_industry and role_in_business have 41 and 25 qualifying levels, which inflates Cramers V relative to 2-4 level fields, and only about a third of their answered rows clear the n>=30 threshold.",
+    "2023-24 window and product state - directional only."
+  ],
+  "orders": 18399,
+  "baselineRetained": 0.3622,
+  "coverageClaim": {
+    "claimed": {
+      "n": 2484,
+      "of": 18399,
+      "share": 0.135
+    },
+    "importFilled": 2484,
+    "emailAppFilled": 2484,
+    "share": 0.135,
+    "verdict": "CONFIRMED",
+    "identicalOrderSets": true,
+    "sheet13Coverage": {
+      "import_emails_contacts": {
+        "filled": 2667,
+        "n": 13968,
+        "share": 0.1909
+      },
+      "current_email_app": {
+        "filled": 2669,
+        "n": 13968,
+        "share": 0.1911
+      }
+    }
+  },
+  "predictivenessVerdict": {
+    "leastPopulated": "CONFIRMED",
+    "mostPredictive": "CONTRADICTED",
+    "importCramersV": 0.041,
+    "emailAppCramersV": 0.058,
+    "billingCycleCramersV": 0.177,
+    "weakestFirstRanking": [
+      "import_emails_contacts",
+      "mailbox_count",
+      "current_email_app",
+      "signup_reason",
+      "employee_count_modified",
+      "neo_offering",
+      "client_used",
+      "login_tag",
+      "billing_cycle",
+      "role_in_business",
+      "business_industry"
+    ],
+    "importRank": 1,
+    "emailAppRank": 3,
+    "nonLeakyFieldsRanked": 11,
+    "note": "By answer-to-retention association among the non-leaky fields, import_emails_contacts is the weakest and current_email_app third weakest, while both carry the largest answered-vs-blank gap (+49.8pt). The apparent predictiveness is selection, not signal."
+  },
+  "fields": [
+    {
+      "field": "import_emails_contacts",
+      "coverage": 0.135,
+      "filled": 2484,
+      "cramersV": 0.041,
+      "answerSpread": 0.0862,
+      "levelsUsed": 4,
+      "rowsUsed": 2484,
+      "answeredRetained": 0.7931,
+      "blankRetained": 0.2949,
+      "answeredGap": 0.4981,
+      "flag": ""
+    },
+    {
+      "field": "current_email_app",
+      "coverage": 0.135,
+      "filled": 2484,
+      "cramersV": 0.058,
+      "answerSpread": 0.0814,
+      "levelsUsed": 8,
+      "rowsUsed": 2197,
+      "answeredRetained": 0.7931,
+      "blankRetained": 0.2949,
+      "answeredGap": 0.4981,
+      "flag": ""
+    },
+    {
+      "field": "signup_reason",
+      "coverage": 0.4193,
+      "filled": 7714,
+      "cramersV": 0.064,
+      "answerSpread": 0.0734,
+      "levelsUsed": 4,
+      "rowsUsed": 1943,
+      "answeredRetained": 0.4313,
+      "blankRetained": 0.3123,
+      "answeredGap": 0.119,
+      "flag": ""
+    },
+    {
+      "field": "employee_count_modified",
+      "coverage": 0.7119,
+      "filled": 13099,
+      "cramersV": 0.122,
+      "answerSpread": 0.2674,
+      "levelsUsed": 20,
+      "rowsUsed": 12735,
+      "answeredRetained": 0.3303,
+      "blankRetained": 0.4409,
+      "answeredGap": -0.1106,
+      "flag": "HIGH_CARDINALITY"
+    },
+    {
+      "field": "role_in_business",
+      "coverage": 0.7115,
+      "filled": 13091,
+      "cramersV": 0.192,
+      "answerSpread": 0.4598,
+      "levelsUsed": 25,
+      "rowsUsed": 9512,
+      "answeredRetained": 0.3302,
+      "blankRetained": 0.4412,
+      "answeredGap": -0.1111,
+      "flag": "HIGH_CARDINALITY"
+    },
+    {
+      "field": "business_industry",
+      "coverage": 0.7112,
+      "filled": 13085,
+      "cramersV": 0.35,
+      "answerSpread": 0.6925,
+      "levelsUsed": 41,
+      "rowsUsed": 4592,
+      "answeredRetained": 0.3301,
+      "blankRetained": 0.4413,
+      "answeredGap": -0.1112,
+      "flag": "HIGH_CARDINALITY"
+    },
+    {
+      "field": "billing_cycle",
+      "coverage": 1.0,
+      "filled": 18399,
+      "cramersV": 0.177,
+      "answerSpread": 0.421,
+      "levelsUsed": 3,
+      "rowsUsed": 18399,
+      "answeredRetained": 0.3622,
+      "blankRetained": null,
+      "answeredGap": null,
+      "flag": ""
+    },
+    {
+      "field": "neo_offering",
+      "coverage": 1.0,
+      "filled": 18399,
+      "cramersV": 0.14,
+      "answerSpread": 0.1346,
+      "levelsUsed": 2,
+      "rowsUsed": 18399,
+      "answeredRetained": 0.3622,
+      "blankRetained": null,
+      "answeredGap": null,
+      "flag": ""
+    },
+    {
+      "field": "login_tag",
+      "coverage": 1.0,
+      "filled": 18399,
+      "cramersV": 0.153,
+      "answerSpread": 0.188,
+      "levelsUsed": 2,
+      "rowsUsed": 18399,
+      "answeredRetained": 0.3622,
+      "blankRetained": null,
+      "answeredGap": null,
+      "flag": ""
+    },
+    {
+      "field": "client_used",
+      "coverage": 1.0,
+      "filled": 18399,
+      "cramersV": 0.147,
+      "answerSpread": 0.2477,
+      "levelsUsed": 4,
+      "rowsUsed": 18399,
+      "answeredRetained": 0.3622,
+      "blankRetained": null,
+      "answeredGap": null,
+      "flag": ""
+    },
+    {
+      "field": "mailbox_count",
+      "coverage": 1.0,
+      "filled": 18399,
+      "cramersV": 0.051,
+      "answerSpread": 0.1616,
+      "levelsUsed": 10,
+      "rowsUsed": 18303,
+      "answeredRetained": 0.3622,
+      "blankRetained": null,
+      "answeredGap": null,
+      "flag": ""
+    },
+    {
+      "field": "status",
+      "coverage": 1.0,
+      "filled": 18399,
+      "cramersV": 0.943,
+      "answerSpread": 0.9296,
+      "levelsUsed": 3,
+      "rowsUsed": 18399,
+      "answeredRetained": 0.3622,
+      "blankRetained": null,
+      "answeredGap": null,
+      "flag": "LEAKS"
+    },
+    {
+      "field": "plan_type",
+      "coverage": 1.0,
+      "filled": 18399,
+      "cramersV": 0.379,
+      "answerSpread": 0.4113,
+      "levelsUsed": 4,
+      "rowsUsed": 18381,
+      "answeredRetained": 0.3622,
+      "blankRetained": null,
+      "answeredGap": null,
+      "flag": "LEAKS"
+    },
+    {
+      "field": "init_plan_type",
+      "coverage": 0.9999,
+      "filled": 18397,
+      "cramersV": 0.142,
+      "answerSpread": 0.1406,
+      "levelsUsed": 4,
+      "rowsUsed": 18381,
+      "answeredRetained": 0.3622,
+      "blankRetained": 0.5,
+      "answeredGap": -0.1378,
+      "flag": "LEAKS"
+    }
+  ]
+}

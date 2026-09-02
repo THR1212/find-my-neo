@@ -21,6 +21,7 @@
  */
 
 import { complete, llmMode } from "./llm.js";
+import { proxyToProduction } from "./upstream.js";
 
 /**
  * The fixed question structure, mirrored from src/lib/questions.ts.
@@ -280,6 +281,9 @@ export async function handleQuestions(
   if (businessText.trim().length < 8) {
     return { status: 400, body: { error: "businessText too short" } };
   }
+
+  const proxied = await proxyToProduction("/api/questions", businessText, sid);
+  if (proxied) return proxied;
 
   let questions: ModelQuestion[] = [];
   let reason = "";

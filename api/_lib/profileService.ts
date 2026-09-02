@@ -15,6 +15,7 @@
  */
 
 import { complete, llmMode } from "./llm.js";
+import { proxyToProduction } from "./upstream.js";
 
 /**
  * Titan's analytics industry taxonomy — 16 industries over 103 sub-industries.
@@ -243,6 +244,9 @@ export async function handleProfile(
   if (businessText.trim().length < 8) {
     return { status: 400, body: { error: "businessText too short" } };
   }
+
+  const proxied = await proxyToProduction("/api/profile", businessText, sid);
+  if (proxied) return proxied;
 
   let profile: ModelProfile;
   let degraded = false;

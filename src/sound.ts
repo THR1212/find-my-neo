@@ -10,6 +10,7 @@ let muted = true;
 let ctx: AudioContext | null = null;
 let describeClip: HTMLAudioElement | null = null;
 let describeWanted = false;
+let describeStarted = false;
 let successClip: HTMLAudioElement | null = null;
 
 export function soundIsMuted() {
@@ -34,7 +35,8 @@ export function setSoundMuted(next: boolean) {
     return;
   }
   void context()?.resume();
-  if (describeWanted && describeClip) void describeClip.play().catch(() => {});
+  ensureSuccessClip();
+  if (describeWanted) startDescribeOnce();
 }
 
 function tone(
@@ -58,43 +60,57 @@ function tone(
   osc.stop(at + duration + 0.03);
 }
 
-/** Loop the keyboard clip while they are writing the business. Mute-gated. */
+/** Keyboard clip once when they start typing. Same slow speed, no loop. Mute-gated. */
 export function playDescribeKeyboard() {
   describeWanted = true;
   if (muted) return;
+  startDescribeOnce();
+}
+
+function startDescribeOnce() {
+  if (describeStarted) return;
   if (typeof window === "undefined") return;
+  describeStarted = true;
   if (!describeClip) {
     describeClip = new Audio("/sounds/computer-keyboard.mp3");
     describeClip.preload = "auto";
     describeClip.volume = 0.5;
   }
-  describeClip.loop = true;
+  describeClip.loop = false;
   describeClip.playbackRate = 0.58;
   describeClip.preservesPitch = true;
-  if (!describeClip.paused) return;
+  describeClip.currentTime = 0;
   void describeClip.play().catch(() => {
-    /* Autoplay can fail until a gesture; typing and Continue are gestures. */
+    describeStarted = false;
   });
+  ensureSuccessClip();
 }
 
 export function stopDescribeKeyboard() {
   describeWanted = false;
+  describeStarted = false;
   if (!describeClip) return;
   describeClip.pause();
   describeClip.currentTime = 0;
 }
 
-/** One-shot on the last page, when the setup (and generated site, if shown) is ready. */
-export function playSetupReady() {
-  if (muted) return;
-  if (typeof window === "undefined") return;
+function ensureSuccessClip() {
+  if (typeof window === "undefined") return null;
   if (!successClip) {
     successClip = new Audio("/sounds/success.mp3");
     successClip.preload = "auto";
     successClip.volume = 0.55;
+    successClip.load();
   }
-  successClip.currentTime = 0;
-  void successClip.play().catch(() => {
+  return successClip;
+}
+
+/** One-shot as soon as the last page is on screen. Mute-gated. */
+export function playSetupReady() {
+  const clip = ensureSuccessClip();
+  if (muted || !clip) return;
+  clip.currentTime = 0;
+  void clip.play().catch(() => {
     /* Autoplay can fail until a gesture; they have already typed and tapped. */
   });
 }

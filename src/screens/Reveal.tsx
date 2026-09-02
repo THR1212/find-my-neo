@@ -81,13 +81,11 @@ export default function Reveal({
   }, [stem]);
 
   useEffect(() => {
-    if (error || loading || !reveal) return;
-    const siteShown = surface !== "mail";
-    if (siteShown && !neoSite) return;
+    if (error) return;
     if (revealCuePlayed.current) return;
     revealCuePlayed.current = true;
     playSetupReady();
-  }, [error, loading, reveal, neoSite, surface]);
+  }, [error]);
 
   if (error) {
     return (

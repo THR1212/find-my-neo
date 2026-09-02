@@ -342,6 +342,8 @@ export async function handleProfile(
         .replace(/\s+/g, " ")
         .trim(),
       degraded,
+      mode: llmMode(),
+      ...(reason ? { reason: reason.slice(0, 240) } : {}),
     },
   };
 }

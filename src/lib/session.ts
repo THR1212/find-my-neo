@@ -12,6 +12,12 @@ export interface Profile {
   summary: string;
   /** Normalised industry. Neo's own field has 5,318 distinct raw values — this is the fix. */
   industry: string;
+  /**
+   * Headcount, read out of the free text — "there are three of us". Deliberately NOT the
+   * mailbox count: the `mailboxCount` question asks for addresses, and most Neo domains run
+   * role addresses on top of the people. The model never answers that question, so this
+   * stays headcount and only stands in for pricing when the question never got asked.
+   */
   teamSize: number | null;
   location: string | null;
   /** Suggested domain stem, slugified, no TLD. */

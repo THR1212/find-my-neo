@@ -17,6 +17,17 @@
 
 export type SignalId =
   | "industry"
+  /**
+   * How many mailboxes they actually need — deliberately NOT headcount.
+   *
+   * `teamSize` still exists and still means headcount: the model infers it from the free
+   * text ("there are three of us") and the guess screen reads it back. But headcount is the
+   * wrong number to price on. In Neo's own data 39-64% of mailboxes per domain are generic
+   * role addresses — info@, sales@, support@ — so a one-person business routinely wants
+   * three mailboxes. Pricing that person for one both under-charges and pushes them to Lite,
+   * which caps them wrong. See docs/data-findings.md §7.
+   */
+  | "mailboxCount"
   | "teamSize"
   | "importIntent"
   | "currentClient"
@@ -59,8 +70,26 @@ export interface Question {
   freeText?: { placeholder: string };
   /**
    * How much this narrows the space, 0-1. Drives the confidence ring and the
-   * "possible setups" counter. Ordered by real predictive value where we have it:
-   * import intent is the strongest retention signal in the persona data.
+   * "possible setups" counter, and — because `nextQuestion` picks the heaviest unresolved
+   * question — decides what gets asked first when the model has no preference.
+   *
+   * Weighted by **how much the answer moves the recommendation**, which is not the same as
+   * how interesting it is. `mailboxCount` is a straight multiplier on price and gates
+   * Lite/Starter/Standard, so it is heaviest. `surface` gates the whole site plan and the
+   * billing cycle. `sellsOnline` picks the site tier. The remaining three only colour the
+   * feature bullets.
+   *
+   * This used to lead on import intent, on the grounds that it was "the strongest retention
+   * signal in the persona data". That reading does not survive checking: "No, don't want to
+   * import" retains at 79.5% against 82.4% for "yes, both" — an 8.6pt spread — while merely
+   * *answering* the field is 79.3% vs 29.5% blank. `import_emails_contacts` sits late in
+   * Neo's onboarding, so its retention measures how far someone got, not what they wanted,
+   * and it is not knowable at all when we ask it: before purchase, of a cold visitor.
+   * See docs/data-findings.md §1c. Import intent still gates Lite vs Starter, so it keeps
+   * real weight — just not the most.
+   *
+   * The totals still sum to 1.25, so the narrowing meter's pacing is unchanged; only the
+   * order in which questions surface has moved.
    */
   weight: number;
 }
@@ -71,7 +100,9 @@ export const QUESTIONS: Question[] = [
     signal: "importIntent",
     prompt: "Bringing anything with you?",
     sub: "If your mail or contacts live somewhere else, we can move them across.",
-    weight: 0.3,
+    /* Was 0.3 and asked first, on a retention claim that turned out to be a selection
+       effect — see the weight doc above. Still gates Lite vs Starter, so it earns 0.15. */
+    weight: 0.15,
     /* Single: "start fresh" and "import emails" cannot both be true. */
     freeText: { placeholder: "Something else you'd want moved across?" },
     options: [
@@ -123,7 +154,10 @@ export const QUESTIONS: Question[] = [
     signal: "currentClient",
     prompt: "What do you use for mail right now?",
     sub: "Pick all that apply.",
-    weight: 0.2,
+    /* Was 0.2. `current_email_app` is filled on the same 2,484 orders as the import field
+       and carries the same selection effect, and it feeds no plan or price decision — only
+       two feature bullets. Asked late now, if at all. */
+    weight: 0.15,
     multi: true,
     freeText: { placeholder: "Something else? Zoho, Proton, your host's webmail…" },
     options: [
@@ -135,16 +169,25 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: "team",
-    signal: "teamSize",
-    prompt: "How many of you are there?",
-    sub: "This decides how many mailboxes we set up.",
-    weight: 0.15,
-    /* Single: a headcount is one number. */
+    signal: "mailboxCount",
+    /* Asks for addresses, not headcount. Neo's data says these diverge for most of their
+       customers — see the mailboxCount note on SignalId. Asking "how many of you are there?"
+       got us a headcount we then priced as a mailbox count, which is wrong in the common
+       case and wrong in the direction that annoys people: too few. */
+    prompt: "How many email addresses do you need?",
+    sub: "Addresses, not people — plenty of one-person businesses run info@ and sales@ too.",
+    weight: 0.3,
+    /* Single: a count is one number. */
     options: [
-      { id: "1", label: "Just me", resolves: { teamSize: 1 } },
-      { id: "2", label: "Two of us", resolves: { teamSize: 2 } },
-      { id: "3-5", label: "Three to five", resolves: { teamSize: 4 } },
-      { id: "6+", label: "More than five", resolves: { teamSize: 8 } },
+      { id: "1", label: "Just one", hint: "Only me, only my name", resolves: { mailboxCount: 1 } },
+      { id: "2", label: "Two", hint: "Say mine plus a hello@", resolves: { mailboxCount: 2 } },
+      {
+        id: "3-5",
+        label: "Three to five",
+        hint: "Mine plus info@, sales@, bookings@…",
+        resolves: { mailboxCount: 4 },
+      },
+      { id: "6+", label: "More than five", resolves: { mailboxCount: 8 } },
     ],
   },
   {
@@ -152,7 +195,8 @@ export const QUESTIONS: Question[] = [
     signal: "sellsOnline",
     prompt: "Do people pay you online?",
     sub: "Changes what your site needs to do.",
-    weight: 0.15,
+    /* 0.15 -> 0.2: this picks the site tier (Basic vs Plus), so it moves the price. */
+    weight: 0.2,
     freeText: { placeholder: "Anything else about how you get paid?" },
     options: [
       { id: "yes", label: "Yes, I take orders or payments", resolves: { sellsOnline: true } },

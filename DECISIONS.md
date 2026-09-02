@@ -635,3 +635,65 @@ The local folder is still `Projects/neo-akinator` — harmless, nobody outside s
 
 The **Vercel alias** `neo-akinator.vercel.app` is a separate thing and still regenerates on
 every production deploy; keep removing it.
+
+---
+
+### 2026-09-02 · Questions reweighted; the import-first order is retired
+
+The flow led with the import question because `docs/handoff.md` called import intent "the
+strongest retention signal in the persona data", and `questions.ts` carried `weight: 0.3` on it
+to make the engine ask it first. That claim has now been recomputed from source and it does not
+mean what we thought.
+
+It is true that "imported emails and contacts" retains at 82.4%. But **"No, don't want to
+import" retains at 79.5%** — the entire spread between answers is 8.6 points. What actually
+separates people is whether the field is filled at all: **79.3% answered vs 29.5% blank**, a
+2.7x gap that survives holding login fixed and holding billing cycle fixed. And it is not
+"answering anything is good" — the signup-time fields (`employee_count`, `role_in_business`,
+`business_industry`) run the other way, 33.0% answered against 44.1% blank.
+
+`import_emails_contacts` and `current_email_app` are filled on the same 2,484 of 18,399 orders,
+far fewer than the signup-time fields, so they sit later in Neo's onboarding. Their retention
+measures **how far someone got**, not what they wanted. Worse, for our purposes it is not
+knowable at the moment we ask: we ask before purchase, of a cold visitor, and the 82% was
+measured on people who answered after signing up. It is an outcome leak, not a predictor.
+
+**New weights, by how much the answer moves the recommendation** rather than by how interesting
+it is. Totals still sum to 1.25, so the narrowing meter's pacing is untouched — only the order
+in which questions surface has moved.
+
+| Question | Was | Now | Why |
+|---|---|---|---|
+| `team` → `mailboxCount` | 0.15 | **0.30** | straight multiplier on price, and gates Lite/Starter/Standard |
+| `surface` | 0.25 | 0.25 | gates the site plan entirely, and the billing cycle |
+| `sells` | 0.15 | 0.20 | picks the site tier, so it moves the price |
+| `channel` | 0.20 | 0.20 | no plan effect, but six feature rules |
+| `import` | **0.30** | 0.15 | still gates Lite vs Starter — just not the most |
+| `client` | 0.20 | 0.15 | same selection effect as import, and feeds no plan decision |
+
+### The team question now asks for addresses, not headcount
+
+Related and more than cosmetic. `mbx_segment` in Neo's own data shows **39–64% of mailboxes per
+domain are generic role addresses** — info@, sales@, support@ — so a one-person business
+routinely wants three mailboxes. Asking "how many of you are there?" got us a headcount that
+`rules.ts` then priced as a mailbox count. That is wrong in the common case and wrong in the
+direction that annoys people: a solo operator wanting `info@` and `sales@` alongside their own
+name was priced for **one** mailbox and pushed to **Lite**, which caps them.
+
+So the question is now "How many email addresses do you need?" and resolves a new
+`mailboxCount` signal. `teamSize` survives and still means headcount — the model infers it from
+the free text and the guess screen reads it back ("A team of three") — but it only stands in for
+pricing when the mailbox question never got asked. `rules.ts` prefers `mailboxCount`;
+`Reveal.tsx`'s prop was renamed from `teamSize` to match, since it was only ever used to compute
+a mailbox count.
+
+### What did NOT change
+
+The **yearly billing default in `rules.ts` stands**, and is now verified rather than inherited:
+two-yearly 73.0% vs monthly 30.9% on 18,399 deduped orders, confirmed in the same direction on a
+second and much larger dataset (22.0% vs 3.7% m12 across 153,673 accounts, a 5.9x gap that
+survives holding mailbox count fixed). The caveat now sits next to the number in the code: this
+is correlational, and a yearly default may sort customers rather than save them.
+
+No fixed screen order was reintroduced — this is a reweighting, and the engine still asks
+whichever unresolved signal narrows most (CLAUDE.md). Full workings in `docs/data-findings.md`.

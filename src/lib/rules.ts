@@ -52,9 +52,18 @@ const byId = <T extends { id: string }>(list: T[], id: string): T =>
  * Billing cycle.
  *
  * Yearly by default rather than monthly, and this is a deliberate strategic choice, not a
- * revenue grab: in the persona data two-yearly billing retained at 73% against 31% monthly.
- * Recommending the cycle that correlates with people actually staying is the "quality of users
- * acquired" argument (KR4), and it is the honest version of an upsell.
+ * revenue grab: two-yearly billing retained at 73.0% against 30.9% monthly, with yearly at
+ * 45.3% in between. Those numbers are now **verified from source** rather than inherited —
+ * recomputed on 18,399 deduped orders, and confirmed in the same direction on a second,
+ * much larger dataset (22.0% vs 3.7% m12 across 153,673 accounts, a 5.9x gap that survives
+ * holding mailbox count fixed). See docs/data-findings.md §1b and §2.
+ *
+ * Recommending the cycle that correlates with people actually staying is the "quality of
+ * users acquired" argument (KR4), and it is the honest version of an upsell.
+ *
+ * The caveat, because it belongs next to the number: this is correlational. Committing to
+ * two years does not *cause* retention — the kind of customer who commits is the kind who
+ * stays. A yearly default may sort customers rather than save them.
  *
  * We do not push past yearly. Two- and four-yearly are cheaper per month but ask a brand-new
  * business to commit years upfront, which is a worse experience than the saving is worth.
@@ -87,7 +96,14 @@ function chooseSitePlan(profile: Profile): SitePlanJson | null {
 }
 
 export function recommend(profile: Profile, suggestedMailboxes: number): Recommendation {
-  const mailboxes = Math.max(1, (profile.teamSize as number) || suggestedMailboxes || 1);
+  /* `mailboxCount` first: it is what the question actually asks for. `teamSize` is the
+     model's headcount read of the free text and only stands in when the mailbox question
+     never got asked — it under-counts, because most Neo domains run role addresses on top
+     of the people (docs/data-findings.md §7). */
+  const mailboxes = Math.max(
+    1,
+    (profile.mailboxCount as number) || (profile.teamSize as number) || suggestedMailboxes || 1,
+  );
   const cycle = chooseCycle(profile);
   const mailPlan = chooseMailPlan(profile, mailboxes);
   const sitePlan = chooseSitePlan(profile);

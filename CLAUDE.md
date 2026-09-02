@@ -167,7 +167,11 @@ read `docs/neo-product-facts.md` before claiming anything about what Neo does._
   the best remaining demo beat.
 
 - Sound cues — must ship muted-by-default with a visible toggle.
-- Python `analysis/` folder for the persona/retention numbers — not started.
+- ~~Python `analysis/` folder for the persona/retention numbers~~ — **done 02 Sep.**
+  `analysis/scripts/` + `analysis/output/`, findings written up in `docs/data-findings.md`.
+  5,318 confirmed exactly; the yearly-billing default verified on two datasets; the
+  import-first question order retired as a selection effect (DECISIONS 02 Sep). Raw data
+  stays in the gitignored `analysis/data/`.
 - Screen recordings and HARs live in `neo_flows/` and are **gitignored** (~100MB, contain
   session tokens and the tester's email). Findings go in `docs/neo-product-facts.md`.
 

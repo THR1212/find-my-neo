@@ -38,7 +38,7 @@ export default function Reveal({
   loading,
   error,
   surface,
-  teamSize,
+  mailboxCount: answeredMailboxes,
   profile,
   businessText,
   neoSite,
@@ -48,7 +48,13 @@ export default function Reveal({
   loading: boolean;
   error: string | null;
   surface: string | null;
-  teamSize: number | null;
+  /**
+   * Mailboxes the user actually asked for. Was `teamSize`, which stopped being the right
+   * number once the question started asking for addresses rather than headcount — see
+   * `mailboxCount` in questions.ts. App.tsx falls back to the model's headcount read when
+   * the mailbox question never got asked.
+   */
+  mailboxCount: number | null;
   profile: Profile;
   /** The user's original free text — handed to Neo's builder verbatim as `bd`. */
   businessText: string;
@@ -109,7 +115,7 @@ export default function Reveal({
   // question) shows it — the drafted site is too much of the payoff to hide by default.
   const showSite = surface !== "mail";
   const domain = reveal.domains[chosenDomain] ?? reveal.domains[0];
-  const mailboxCount = Math.max(reveal.mailboxes.length, teamSize ?? 0);
+  const mailboxCount = Math.max(reveal.mailboxes.length, answeredMailboxes ?? 0);
 
   /**
    * Why this plan, for this person. Deterministic — see features.ts. The model never picks

@@ -74,7 +74,8 @@ you're not. See "Changing the demo answer" below.
 | `src/lib/engine.ts` | Picks the next question; works out the "possible setups" counter. |
 | `src/lib/rules.ts` | Turns a profile into a plan + price. The model never does this. |
 | `src/lib/session.ts` | The shapes everything agrees on. |
-| `src/lib/handoff.ts` | Builds the link into Neo's purchase flow. Not wired to the button yet. |
+| `src/lib/persist.ts` | Saves your place to `sessionStorage`, so a refresh doesn't lose the run. |
+| `src/lib/handoff.ts` | Builds the link into Neo's purchase flow. Wired to the reveal's CTA. |
 | **Talking to the outside world** | |
 | `api/_lib/neoSite.ts` | Calls **Neo's real site generator**. Three chained calls. |
 | `api/_lib/domainService.ts` | Domain availability + price via DomScan. **Holds an API key — server only.** |
@@ -119,6 +120,38 @@ Neo's own AI site builder and show what comes back — their headline, their pro
 photos. That call takes **22–38 seconds**, which is why there's a loading animation using Neo's
 own step-by-step wording. If their API doesn't answer, we show a previously recorded real
 response and the card says "offline — recorded earlier".
+
+---
+
+## The flow, step by step
+
+Two diagrams of this live in FigJam - one showing what fires when, one showing the stages and
+what decides each one. This table is the same thing in text, with the actual function names.
+
+| # | Screen | What fires | Where it goes | What comes back |
+|---|---|---|---|---|
+| 1 | `Hook.tsx` | nothing | - | - |
+| 2 | `Describe.tsx` | `App.submitDescription` -> `kickOff` | starts 3 and 4 **in parallel**, then advances immediately | - |
+| 3 | *(background)* | `api.buildProfile` | `POST /api/profile` | **Route does not exist.** Falls back to `src/data/replay/demo.json`. When built it calls `api/_lib/llm.ts` `complete()` -> GPT-5.6 |
+| 4 | *(background)* | `neoSite.fetchNeoSite` | `GET /api/neo-site` -> `generateNeoSite()` -> 3 chained calls to `api.titan.email` | Real site: 17 blocks, font, pallet, Pexels URLs. 22-38s. Falls back to `neo-site.json` after 90s |
+| 5 | `Guess.tsx` | - | - | Shows `profile.summary` while 3 and 4 are still resolving |
+| 6 | `AdaptiveQuestion.tsx` | `engine.nextQuestion` picks the question; `App.answer` -> `engine.applyAnswer` | nothing leaves the browser | Meter redraws from `confidence()` and `remainingSetups()`; `persist.saveSnapshot()` writes the run |
+| 7 | *(loop)* | `engine.shouldReveal` | - | Repeats 6 until confident or `MAX_QUESTIONS` (4) |
+| 8 | `Reveal.tsx` | `domains.lookupDomains` | `GET /api/domains` -> `domainService.lookupDomains()` -> DomScan | Availability plus USD list price, converted to INR |
+| 9 | `Reveal.tsx` | `features.pickFeatures` and `rules.recommend` | nothing leaves the browser | The plan, the price, the "worth knowing" lines |
+| 10 | `Reveal.tsx` | `handoff.buildHandoffUrl` | `join.neo.space` - an `<a>` a person clicks | - |
+
+Throughout, `errorLog.ts` posts crashes **and silent degradations** to `/api/log`.
+
+**The line that matters when presenting this:** a model is used in exactly one place - step 3,
+reading free text into a profile and suggesting which question to ask first. Every number a
+visitor sees (the counter, the plan, the price, the domain price) is computed by `engine.ts`,
+`rules.ts`, `features.ts` and `domainService.ts`. No model picks a plan or a price. That is
+deliberate, and it is why the numbers can be defended in a demo.
+
+**What is live today vs stubbed:** Neo's site generation, domain availability and pricing, the
+plan and price maths, persistence and the handoff link are all real. Step 3 is the only stub -
+so whatever business you type, the guess screen currently says "two-person bakery".
 
 ---
 
@@ -197,8 +230,15 @@ sheet, and `rules.ts` turns a profile into a plan — so the reveal shows a genu
 list price converted at a fixed rate. Availability *is* real. The right fix is Neo's own domain
 search API.
 
-**The CTA doesn't go anywhere.** Handing users into Neo's builder is the next real piece of work,
-and it must stay a button a person clicks, never an automatic redirect.
+**The CTA works.** It hands off to `join.neo.space/site/domain-selection` carrying the business
+name and description Neo's own generator produced. It stays a link a person clicks, never an
+automatic redirect. Cold visitors still land on `/site/industry` rather than the domain step -
+that's the remaining gap.
+
+**There is no `api/profile.ts`.** `buildProfile` posts to `/api/profile`, which does not exist,
+so the flow runs on the recorded fixture in `src/data/replay/demo.json` - the guess screen says
+"two-person bakery" whatever you type. `api/_lib/llm.ts` is written and correct but imported by
+nothing. This is the last stubbed step, and the first one to build now the API key is in hand.
 
 ---
 

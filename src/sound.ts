@@ -64,9 +64,11 @@ export function playDescribeKeyboard() {
   if (!describeClip) {
     describeClip = new Audio("/sounds/computer-keyboard.mp3");
     describeClip.preload = "auto";
-    describeClip.volume = 0.55;
+    describeClip.volume = 0.5;
   }
   describeClip.loop = true;
+  describeClip.playbackRate = 0.58;
+  describeClip.preservesPitch = true;
   if (!describeClip.paused) return;
   void describeClip.play().catch(() => {
     /* Autoplay can fail until a gesture; typing and Continue are gestures. */

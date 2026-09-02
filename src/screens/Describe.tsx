@@ -53,10 +53,10 @@ export default function Describe({
             value={text}
             autoFocus
             placeholder="We're a two-person bakery in Bandra called Proof &amp; Butter — custom celebration cakes, and right now every order comes through Instagram DMs."
-            onFocus={() => playDescribeKeyboard()}
             onChange={(e) => {
-              setText(e.target.value);
-              playDescribeKeyboard();
+              const next = e.target.value;
+              setText(next);
+              if (next.length > text.length) playDescribeKeyboard();
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) submit(e);

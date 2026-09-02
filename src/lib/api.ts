@@ -28,11 +28,6 @@ export interface ProfileResult {
   profile: Profile;
   reveal: RevealContent;
   /**
-   * Model-written question wording, by question id, already validated server-side.
-   * Absent or partial is fine — every missing entry renders from the fixed bank.
-   */
-  surface?: SurfaceMap;
-  /**
    * Which question the model thinks is most worth asking first, given what the free text
    * already revealed. Advisory only — engine.ts overrules it if that signal is already
    * resolved or the id isn't real, so a bad suggestion can't break the flow.
@@ -127,4 +122,34 @@ function derivedFallback(businessText: string): ProfileResult {
       site: { headline: "", subhead: "", sections: [] },
     },
   };
+}
+
+/**
+ * Reworded question wording for this business. Fired alongside buildProfile, never awaited
+ * before the guess screen shows.
+ *
+ * Why it is a separate call: together with the profile it measured **37s in production** —
+ * slower than Neo's own generator, so the guess screen sat on "Working it out..." instead of
+ * being hidden behind it. The guess needs only the profile; wording is not needed until
+ * someone taps "That's us". The questions are roughly 5x the output tokens, so bundling them
+ * made the fast half wait on the slow half for nothing.
+ *
+ * Never rejects. An empty surface is a complete answer — every question falls back to the
+ * fixed bank in questions.ts, which is exactly what shipped before this existed.
+ */
+export async function fetchQuestionSurface(businessText: string): Promise<SurfaceMap> {
+  if (MODE === "replay") return {};
+  try {
+    const res = await fetch("/api/questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-fmn-session": sessionId() },
+      body: JSON.stringify({ businessText }),
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const body = (await res.json()) as { surface?: SurfaceMap };
+    return body.surface ?? {};
+  } catch (err) {
+    reportDegraded("questions", err instanceof Error ? err.message : String(err));
+    return {};
+  }
 }

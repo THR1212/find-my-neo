@@ -100,6 +100,19 @@ function industryKeyFor(industry: unknown): string | null {
 
 export interface HandoffInput {
   profile: Profile;
+  /**
+   * The industryKey Neo's OWN generator returned for this business.
+   *
+   * This is the authoritative answer and it beats anything we can derive. Neo's `t:"bi"` call
+   * classifies the description itself and hands back an `industryKey` from their taxonomy —
+   * so it is guaranteed to be a key their builder accepts, chosen by their own classifier.
+   * We already had it on `NeoSite.industryKey` and were throwing it away while mapping our
+   * way towards a guess.
+   *
+   * Undefined until Neo's generator lands (22-38s), so TAXONOMY_TO_NEO below is still the
+   * fallback for the window before that, and for when the call degrades.
+   */
+  neoIndustryKey?: string | null;
   /** Business name, e.g. "Proof & Butter". Neo's field caps at 55 characters. */
   businessName: string;
   /** The user's original free text. Neo's field caps at 2000 characters. */
@@ -110,6 +123,7 @@ export function buildHandoffUrl({
   profile,
   businessName,
   businessDescription,
+  neoIndustryKey,
 }: HandoffInput): string {
   const params = new URLSearchParams();
 
@@ -117,7 +131,10 @@ export function buildHandoffUrl({
   params.set("bn", businessName.slice(0, 55));
   params.set("bd", businessDescription.slice(0, 2000));
 
-  const ik = industryKeyFor(profile.industry);
+  /* Neo's own classification first — see neoIndustryKey. Ours is the fallback for the window
+     before their generator answers, and it stays deliberately incomplete: ten of the sixteen
+     industries have no observed Neo key and send nothing rather than a near neighbour. */
+  const ik = neoIndustryKey?.trim() || industryKeyFor(profile.industry);
   if (ik) params.set("industryKey", ik);
 
   params.set("hasUsedAiFlow", "true");

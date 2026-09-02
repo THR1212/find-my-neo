@@ -9,7 +9,7 @@ import {
   shouldReveal,
   type EngineState,
 } from "./lib/engine";
-import { buildProfile } from "./lib/api";
+import { buildProfile, fetchQuestionSurface } from "./lib/api";
 import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
@@ -59,6 +59,15 @@ export default function App() {
    */
   const [neoSite, setNeoSite] = useState<NeoSite | null>(restored?.neoSite ?? null);
 
+  /**
+   * Current stage, readable from inside async callbacks.
+   *
+   * `kickOff` closes over the stage at call time, which is always "guess" — so it cannot tell
+   * whether the person has since moved on. A ref is the only thing that reads live here.
+   */
+  const stageRef = useRef<Stage>(stage);
+  stageRef.current = stage;
+
   const conf = useMemo(() => confidence(engine.profile), [engine.profile]);
   const remaining = useMemo(() => remainingSetups(engine.profile), [engine.profile]);
   const current = useMemo(
@@ -81,6 +90,25 @@ export default function App() {
     (text: string, opts: { profile: boolean; site: boolean; seedNextQuestion: boolean }) => {
       /* fetchNeoSite never rejects; it falls back to a recorded real response. */
       if (opts.site) fetchNeoSite("", text).then(setNeoSite);
+
+      /* Question wording, in parallel and deliberately not awaited. It only has to land
+         before the FIRST question screen, which is a guess-screen read away, so it never
+         gates anything the user is looking at. Neither call blocks the other. */
+      if (opts.profile) {
+        void fetchQuestionSurface(text).then((surface) => {
+          if (Object.keys(surface).length === 0) return;
+          /**
+           * Do not apply it once a question is on screen.
+           *
+           * Wording lands ~12s in. Someone who taps "That's us" quickly is already reading
+           * question 1 in the fixed wording, and applying the override then rewrites the
+           * question under them mid-read. Better to lose the generated wording for a fast
+           * mover than to change the words they are in the middle of.
+           */
+          if (stageRef.current === "question" || stageRef.current === "reveal") return;
+          setEngine((prev) => ({ ...prev, surface }));
+        });
+      }
       if (!opts.profile) return;
 
       setLoading(true);
@@ -94,9 +122,6 @@ export default function App() {
           // opens partly filled rather than empty.
           setEngine((prev) => ({
             ...prev,
-            /* Model wording for this business. Lands in engine state so it persists with the
-               rest of the run and `nextQuestion` can overlay it. */
-            ...(res.surface ? { surface: res.surface } : {}),
             profile: {
               ...prev.profile,
               industry: res.profile.industry,

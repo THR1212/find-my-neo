@@ -60,84 +60,6 @@ export const INDUSTRIES = [
   "Construction",
 ] as const;
 
-/**
- * The fixed question structure, mirrored from src/lib/questions.ts.
- *
- * The model rewrites WORDS against these ids. It never sees or supplies a `resolves` value,
- * an option id it could invent, a weight, or a signal — so no generation can change what an
- * answer means, only how it reads. Anything the model returns that is not an id below is
- * dropped, and a question that loses too much falls back to the fixed bank verbatim.
- *
- * If you add or rename an option in questions.ts, update this. A mismatch is safe (the
- * override is dropped) but silently costs you the generated wording for that option.
- */
-const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, string> }> = {
-  import: {
-    prompt: "Bringing anything with you?",
-    options: {
-      none: "No, I'll start fresh",
-      emails: "Yes, my emails",
-      both: "Emails and contacts",
-      contacts: "Just my contacts",
-    },
-  },
-  surface: {
-    prompt: "What needs standing up first?",
-    options: { mail: "Just email", both: "Email and a site" },
-  },
-  channel: {
-    prompt: "Where do customers reach you today?",
-    options: {
-      social: "Social DMs",
-      personal: "A personal email address",
-      phone: "Phone or in person",
-      site: "I already have a website",
-    },
-  },
-  client: {
-    prompt: "What do you use for mail right now?",
-    options: {
-      gmail: "Gmail",
-      outlook: "Outlook",
-      apple: "Apple Mail",
-      none: "Nothing set up yet",
-    },
-  },
-  team: {
-    prompt: "How many email addresses do you need?",
-    options: {
-      "1": "Just one",
-      "2": "Two",
-      "3-5": "Three to five",
-      "6+": "More than five",
-    },
-  },
-  sells: {
-    prompt: "Do people pay you online?",
-    options: { yes: "Yes, I take orders or payments", enquiry: "No, they enquire first" },
-  },
-};
-
-/**
- * The structure, rendered for the prompt.
- *
- * Built from QUESTION_SHAPE rather than written out again, so the list the model is given can
- * never drift from the list validation enforces. Without this the model invents plausible ids
- * — `channel_social`, `team_1` — every override is dropped, and the feature silently does
- * nothing while looking like it worked. Safe, but useless; that failure cost a round trip.
- *
- * The current label goes in too, because the model is not just picking an id: it has to
- * preserve what that option MEANS while changing how it reads.
- */
-const SHAPE_FOR_PROMPT = Object.entries(QUESTION_SHAPE)
-  .map(([qid, q]) => {
-    const opts = Object.entries(q.options)
-      .map(([oid, label]) => `      ${oid} = currently "${label}"`)
-      .join("\n");
-    return `  questionId "${qid}" — currently "${q.prompt}"\n${opts}`;
-  })
-  .join("\n");
-
 /** Real question ids from src/lib/questions.ts. The engine overrules a bad pick anyway. */
 const QUESTION_IDS = ["import", "surface", "channel", "client", "team", "sells"] as const;
 
@@ -159,16 +81,6 @@ interface ModelProfile {
   mailboxLabels: string[];
   /** Counter subtitle after the guess, before any question. No digits. */
   meterGuess: string;
-  /** Reworded questions for this specific business. Surface only. */
-  questions: ModelQuestion[];
-}
-
-interface ModelQuestion {
-  questionId: string;
-  prompt: string;
-  sub: string;
-  placeholder: string;
-  options: { optionId: string; label: string; hint: string; meter: string }[];
 }
 
 const SCHEMA = {
@@ -185,8 +97,6 @@ const SCHEMA = {
     "nextQuestionId",
     "domainNotes",
     "meterGuess",
-    /* strict mode requires EVERY property here, not just the mandatory-feeling ones. */
-    "questions",
   ],
   properties: {
     summary: {
@@ -240,62 +150,12 @@ const SCHEMA = {
         "Subtitle for the narrowing counter on the guess screen. Names this kind of " +
         "business. No digits. Under 52 characters. e.g. 'bakeries taking orders over Instagram'.",
     },
-    questions: {
-      type: "array",
-      minItems: 6,
-      maxItems: 6,
-      description:
-        "All six questions, reworded for THIS business. Keep every questionId and every " +
-        "optionId exactly as given; you are rewriting words, not structure.",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["questionId", "prompt", "sub", "placeholder", "options"],
-        properties: {
-          questionId: {
-            type: "string",
-            enum: ["import", "surface", "channel", "client", "team", "sells"],
-          },
-          prompt: { type: "string", description: "The question. Under 60 characters." },
-          sub: { type: "string", description: "One clarifying line. Under 90 characters." },
-          placeholder: {
-            type: "string",
-            description: "Free-text box placeholder, phrased as an invitation.",
-          },
-          options: {
-            type: "array",
-            minItems: 2,
-            maxItems: 4,
-            items: {
-              type: "object",
-              additionalProperties: false,
-              required: ["optionId", "label", "hint", "meter"],
-              properties: {
-                optionId: { type: "string" },
-                label: { type: "string", description: "Under 34 characters." },
-                hint: {
-                  type: "string",
-                  description: "Under 46 characters. Empty string if it adds nothing.",
-                },
-                meter: {
-                  type: "string",
-                  description:
-                    "Subtitle for the narrowing counter AFTER they pick this option. " +
-                    "Names similar businesses, not a count. No digits. Under 52 characters. " +
-                    "e.g. 'who take cake orders in DMs' or 'who still use a personal inbox'.",
-                },
-              },
-            },
-          },
-        },
-      },
-    },
   },
 } as const;
 
 const SYSTEM = [
   "You read a one-or-two sentence description of a small business and return a structured",
-  "profile. You are the only model step in this product.",
+  "profile. Question wording is generated separately and is not your job.",
   "",
   "You must never choose a plan, a price, a billing cycle, or how many mailboxes someone",
   "should buy. Deterministic code computes those from your profile. Emitting one would put",
@@ -322,45 +182,8 @@ const SYSTEM = [
   "",
   "Write summary in the customer's own register. Plain, specific, no marketing language.",
   "",
-  "REWRITING THE QUESTIONS. You get all six and you rewrite them for this business: the",
-  "question, the clarifying line, the free-text placeholder, and every option's label and",
-  "hint. Return every questionId and every optionId exactly as given. You are rewriting",
-  "words, never structure, and never what an option means.",
-  "",
-  "For each option also write meter: the line under the narrowing counter AFTER they pick",
-  "that option. It names similar businesses in their situation. Never a number, never a",
-  "price, never what this product will do.",
-  "  GOOD: 'who take cake orders in DMs'",
-  "  GOOD: 'who still use a personal inbox'",
-  "  BAD:  '1,204 bakeries like you'     - never a count",
-  "  BAD:  'we'll set up Instagram checkout' - a product promise",
-  "meterGuess is the same idea for the guess screen, before any question, e.g.",
-  "'bakeries taking cake orders over Instagram'.",
-  "",
-  "The rule that matters more than the rest: AN OPTION DESCRIBES THE CUSTOMER'S OWN",
-  "SITUATION. It never describes what this product does and never promises a capability.",
-  "You do not know what this product can do, and a label that guesses is a lie someone",
-  "reads before they pay.",
-  "  GOOD: 'Instagram, WhatsApp and Twitter'  - a fact about them",
-  "  GOOD: 'Walk-ups at the box office'       - a fact about them",
-  "  BAD:  'Sell tickets on your site'        - a promise about us",
-  "  BAD:  'Sync your booking system'         - invents an integration",
-  "  BAD:  'Get unlimited storage'            - invents a plan detail",
-  "Keep each option's meaning identical to the one it replaces. If the original meant they",
-  "already have a website, yours must still mean that, in their words.",
-  "",
-  "Say back what they told you: a cinema that mentioned Instagram and WhatsApp should see",
-  "those named. Never invent a channel, a tool, or a fact they did not give you.",
-  "",
-  "Two things that make the rewrite worse, so avoid both. Do not staple the business noun",
-  "onto every line — 'Just cinema email', 'cinema mail', 'cinema addresses' reads like a mail",
-  "merge; the context is already obvious from the screen. And a hint must ADD something the",
-  "label does not already say. 'Gmail' does not need the hint 'you use Gmail'. Return an",
-  "empty hint rather than restating the label.",
-  "",
-  "These are the six questions and their EXACT ids. Use these ids verbatim. Do not invent an",
-  "id, do not add or drop options, and keep each option meaning what it means now:",
-  SHAPE_FOR_PROMPT,
+  "meterGuess is the line under the narrowing counter on the guess screen. Names this kind",
+  "of business. Never a number, never a price. e.g. 'bakeries taking cake orders over Instagram'.",
 ].join("\n");
 
 const STOPWORDS = new Set([
@@ -395,8 +218,6 @@ function derivedProfile(businessText: string): ModelProfile {
     nextQuestionId: null,
     domainNotes: ["The one people will guess", "Reads as local", "Short, room to grow"],
     meterGuess: "",
-    /* No generated wording: every question falls back to the fixed bank. */
-    questions: [],
   };
 }
 
@@ -406,70 +227,6 @@ function cleanStem(raw: unknown): string {
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
   return s.slice(0, 24) || "yourbusiness";
-}
-
-/**
- * Keep only what is provably safe, and say what was thrown away.
- *
- * Everything here is a drop, never a repair. A model that returns an unknown optionId has
- * misunderstood the structure, and guessing which option it meant would reintroduce exactly
- * the risk that fixed ids exist to remove.
- *
- * A question left with fewer than 2 usable options is dropped whole, so it renders from the
- * fixed bank verbatim. That is the floor the whole feature stands on: a bad generation
- * degrades to what ships today, never to a broken screen.
- */
-function validateQuestions(raw: ModelQuestion[] | undefined): {
-  surface: Record<string, unknown>;
-  dropped: string[];
-} {
-  const surface: Record<string, unknown> = {};
-  const dropped: string[] = [];
-
-  for (const q of raw ?? []) {
-    const shape = QUESTION_SHAPE[q.questionId];
-    if (!shape) {
-      dropped.push(`unknown questionId ${String(q.questionId).slice(0, 24)}`);
-      continue;
-    }
-
-    const options: Record<string, { label?: string; hint?: string; meter?: string }> = {};
-    let kept = 0;
-    for (const o of q.options ?? []) {
-      if (!(o.optionId in shape.options)) {
-        dropped.push(`${q.questionId}: unknown optionId ${String(o.optionId).slice(0, 24)}`);
-        continue;
-      }
-      if (options[o.optionId]) {
-        dropped.push(`${q.questionId}: duplicate optionId ${o.optionId}`);
-        continue;
-      }
-      options[o.optionId] = {
-        label: String(o.label ?? "").slice(0, 34),
-        hint: String(o.hint ?? "").slice(0, 46),
-        meter: String(o.meter ?? "")
-          .replace(/\d[\d,]*/g, "")
-          .replace(/\s+/g, " ")
-          .trim()
-          .slice(0, 52),
-      };
-      kept++;
-    }
-
-    if (kept < 2) {
-      dropped.push(`${q.questionId}: ${kept} usable options, keeping the fixed wording`);
-      continue;
-    }
-
-    surface[q.questionId] = {
-      prompt: String(q.prompt ?? "").slice(0, 80),
-      sub: String(q.sub ?? "").slice(0, 120),
-      placeholder: String(q.placeholder ?? "").slice(0, 90),
-      options,
-    };
-  }
-
-  return { surface, dropped };
 }
 
 export interface ProfileServiceResult {
@@ -500,15 +257,13 @@ export async function handleProfile(
       schemaName: "business_profile",
       /* The output is small and fixed-shape. A tight ceiling makes truncation cheap to
          detect (llm.ts checks finish_reason) rather than surfacing as a JSON parse error. */
-        maxOutputTokens: 3400,
+      maxOutputTokens: 3000,
     });
   } catch (err) {
     reason = err instanceof Error ? err.message : String(err);
     profile = derivedProfile(businessText);
     degraded = true;
   }
-
-  const { surface, dropped } = validateQuestions(profile.questions);
 
   /**
    * ONE line per request, on every path — not just failures.
@@ -531,10 +286,7 @@ export async function handleProfile(
       mode: process.env.LLM_MODE ?? "replay",
       chars: businessText.length,
       degraded,
-      surfaced: Object.keys(surface).length,
-      dropped: dropped.length,
       ...(reason ? { reason: reason.slice(0, 200) } : {}),
-      ...(dropped.length ? { droppedDetail: dropped.join(" | ").slice(0, 300) } : {}),
     }),
   );
 
@@ -584,20 +336,12 @@ export async function handleProfile(
            RevealContent requires the field. */
         site: { headline: "", subhead: "", sections: [] },
       },
-      /**
-       * Model-written wording by question id, already validated. Absent entries render
-       * from the fixed bank, so a partial generation is a partial improvement rather
-       * than a partial breakage.
-       */
-      surface,
+      /* Guess-screen meter subtitle. Digits stripped so a model cannot write a count. */
       meterGuess: String(profile.meterGuess ?? "")
         .replace(/\d[\d,]*/g, "")
         .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 52),
+        .trim(),
       degraded,
-      /* Greppable record of what validation refused. */
-      ...(dropped.length ? { surfaceDropped: dropped } : {}),
     },
   };
 }

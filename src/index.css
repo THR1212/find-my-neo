@@ -652,6 +652,11 @@ h1 {
   color: var(--text-faint);
 }
 
+.meter--numbers .meter-label {
+  letter-spacing: 0.06em;
+  max-width: 16em;
+}
+
 .meter-demo {
   position: fixed;
   left: 50%;

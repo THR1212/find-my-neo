@@ -18,7 +18,7 @@ export const METER_VARIANTS: { id: MeterVariant; label: string; hint: string }[]
   {
     id: "numbers",
     label: "Numbers",
-    hint: "Current — 5,318 possible setups. Precise, easy to miss for a customer.",
+    hint: "The count stays. Copy is “businesses like yours”, not “possible setups”.",
   },
   {
     id: "closer",
@@ -165,7 +165,7 @@ export default function NarrowingMeter({
             ) : null}
           </div>
           <span className="meter-label">
-            possible setups{remaining <= 12 ? " left" : ""}
+            {remaining === 1 ? "business like yours" : "businesses like yours"}
           </span>
         </div>
       )}

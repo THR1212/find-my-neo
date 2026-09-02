@@ -7,8 +7,10 @@ This corrects and extends the unverified claims in `docs/handoff.md` §4 and
 the one that was computed from source** — but read the caveats, because two of the three
 sources turn out not to be representative.
 
-Scripts: `analysis/scripts/persona_stats.py`, `analysis/scripts/athena_retention.py`.
-Machine-readable output: `analysis/output/findings.json`, `analysis/output/athena_findings.json`.
+Scripts: `analysis/scripts/persona_stats.py`, `analysis/scripts/retention_cuts.py`,
+`analysis/scripts/athena_retention.py`. Machine-readable output:
+`analysis/output/findings.json`, `analysis/output/retention_cuts.json`,
+`analysis/output/athena_findings.json`.
 Raw exploration log for the V2 dashboard: `analysis/output/titan-persona-notes.md`.
 
 ## Sources
@@ -55,6 +57,96 @@ the date range above is recovered by joining `order_id` to `Retention-Raw`.
 
 The number survives the brief's rule-4 dedupe on `order_id` intact: 5,311 distinct
 across 13,406 unique orders (`Sheet13` carries 513 duplicate `order_id` rows).
+
+## 1b. The brief's §4 retention table — every claim confirmed
+
+Recomputed from `Retention-Raw`, deduped on `order_id` per rule 4 (33,024 rows → 18,399
+unique orders; 14,625 rows repeat an `order_id`, 14,387 of them byte-identical).
+Script: `analysis/scripts/retention_cuts.py`.
+
+| Claim | Computed | n | |
+|---|---|---|---|
+| Baseline 36% retained / 64% cancelled | **36.2%** — 6,664 vs 11,735 | 18,399 | confirmed |
+| Two-yearly 73% vs monthly 31% | **73.0% vs 30.9%** (2.4×) | 393 / 12,367 | confirmed |
+| co.site 43% vs custom domain 29.5% | **42.9% vs 29.5%** | 9,210 / 9,189 | confirmed |
+| Never logged in 21% | **21.0%** | 3,496 | confirmed |
+| Imported mail + contacts ~82% (n=102) | **82.4%**, n=**102** | 102 | confirmed, n exact |
+| Imported emails only ~74% | **74.4%** | 207 | confirmed |
+| Outlook / Gmail / iPhone Mail 77–84% | 81.0 / 77.1–79.7 / 76.1 | 378 / 1,669 / 268 | confirmed |
+
+Yearly sits between at 45.3% (n=5,639). Whoever produced these numbers did it correctly
+— the levels and denominators all reproduce.
+
+**The `rules.ts` yearly default is justified** on this source at 2.4×, and independently
+on the Athena export at 5.9× (§2). Two sources, same direction, different magnitudes.
+
+**The co.site row remains contested.** It is confirmed *here* (co.site ahead by 13pt) but
+the Athena export reverses it (custom domain 38.2% vs co.site 33.4%), and the 2026
+strategy doc assumes the opposite of this sheet. Do not quote it either way yet.
+
+## 1c. The import-intent claim is a selection effect — this one should change the flow
+
+`docs/handoff.md` reads the ~82% retention of "imported emails and contacts" as import
+intent being the strongest signal, and `src/lib/questions.ts:70` **leads the entire flow
+with the import question because of it**. That reading does not survive contact with the
+data.
+
+**"No, don't want to import" retains at 79.5% (n=2,122)** — against 82.4% for "Yes,
+import both". The whole spread between answers is 8.6 points. What separates people is
+whether the field is filled at all:
+
+| | Retained | n |
+|---|---|---|
+| import field answered | **79.3%** | 2,484 |
+| import field blank | **29.5%** | 15,915 |
+
+A **2.7× gap** from answering, versus 8.6 points from the answer. And it is not a proxy
+for something else — it survives holding login fixed (75.6% vs 17.7% among non-loggers;
+79.6% vs 32.6% among loggers) and holding billing cycle fixed (75.5% vs 22.8% monthly;
+90.7% vs 41.2% yearly).
+
+Nor is it "answering anything is good". The fields asked at signup go the *other* way,
+which is exactly what marks import as a later-stage field:
+
+| Field | Answered | Blank |
+|---|---|---|
+| `import_emails_contacts` | 79.3% (n=2,484) | 29.5% (n=15,915) |
+| `current_email_app` | 79.3% (n=2,484) | 29.5% (n=15,915) |
+| `signup_reason` | 43.1% (n=7,714) | 31.2% (n=10,685) |
+| `employee_count` | **33.0%** (n=13,099) | **44.1%** (n=5,300) |
+| `role_in_business` | **33.0%** (n=13,091) | **44.1%** (n=5,308) |
+| `business_industry` | **33.0%** (n=13,085) | **44.1%** (n=5,314) |
+
+`import_emails_contacts` and `current_email_app` are filled on the *same* 2,484 orders,
+far fewer than the signup-time fields — they sit later in Neo's onboarding. So the 79%
+measures **having progressed through onboarding**, not a preference.
+
+**Why this matters for the product:** the app asks the import question *before purchase,
+to a cold visitor*. The retention it is justified by was measured on people who answered
+it *after* signing up and getting some way in. The signal is not available at the moment
+the app tries to use it — a feature that leaks the outcome. Leading the flow with it is
+not supported.
+
+## 1d. What the quiz could actually know before purchase
+
+Split by availability, which is the distinction that matters for question design:
+
+**Usable pre-purchase, strongest first**
+
+| Signal | Spread | |
+|---|---|---|
+| Billing cycle | two_yearly 73.0% / yearly 45.3% / monthly 30.9% | strongest by far |
+| Paid vs trial start | 43.0% vs 29.4% | real |
+| co.site vs custom domain | 42.9% vs 29.5% | contested — see §1b |
+| Signup reason (which one) | 40.5%–46.5% | weak, 5.9pt spread |
+| Mailbox count | 34.1%–40.1%, non-monotonic | weak/noisy |
+
+**Not knowable pre-purchase** (strong, but post-signup): import field answered 79.3%,
+`current_email_app` answered 79.3%, logged in 39.8% vs 21.0%, used the site editor
+50.5% vs 34.5%, clicked settings 43.0% vs 33.5%.
+
+Note that **mailbox count is flat here (34–40%) but fell sharply in the Athena export**
+(m12 7.4% → 2.1% as mailboxes rose). Another non-replication — see the caveats.
 
 ## 2. Billing cycle predicts retention strongly — the `rules.ts` default holds
 
@@ -181,11 +273,10 @@ Against `Sheet13`'s 13,968 rows:
 **The brief claims ~13% (2,484 of 18,399). Against `Sheet13` it is 19.1% (2,667 of
 13,968) — a different denominator.** Don't say "13%" without saying which base.
 
-And a live tension: **the app leads with the import question**
-(`src/lib/questions.ts:70`) because one line in a handoff doc called it the strongest
-signal — but import intent is the *worst-covered* field in Neo's data. Whether that is
-users skipping it or Neo only asking it conditionally cannot be told from this sheet.
-Worth chasing before the flow keeps leading on it.
+And note the app leads with the import question (`src/lib/questions.ts:70`) despite
+import intent being the *worst-covered* field in Neo's data. §1c resolves why: it is a
+later-stage onboarding field, so its coverage and its retention both measure how far
+someone got, not what they wanted.
 
 ---
 
@@ -224,9 +315,11 @@ Worth chasing before the flow keeps leading on it.
 
 ## Still not done
 
-- Retention cuts from the brief's §4 table that this doesn't cover: import-intent
-  retention (~82%, n=102 — thin), "never logged in" 21%, source-client cuts
-  (Outlook/Gmail/iPhone Mail 77–84%). These need `Retention-Raw`, not the Athena export.
+- **The co.site vs custom-domain contradiction** (§1b) — confirmed in one source,
+  reversed in the other, and the strategy doc disagrees with both. Needs resolving
+  before it is quoted.
+- **Mailbox count** is flat in `Retention-Raw` and steeply negative in Athena (§1d).
+  One of the two measures is not what we think it is.
 - The dashboard's per-industry revenue (p4), mail volume (p5), NPS (p6) and feature
   adoption (p8) are extracted only as ranges, not per-industry values.
 - **Worth requesting:** a Neo-filtered Athena export with `last_paywall_clicked_free` /

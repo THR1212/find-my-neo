@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import {
@@ -17,6 +17,7 @@ import NarrowingMeter, { type MeterVariant } from "./components/NarrowingMeter";
 import MeterPreviewSwitch from "./components/MeterPreviewSwitch";
 import SoundToggle from "./components/SoundToggle";
 import { playSound } from "./sound";
+import { DISTINCT_INDUSTRY_VALUES } from "./data/industryUniverse";
 import Hook from "./screens/Hook";
 import Describe from "./screens/Describe";
 import Guess from "./screens/Guess";
@@ -60,6 +61,8 @@ export default function App() {
 
   const conf = useMemo(() => confidence(engine.profile), [engine.profile]);
   const remaining = useMemo(() => remainingSetups(engine.profile), [engine.profile]);
+  const meterRemaining =
+    stage === "hook" || stage === "describe" ? DISTINCT_INDUSTRY_VALUES : remaining;
   const current = useMemo(
     () => nextQuestion(engine, preferredQuestionId),
     [engine, preferredQuestionId],
@@ -140,7 +143,6 @@ export default function App() {
     setError(null);
   }, []);
 
-  const showMeter = stage === "guess" || stage === "question" || stage === "reveal";
   const stepNumber = engine.asked.length + 1;
   const screenKey = stage === "question" ? `q-${current?.id ?? "none"}` : stage;
 
@@ -150,6 +152,14 @@ export default function App() {
     url.searchParams.set("meter", next);
     window.history.replaceState(null, "", url);
   }, []);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.get("meter")) {
+      url.searchParams.set("meter", meterVariant);
+      window.history.replaceState(null, "", url);
+    }
+  }, [meterVariant]);
 
   return (
     <>
@@ -161,24 +171,22 @@ export default function App() {
       <div className="grain" aria-hidden="true" />
 
       <AnimatePresence>
-        {showMeter && (
-          <motion.div
-            className="meter-dock"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={transition}
-          >
-            <NarrowingMeter
-              confidence={conf}
-              remaining={remaining}
-              variant={meterVariant}
-              stage={stage}
-              lastQuestionId={engine.asked[engine.asked.length - 1] ?? null}
-              profile={engine.profile}
-            />
-          </motion.div>
-        )}
+        <motion.div
+          className="meter-dock"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={transition}
+        >
+          <NarrowingMeter
+            confidence={conf}
+            remaining={meterRemaining}
+            variant={meterVariant}
+            stage={stage}
+            lastQuestionId={engine.asked[engine.asked.length - 1] ?? null}
+            profile={engine.profile}
+          />
+        </motion.div>
       </AnimatePresence>
 
       <SoundToggle />

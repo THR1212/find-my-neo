@@ -699,7 +699,7 @@ h1 {
   bottom: 18px;
   transform: translateX(-50%);
   z-index: 4;
-  width: min(420px, calc(100% - 28px));
+  width: min(520px, calc(100% - 28px));
   padding: 10px 14px 12px;
   background: var(--bg-raised);
   border: 1px solid var(--border);
@@ -718,11 +718,13 @@ h1 {
 
 .meter-demo-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .meter-demo-chip {
-  flex: 1;
+  flex: 1 1 calc(25% - 6px);
+  min-width: 4.5rem;
   font: inherit;
   font-size: 13px;
   font-weight: 500;

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import type { Question } from "../lib/questions";
 import { LineIn, ScreenIn } from "../components/ScreenIn";
+import { playSound } from "../sound";
 
 /**
  * One question, whichever the engine chose.
@@ -35,11 +36,14 @@ export default function AdaptiveQuestion({
   const multi = question.multi === true;
 
   function choose(optionId: string) {
+    const isSocial = optionId === "social" && question.id === "channel";
     if (!multi) {
-      // Single-select keeps the old one-tap feel — no Continue button needed.
+      playSound(isSocial ? "social" : "mcq");
       onAnswer(question.id, [optionId], text.trim() || undefined);
       return;
     }
+    const turningOn = !picked.includes(optionId);
+    if (turningOn) playSound(isSocial ? "social" : "mcq");
     setPicked((prev) =>
       prev.includes(optionId) ? prev.filter((id) => id !== optionId) : [...prev, optionId],
     );

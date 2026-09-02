@@ -84,7 +84,7 @@ export default function Reveal({
     if (error || loading || !reveal) return;
     if (revealCuePlayed.current) return;
     revealCuePlayed.current = true;
-    playSound("reveal");
+    playSound("setup");
   }, [error, loading, reveal]);
 
   if (error) {

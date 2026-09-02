@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import {
@@ -71,6 +71,7 @@ export default function App() {
    * the time they reach it. Do not await before advancing.
    */
   const submitDescription = useCallback((text: string) => {
+    playSound("curious");
     setRawText(text);
     setLoading(true);
     setError(null);
@@ -143,15 +144,6 @@ export default function App() {
   const showMeter = stage === "guess" || stage === "question" || stage === "reveal";
   const stepNumber = engine.asked.length + 1;
   const screenKey = stage === "question" ? `q-${current?.id ?? "none"}` : stage;
-  const skipSoundOnFirstPaint = useRef(true);
-
-  useEffect(() => {
-    if (skipSoundOnFirstPaint.current) {
-      skipSoundOnFirstPaint.current = false;
-      return;
-    }
-    playSound(stage === "reveal" ? "reveal" : "advance");
-  }, [screenKey, stage]);
 
   const chooseMeter = useCallback((next: MeterVariant) => {
     setMeterVariant(next);
@@ -216,7 +208,10 @@ export default function App() {
                 teamSize={engine.profile.teamSize as number | undefined}
                 loading={loading}
                 error={error}
-                onConfirm={() => setStage("question")}
+                onConfirm={() => {
+                  playSound("mcq");
+                  setStage("question");
+                }}
                 onReject={rejectGuess}
               />
             )}

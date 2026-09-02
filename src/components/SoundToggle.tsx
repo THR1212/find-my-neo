@@ -11,7 +11,7 @@ export default function SoundToggle() {
     const next = !muted;
     setSoundMuted(next);
     setMuted(next);
-    if (!next) playSound("advance");
+    if (!next) playSound("curious");
   }
 
   return (

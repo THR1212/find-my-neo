@@ -1,9 +1,10 @@
 /**
- * Three short cues, generated in the browser so we don't ship audio files.
- * Muted until someone turns the toggle on — a quiet room must never surprise the demo.
+ * Original cues only — muted until the visible toggle is on.
+ * We do not ship Instagram's (or anyone's) notification sound. The "social" cue is a
+ * short original double-ping that reads as a message, not a copy of a brand asset.
  */
 
-export type SoundCue = "advance" | "reveal" | "cta";
+export type SoundCue = "curious" | "mcq" | "social" | "setup" | "cta";
 
 let muted = true;
 let ctx: AudioContext | null = null;
@@ -14,7 +15,9 @@ export function soundIsMuted() {
 
 function context(): AudioContext | null {
   if (typeof window === "undefined") return null;
-  const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  const AC =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
   if (!ctx) ctx = new AC();
   return ctx;
@@ -30,19 +33,20 @@ function tone(
   freq: number,
   at: number,
   duration: number,
-  gain = 0.045,
+  gain: number,
+  type: OscillatorType = "sine",
 ) {
   const osc = audio.createOscillator();
   const amp = audio.createGain();
-  osc.type = "sine";
+  osc.type = type;
   osc.frequency.setValueAtTime(freq, at);
   amp.gain.setValueAtTime(0, at);
-  amp.gain.linearRampToValueAtTime(gain, at + 0.012);
+  amp.gain.linearRampToValueAtTime(gain, at + 0.01);
   amp.gain.exponentialRampToValueAtTime(0.0008, at + duration);
   osc.connect(amp);
   amp.connect(audio.destination);
   osc.start(at);
-  osc.stop(at + duration + 0.02);
+  osc.stop(at + duration + 0.03);
 }
 
 export function playSound(cue: SoundCue) {
@@ -51,13 +55,27 @@ export function playSound(cue: SoundCue) {
   if (!audio) return;
   void audio.resume();
   const t = audio.currentTime + 0.01;
-  if (cue === "advance") {
-    tone(audio, 628, t, 0.07, 0.035);
-  } else if (cue === "reveal") {
-    tone(audio, 523, t, 0.09, 0.04);
-    tone(audio, 784, t + 0.1, 0.14, 0.038);
+
+  if (cue === "curious") {
+    /* Rising question — after they describe the business. */
+    tone(audio, 392, t, 0.09, 0.04, "sine");
+    tone(audio, 494, t + 0.1, 0.1, 0.04, "sine");
+    tone(audio, 587, t + 0.22, 0.16, 0.045, "triangle");
+  } else if (cue === "mcq") {
+    /* Same soft tick on every multiple-choice tap. */
+    tone(audio, 704, t, 0.055, 0.032, "sine");
+    tone(audio, 880, t + 0.05, 0.05, 0.028, "triangle");
+  } else if (cue === "social") {
+    /* Original message ping — not Instagram's sound. */
+    tone(audio, 1174, t, 0.07, 0.038, "triangle");
+    tone(audio, 1397, t + 0.09, 0.11, 0.042, "triangle");
+  } else if (cue === "setup") {
+    /* Warm “it’s ready” arpeggio on the last screen. */
+    tone(audio, 392, t, 0.14, 0.04, "sine");
+    tone(audio, 523, t + 0.11, 0.14, 0.04, "sine");
+    tone(audio, 659, t + 0.22, 0.22, 0.045, "triangle");
   } else {
-    tone(audio, 392, t, 0.08, 0.04);
-    tone(audio, 523, t + 0.08, 0.16, 0.05);
+    tone(audio, 330, t, 0.08, 0.04, "sine");
+    tone(audio, 440, t + 0.09, 0.16, 0.05, "sine");
   }
 }

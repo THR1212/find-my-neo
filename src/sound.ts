@@ -9,6 +9,7 @@ export type SoundCue = "curious" | "mcq" | "social" | "setup" | "cta";
 let muted = true;
 let ctx: AudioContext | null = null;
 let describeClip: HTMLAudioElement | null = null;
+let describeWanted = false;
 
 export function soundIsMuted() {
   return muted;
@@ -26,7 +27,12 @@ function context(): AudioContext | null {
 
 export function setSoundMuted(next: boolean) {
   muted = next;
-  if (!next) void context()?.resume();
+  if (next) {
+    if (describeClip) describeClip.pause();
+    return;
+  }
+  void context()?.resume();
+  if (describeWanted && describeClip) void describeClip.play().catch(() => {});
 }
 
 function tone(
@@ -50,8 +56,9 @@ function tone(
   osc.stop(at + duration + 0.03);
 }
 
-/** Keyboard clip on the “what's your business” screen. Still mute-gated. */
+/** Loop the keyboard clip while they are writing the business. Mute-gated. */
 export function playDescribeKeyboard() {
+  describeWanted = true;
   if (muted) return;
   if (typeof window === "undefined") return;
   if (!describeClip) {
@@ -59,10 +66,18 @@ export function playDescribeKeyboard() {
     describeClip.preload = "auto";
     describeClip.volume = 0.55;
   }
-  describeClip.currentTime = 0;
+  describeClip.loop = true;
+  if (!describeClip.paused) return;
   void describeClip.play().catch(() => {
     /* Autoplay can fail until a gesture; typing and Continue are gestures. */
   });
+}
+
+export function stopDescribeKeyboard() {
+  describeWanted = false;
+  if (!describeClip) return;
+  describeClip.pause();
+  describeClip.currentTime = 0;
 }
 
 export function playSound(cue: SoundCue) {

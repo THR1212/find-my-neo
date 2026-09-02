@@ -1,6 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { LineIn, ScreenIn } from "../components/ScreenIn";
-import { playDescribeKeyboard, stopDescribeKeyboard } from "../sound";
 
 /**
  * Screen 1. The only real input in the whole flow, and the thing that justifies using an
@@ -21,14 +20,9 @@ export default function Describe({
   const [text, setText] = useState(initialText);
   const ready = text.trim().length > 12;
 
-  useEffect(() => {
-    return () => stopDescribeKeyboard();
-  }, []);
-
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!ready) return;
-    stopDescribeKeyboard();
     onSubmit(text.trim());
   }
 
@@ -53,11 +47,7 @@ export default function Describe({
             value={text}
             autoFocus
             placeholder="We're a two-person bakery in Bandra called Proof &amp; Butter — custom celebration cakes, and right now every order comes through Instagram DMs."
-            onChange={(e) => {
-              const next = e.target.value;
-              setText(next);
-              if (next.length > text.length) playDescribeKeyboard();
-            }}
+            onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) submit(e);
             }}

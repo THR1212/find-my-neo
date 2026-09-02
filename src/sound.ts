@@ -8,9 +8,6 @@ export type SoundCue = "curious" | "mcq" | "social" | "setup" | "cta";
 
 let muted = true;
 let ctx: AudioContext | null = null;
-let describeClip: HTMLAudioElement | null = null;
-let describeWanted = false;
-let describeStarted = false;
 let successClip: HTMLAudioElement | null = null;
 
 export function soundIsMuted() {
@@ -30,13 +27,11 @@ function context(): AudioContext | null {
 export function setSoundMuted(next: boolean) {
   muted = next;
   if (next) {
-    if (describeClip) describeClip.pause();
     if (successClip) successClip.pause();
     return;
   }
   void context()?.resume();
   ensureSuccessClip();
-  if (describeWanted) startDescribeOnce();
 }
 
 function tone(
@@ -58,40 +53,6 @@ function tone(
   amp.connect(audio.destination);
   osc.start(at);
   osc.stop(at + duration + 0.03);
-}
-
-/** Keyboard clip once when they start typing. Same slow speed, no loop. Mute-gated. */
-export function playDescribeKeyboard() {
-  describeWanted = true;
-  if (muted) return;
-  startDescribeOnce();
-}
-
-function startDescribeOnce() {
-  if (describeStarted) return;
-  if (typeof window === "undefined") return;
-  describeStarted = true;
-  if (!describeClip) {
-    describeClip = new Audio("/sounds/computer-keyboard.mp3");
-    describeClip.preload = "auto";
-    describeClip.volume = 0.5;
-  }
-  describeClip.loop = false;
-  describeClip.playbackRate = 0.58;
-  describeClip.preservesPitch = true;
-  describeClip.currentTime = 0;
-  void describeClip.play().catch(() => {
-    describeStarted = false;
-  });
-  ensureSuccessClip();
-}
-
-export function stopDescribeKeyboard() {
-  describeWanted = false;
-  describeStarted = false;
-  if (!describeClip) return;
-  describeClip.pause();
-  describeClip.currentTime = 0;
 }
 
 function ensureSuccessClip() {

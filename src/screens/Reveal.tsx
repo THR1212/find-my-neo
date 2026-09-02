@@ -64,6 +64,13 @@ export default function Reveal({
 }) {
   const [chosenDomain, setChosenDomain] = useState(0);
   /**
+   * Has the person chosen a domain themselves?
+   *
+   * Gates the auto-switch below. Once someone has picked, we never move the selection under
+   * them — a UI that overrides a deliberate choice is worse than one that recommends badly.
+   */
+  const [userPickedDomain, setUserPickedDomain] = useState(false);
+  /**
    * Live availability + indicative pricing, keyed by domain name. Starts empty and fills in:
    * the fixture is the optimistic first paint and the real answer corrects it.
    * Deliberately non-blocking — the reveal must never wait on a third-party service.
@@ -78,6 +85,25 @@ export default function Reveal({
     lookupDomains(stem).then((rows) => {
       if (cancelled || !rows.length) return;
       setLive(Object.fromEntries(rows.map((r) => [r.domain, r])));
+
+      /**
+       * Move off a taken domain.
+       *
+       * The .com is recommended and pre-selected because it is the one people guess. But the
+       * selection drives the hero, the mailbox addresses, the plan line AND the handoff URL,
+       * so leaving it parked on a taken domain recommends something nobody can buy — and the
+       * alternates exist precisely for this case.
+       *
+       * Only when the person has not chosen for themselves, and only towards a domain DomScan
+       * explicitly says is free. `available === true`, never `!== false`: unknown is not
+       * available, which is the same distinction that put a wrong "Available" badge on screen.
+       */
+      if (userPickedDomain) return;
+      const names = reveal?.domains.map((d) => d.name) ?? [];
+      const chosenIsTaken = rows.some((r) => r.domain === names[chosenDomain] && !r.available);
+      if (!chosenIsTaken) return;
+      const freeIdx = names.findIndex((n) => rows.some((r) => r.domain === n && r.available === true));
+      if (freeIdx >= 0) setChosenDomain(freeIdx);
     });
     return () => {
       cancelled = true;
@@ -201,7 +227,10 @@ export default function Reveal({
                 <button
                   key={d.name}
                   className={`alt${active ? " alt-active" : ""}`}
-                  onClick={() => setChosenDomain(i)}
+                  onClick={() => {
+                    setUserPickedDomain(true);
+                    setChosenDomain(i);
+                  }}
                   title={d.note}
                   aria-pressed={active}
                 >

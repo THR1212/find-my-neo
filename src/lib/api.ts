@@ -116,9 +116,9 @@ function derivedFallback(businessText: string): ProfileResult {
     nextQuestionId: null,
     reveal: {
       domains: [
-        { name: `${stem}.com`, available: true, priceInr: null, recommended: true },
-        { name: `${stem}.in`, available: true, priceInr: null },
-        { name: `${stem}.co`, available: true, priceInr: null },
+        { name: `${stem}.com`, available: null, priceInr: null, recommended: true },
+        { name: `${stem}.in`, available: null, priceInr: null },
+        { name: `${stem}.co`, available: null, priceInr: null },
       ],
       mailboxes: [
         { address: `hello@${stem}.com`, label: "For enquiries and new customers" },

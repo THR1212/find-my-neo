@@ -27,7 +27,11 @@ export const TLDS = ["com", "in", "co"] as const;
 export async function lookupDomains(
   stem: string,
   tlds: readonly string[] = TLDS,
-  timeoutMs = 6000,
+  /* 12s, not 6s. A cold lookup costs 4 DomScan credits across several upstream calls and
+     measured past 6s in practice, which aborted the request and left the reveal with no
+     prices and no availability. There is time to spare: the reveal is already waiting on
+     Neo's 22-38s generator. */
+  timeoutMs = 12000,
 ): Promise<DomainInfo[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -46,7 +50,8 @@ export async function lookupDomains(
   } catch (err) {
     reportDegraded("domains unreachable", err instanceof Error ? err.message : String(err));
     // Network failure, timeout, no key configured — the reveal must still render.
-    // It falls back to the fixture's domains with no availability badge.
+    // Returning [] leaves `available` and `priceInr` null upstream, so no badge and no price
+    // appear. That is the whole point: silence beats a guess someone can check instantly.
     return [];
   } finally {
     clearTimeout(timer);

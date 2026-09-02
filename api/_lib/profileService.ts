@@ -529,13 +529,16 @@ export async function handleProfile(
         ? profile.nextQuestionId
         : null,
       reveal: {
-        /* priceInr is null on every entry, and that is the point: the model is not allowed
-           to produce a price. `/api/domains` fills these from DomScan when the reveal
-           mounts, and Reveal.tsx renders no price rather than a wrong one until it does.
-           `available` is optimistic for the first paint and corrected by the same call. */
+        /* priceInr AND available are both null, and that is the point: the model produces
+           neither. `/api/domains` fills them from DomScan when the reveal mounts, and until
+           it does Reveal.tsx renders no price and no badge rather than a wrong one.
+           `available` was `true` here once, "optimistic for the first paint" — which meant a
+           failed lookup showed a green Available on a domain that was actually taken. An
+           unverified claim about something a person can check in one keystroke is the worst
+           kind to get wrong. */
         domains: TLDS.map((tld, i) => ({
           name: `${stem}.${tld}`,
-          available: true,
+          available: null,
           priceInr: null,
           note: profile.domainNotes?.[i] ?? undefined,
           recommended: i === 0,

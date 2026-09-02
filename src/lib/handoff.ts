@@ -40,6 +40,21 @@ const BASE =
  * template for a bakery, and shipping that would undercut the whole argument.
  *
  * Extend this only with keys seen in a real Neo request.
+ *
+ * WHAT WE KNOW OF THE FULL LIST (02 Sep 2026). Production's builder shows six under a heading
+ * reading "POPULAR INDUSTRIES":
+ *   Apparel & Fashion · E-commerce & Retail · Marketing & Advertising ·
+ *   Business & Management Consulting · Media & Entertainment · IT & Web Development Services
+ *
+ * That is a curated shortlist, NOT the taxonomy. Proof: `food_and_beverages` and
+ * `photography_and_videography` below were both captured from real Neo requests and neither
+ * appears in that six. So the real list is longer and reachable some other way — a search box,
+ * or a "see all". Worth capturing properly: with the complete list, `api/profile.ts` could emit
+ * Neo's own category directly and TAXONOMY_TO_NEO would disappear.
+ *
+ * `apparel_and_fashion` is the presumed key for the one we have seen on screen but not yet in a
+ * request. NOT added below, because this map's rule is observed-in-a-real-request only, and a
+ * guessed key is exactly the failure mode we are arguing against.
  */
 const INDUSTRY_KEYS: Record<string, string> = {
   "food & beverages": "food_and_beverages",

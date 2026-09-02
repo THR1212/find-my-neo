@@ -496,6 +496,11 @@ h1 {
   left: 50%;
   transform: translateX(-50%);
   z-index: 4;
+  /* The dock is fixed and floats above the screen, so on a short viewport (a laptop with
+     devtools open, landscape phone) it lands on top of the FIRST option button and silently
+     eats the click — the option simply never selects, with no error to explain why. Nothing
+     in the meter is interactive, so it has no business intercepting pointer events. */
+  pointer-events: none;
 }
 
 .meter {

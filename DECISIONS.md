@@ -635,3 +635,51 @@ The local folder is still `Projects/neo-akinator` — harmless, nobody outside s
 
 The **Vercel alias** `neo-akinator.vercel.app` is a separate thing and still regenerates on
 every production deploy; keep removing it.
+
+---
+
+### 2026-09-02 · A refresh no longer loses the run (`src/lib/persist.ts`)
+
+The whole flow lived in React state, so a reload dropped the profile, every answer, and Neo's
+generated site. That was survivable while questions came from a fixed local bank and the only
+cost was retyping. It stops being survivable once questions are **generated per session**: a
+refresh then means paying for every generation again *and* sitting through Neo's 22-38s
+generator a second time. On venue wifi, in front of judges, that is the difference between a
+recoverable fat-finger and a dead demo.
+
+**sessionStorage, not localStorage.** This is "don't lose my place", not "remember me next
+week". A new tab should start clean, and a profile silently restoring days later is worse than
+no restore at all. Belt and braces on top: a `v` field (a shape change discards rather than
+deserialising last week's fields into today's) and a 2h TTL.
+
+Three things worth knowing before touching it:
+
+- **`loading` and `error` are deliberately not persisted.** Restoring `loading: true` would
+  paint a spinner with no request behind it, and it would never resolve. Instead a resume
+  effect re-fires whichever half had not landed - profile if `reveal` is null, Neo's site if
+  `neoSite` is null. Verified both ways: with both present, **zero** network calls on reload;
+  with `neoSite` stripped, **exactly one** `/api/neo-site`.
+- **The resume effect is ref-guarded, not dep-array-guarded.** StrictMode runs effects twice in
+  development, and here that guard is the difference between one Neo generation and two.
+- **`restart()` calls `clearSnapshot()` explicitly.** `saveSnapshot` skips the hook stage, so
+  without the explicit clear the run the user just cleared would survive in storage and the
+  next reload would resurrect it.
+
+Snapshot measures ~9.5KB, nearly all of it Neo's 17-block site. sessionStorage caps around 5MB.
+
+### 2026-09-02 · The narrowing meter was eating clicks on the first option
+
+Found while testing the above, not by looking for it. `.meter-dock` is `position: fixed`,
+`z-index: 4`, and was `pointer-events: auto`. On a short viewport (a laptop with devtools open,
+a landscape phone) it lands on top of the **first option button** and swallows the click:
+`elementFromPoint` at the button's centre returned `DIV.meter-dock`.
+
+The failure is completely silent - the option just never selects, no error, nothing in the
+console. It reads as "the app is broken" to anyone it happens to.
+
+Fix is one line, `pointer-events: none` on `.meter-dock`. Nothing in the meter is interactive,
+so it has no business intercepting pointer events at all.
+
+**Worth generalising:** anything `position: fixed` floating over the flow needs
+`pointer-events: none` unless it is genuinely clickable. Check this again after Moin's
+animation pass - a new fixed overlay is the obvious way to reintroduce it.

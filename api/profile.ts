@@ -4,56 +4,92 @@
  * Thin wrapper. All the logic is in `api/_lib/profileService.ts`, which the Vite dev server
  * also mounts, so `npm run dev` and the deployed build run the same code.
  *
- * Edge runtime, deliberately. This handler is written against the Web API (`Request`/
- * `Response`); Vercel's default Node runtime passes an IncomingMessage whose `req.url` is a
- * bare path and `new URL()` throws. That failure cannot be reproduced locally — the Vite dev
- * middleware hands over a different object — so it only ever shows up in production.
+ * NODE RUNTIME, and unlike our other routes that is not an accident.
+ *
+ * `api/domains`, `api/neo-site` and `api/log` are Edge because they are plain fetch-and-shape
+ * handlers. This one is not: it reaches the OpenAI SDK and, in replay mode, the filesystem.
+ * Both are unavailable on Edge, and putting them there broke every PRODUCTION deploy with:
+ *
+ *   The Edge Function "api/domains" is referencing unsupported modules:
+ *     - api/_lib/replay.js: node:fs/promises, node:path
+ *     - openai: #x509-transport-state
+ *
+ * Two things about that error are worth remembering. It names `api/domains`, which does not
+ * import either module — Vercel bundles Edge functions into one shared namespace, so the
+ * function it blames is not the function at fault. And it fires at "Deploying outputs", AFTER
+ * the build succeeds, so `npm run build` and even a local `vercel build` both report success.
+ * Only an actual deploy catches it.
+ *
+ * Node also happens to be the right home on the merits: no Edge CPU ceiling on a 17s model
+ * call, and the OpenAI SDK is supported here rather than tolerated.
+ *
+ * Node runtime means Node-style (req, res) — NOT the Web `Request`/`Response` the Edge routes
+ * use. Do not copy this handler's shape into them, or the `new URL(req.url)` bug returns.
  */
 
 import { handleProfile } from "./_lib/profileService.js";
 
-export const config = { runtime: "edge" };
+/* "nodejs", not "nodejs20.x" — the version-suffixed form is rejected at deploy time:
+   unsupported "runtime" value in `config` (must be one of: edge, experimental-edge, nodejs). */
+export const config = { runtime: "nodejs" };
 
-export default async function handler(req: Request): Promise<Response> {
+/** Minimal shapes, so this does not depend on @vercel/node just to name two arguments. */
+interface NodeReq {
+  method?: string;
+  headers: Record<string, string | string[] | undefined>;
+  on(event: string, cb: (chunk?: unknown) => void): void;
+}
+interface NodeRes {
+  statusCode: number;
+  setHeader(k: string, v: string): void;
+  end(body?: string): void;
+}
+
+function readBody(req: NodeReq): Promise<string> {
+  return new Promise((resolve) => {
+    let raw = "";
+    req.on("data", (c) => (raw += String(c)));
+    req.on("end", () => resolve(raw));
+  });
+}
+
+export default async function handler(req: NodeReq, res: NodeRes): Promise<void> {
+  res.setHeader("Content-Type", "application/json");
+  /**
+   * No shared cache, and no pretending otherwise.
+   *
+   * This once carried `s-maxage=600` with a comment claiming it stopped a rehearsal loop
+   * paying for repeat completions. That was wrong: this is a POST, and Vercel's CDN does not
+   * cache POST responses, so the header did nothing at all — worse than nothing, because it
+   * read like a cost control that existed.
+   *
+   * Real repeat-protection needs a cache keyed on a hash of the description (Upstash, or
+   * Vercel's Runtime Cache). Until then every submit costs a completion, which at ~$0.0005
+   * on luna is a deliberate non-problem. Rehearse with `VITE_LLM_MODE=replay` for free.
+   */
+  res.setHeader("Cache-Control", "no-store");
+
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+    res.statusCode = 405;
+    res.end(JSON.stringify({ error: "method not allowed" }));
+    return;
   }
 
   let businessText: unknown;
   try {
-    businessText = ((await req.json()) as { businessText?: unknown }).businessText;
+    businessText = (JSON.parse((await readBody(req)) || "{}") as { businessText?: unknown })
+      .businessText;
   } catch {
-    return new Response(JSON.stringify({ error: "invalid JSON body" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    res.statusCode = 400;
+    res.end(JSON.stringify({ error: "invalid JSON body" }));
+    return;
   }
 
   /* Correlates the server log line with the client-error lines from the same run. */
-  const sid = (req.headers.get("x-fmn-session") ?? "none").slice(0, 24);
-  const { status, body } = await handleProfile(businessText, sid);
+  const header = req.headers["x-fmn-session"];
+  const sid = String(Array.isArray(header) ? header[0] : (header ?? "none")).slice(0, 24);
 
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-      /**
-       * No shared cache, and no pretending otherwise.
-       *
-       * This carried `s-maxage=600` with a comment claiming it stopped a rehearsal loop
-       * paying for repeat completions. That was wrong: this is a POST, and Vercel's CDN does
-       * not cache POST responses, so the header did nothing at all. Worse than nothing —
-       * it read like a cost control that existed.
-       *
-       * Repeat-submit protection, if it is ever wanted, has to be a real cache keyed on a
-       * hash of the description (Upstash Redis, or Vercel's Runtime Cache). Until then the
-       * honest answer is that every submit costs a completion, which at ~$0.0005 on luna is
-       * a deliberate non-problem. Use `VITE_LLM_MODE=replay` to rehearse for free.
-       */
-      "Cache-Control": "no-store",
-    },
-  });
+  const { status, body } = await handleProfile(businessText, sid);
+  res.statusCode = status;
+  res.end(JSON.stringify(body));
 }

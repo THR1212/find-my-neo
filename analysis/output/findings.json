@@ -1,0 +1,282 @@
+{
+  "_source": "Neo_vs_Non-neo_clients.xlsx, sheet Sheet13 (persona fields); date range joined from Retention-Raw on order_id",
+  "_dateRange": "2023-03-15 to 2024-02-21",
+  "_computedOn": "2026-09-02",
+  "_computedBy": "analysis/scripts/persona_stats.py",
+  "_note": "business_industry and role_in_business live in Sheet13, not 'Persona responses' (which is a pivot summary). Counts are over non-null values; n states the denominator used for each.",
+  "distinctIndustryValues": {
+    "value": 5318,
+    "n": 13833,
+    "rowsInSheet": 13968,
+    "claimed": 5318,
+    "matchesClaim": true
+  },
+  "distinctRoleValues": {
+    "value": 2327,
+    "n": 13842,
+    "rowsInSheet": 13968,
+    "claimed": 2327,
+    "matchesClaim": true
+  },
+  "distinctIndustryValuesDedupedOnOrderId": {
+    "value": 5311,
+    "n": 13380,
+    "uniqueOrders": 13406
+  },
+  "distinctRoleValuesDedupedOnOrderId": {
+    "value": 2325,
+    "n": 13387,
+    "uniqueOrders": 13406
+  },
+  "sheetShape": {
+    "rows": 13968,
+    "claimedRows": 13968,
+    "matchesClaim": true,
+    "nonNullOrderIds": 13919,
+    "uniqueOrderIds": 13406,
+    "duplicateOrderIdRows": 513,
+    "fullyDuplicatedRows": 521,
+    "ordersMatchedToADate": 13524
+  },
+  "industryFieldDetail": {
+    "field": "business_industry",
+    "raw": {
+      "value": 5318,
+      "n": 13833
+    },
+    "normalised": {
+      "value": 4190,
+      "n": 13833
+    },
+    "collapsedByCaseOrWhitespace": 1128,
+    "valuesOccurringOnce": 3262,
+    "valuesOccurringOnceShare": 0.7785,
+    "top20": [
+      {
+        "value": "sales",
+        "count": 1316
+      },
+      {
+        "value": "marketing",
+        "count": 823
+      },
+      {
+        "value": "1",
+        "count": 546
+      },
+      {
+        "value": "retail",
+        "count": 432
+      },
+      {
+        "value": "construction",
+        "count": 203
+      },
+      {
+        "value": "real estate",
+        "count": 188
+      },
+      {
+        "value": "consulting",
+        "count": 182
+      },
+      {
+        "value": "entertainment",
+        "count": 167
+      },
+      {
+        "value": "transportation",
+        "count": 131
+      },
+      {
+        "value": "education",
+        "count": 126
+      },
+      {
+        "value": "technology",
+        "count": 124
+      },
+      {
+        "value": "it",
+        "count": 115
+      },
+      {
+        "value": "healthcare",
+        "count": 111
+      },
+      {
+        "value": "beauty",
+        "count": 108
+      },
+      {
+        "value": "e-commerce",
+        "count": 108
+      },
+      {
+        "value": "ecommerce",
+        "count": 91
+      },
+      {
+        "value": "home",
+        "count": 91
+      },
+      {
+        "value": "trucking",
+        "count": 89
+      },
+      {
+        "value": "finance",
+        "count": 84
+      },
+      {
+        "value": "cleaning",
+        "count": 82
+      }
+    ]
+  },
+  "roleFieldDetail": {
+    "field": "role_in_business",
+    "raw": {
+      "value": 2327,
+      "n": 13842
+    },
+    "normalised": {
+      "value": 1857,
+      "n": 13842
+    },
+    "collapsedByCaseOrWhitespace": 470,
+    "valuesOccurringOnce": 1439,
+    "valuesOccurringOnceShare": 0.7749,
+    "top20": [
+      {
+        "value": "founder",
+        "count": 5222
+      },
+      {
+        "value": "owner",
+        "count": 1991
+      },
+      {
+        "value": "ceo",
+        "count": 1154
+      },
+      {
+        "value": "1",
+        "count": 568
+      },
+      {
+        "value": "manager",
+        "count": 436
+      },
+      {
+        "value": "director",
+        "count": 293
+      },
+      {
+        "value": "admin",
+        "count": 154
+      },
+      {
+        "value": "president",
+        "count": 125
+      },
+      {
+        "value": "it",
+        "count": 67
+      },
+      {
+        "value": "co-founder",
+        "count": 67
+      },
+      {
+        "value": "supervisor",
+        "count": 50
+      },
+      {
+        "value": "sales",
+        "count": 50
+      },
+      {
+        "value": "hr",
+        "count": 46
+      },
+      {
+        "value": "co founder",
+        "count": 39
+      },
+      {
+        "value": "marketing",
+        "count": 36
+      },
+      {
+        "value": "owner/operator",
+        "count": 30
+      },
+      {
+        "value": "founder/owner",
+        "count": 29
+      },
+      {
+        "value": "boss",
+        "count": 28
+      },
+      {
+        "value": "founder/ceo",
+        "count": 28
+      },
+      {
+        "value": "developer",
+        "count": 27
+      }
+    ]
+  },
+  "fieldCoverage": {
+    "import_emails_contacts": {
+      "filled": 2667,
+      "n": 13968,
+      "share": 0.1909
+    },
+    "current_email_app": {
+      "filled": 2669,
+      "n": 13968,
+      "share": 0.1911
+    },
+    "signup_reason": {
+      "filled": 8104,
+      "n": 13968,
+      "share": 0.5802
+    },
+    "employee_count": {
+      "filled": 13843,
+      "n": 13968,
+      "share": 0.9911
+    }
+  },
+  "claimedAbsurdExamples": [
+    {
+      "claimed": "Pizza",
+      "present": true,
+      "count": 2
+    },
+    {
+      "claimed": "ONLINE STORE",
+      "present": true,
+      "count": 9
+    },
+    {
+      "claimed": "Consort",
+      "present": true,
+      "count": 1
+    },
+    {
+      "claimed": "repair",
+      "present": true,
+      "count": 36
+    },
+    {
+      "claimed": "purchase",
+      "present": true,
+      "count": 1
+    }
+  ]
+}

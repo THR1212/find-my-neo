@@ -55,6 +55,7 @@ body {
   color: var(--text);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 /* --- Animated backdrop -------------------------------------------------- */
@@ -591,6 +592,7 @@ h1 {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
   display: inline-block;
+  white-space: nowrap;
 }
 
 .meter-count.is-dropping {
@@ -996,7 +998,7 @@ h1 {
 
 @media (max-width: 640px) {
   .stage {
-    padding: 62px 18px 140px;
+    padding: 122px 18px 148px;
     /* Phones centre badly once the on-screen keyboard opens; top-align instead. */
     align-content: start;
   }
@@ -1089,12 +1091,17 @@ h1 {
   }
 
   .meter-dock {
-    top: 14px;
+    top: 46px;
+    left: 12px;
+    right: 12px;
+    transform: none;
+    display: flex;
+    justify-content: center;
   }
 
   .sound-toggle {
-    top: 12px;
-    right: 12px;
+    top: 8px;
+    right: 10px;
     font-size: 11px;
     padding: 6px 11px;
   }
@@ -1102,13 +1109,12 @@ h1 {
   .meter {
     padding: 6px 13px 6px 6px;
     gap: 10px;
-    /* Sound toggle sits top-right; keep the pill from colliding or overflowing 390px. */
-    max-width: calc(100vw - 108px);
+    max-width: 100%;
   }
 
   .meter-headline,
   .meter-label {
-    max-width: min(11.5em, 48vw);
+    max-width: min(16em, 72vw);
   }
 
   .meter-count {
@@ -1149,7 +1155,7 @@ h1 {
 /* Very small phones (iPhone SE and similar). */
 @media (max-width: 380px) {
   .stage {
-    padding: 56px 14px 140px;
+    padding: 116px 14px 148px;
   }
 
   .domain-name {

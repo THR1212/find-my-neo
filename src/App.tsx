@@ -166,7 +166,14 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
             transition={transition}
           >
-            <NarrowingMeter confidence={conf} remaining={remaining} variant={meterVariant} />
+            <NarrowingMeter
+              confidence={conf}
+              remaining={remaining}
+              variant={meterVariant}
+              stage={stage}
+              lastQuestionId={engine.asked[engine.asked.length - 1] ?? null}
+              profile={engine.profile}
+            />
           </motion.div>
         )}
       </AnimatePresence>

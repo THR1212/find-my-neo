@@ -1,5 +1,6 @@
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { numbersMeterLabel, type MeterProfile, type MeterStage } from "./meterNumbersCopy";
 
 /**
  * The narrowing indicator. Three demo treatments — the engine still feeds confidence +
@@ -18,7 +19,7 @@ export const METER_VARIANTS: { id: MeterVariant; label: string; hint: string }[]
   {
     id: "numbers",
     label: "Numbers",
-    hint: "The count stays. Copy is “businesses like yours”, not “possible setups”.",
+    hint: "The count stays. The line under it changes each step (DMs, starting fresh, Gmail…).",
   },
   {
     id: "closer",
@@ -108,10 +109,17 @@ export default function NarrowingMeter({
   confidence,
   remaining,
   variant,
+  stage = "guess",
+  lastQuestionId = null,
+  profile = {},
 }: {
   confidence: number;
   remaining: number;
   variant: MeterVariant;
+  stage?: MeterStage;
+  /** Last answered question id — the drop on this screen is because of that answer. */
+  lastQuestionId?: string | null;
+  profile?: MeterProfile;
 }) {
   const count = useMotionValue(remaining);
   const spring = useSpring(count, { stiffness: 55, damping: 18 });
@@ -139,6 +147,7 @@ export default function NarrowingMeter({
   const tight = Boolean(drop?.tight);
   const closer = closerCopy(confidence);
   const band = bandCopy(remaining);
+  const numbersLabel = numbersMeterLabel(remaining, stage, lastQuestionId, profile);
 
   return (
     <div
@@ -164,9 +173,15 @@ export default function NarrowingMeter({
               </span>
             ) : null}
           </div>
-          <span className="meter-label">
-            {remaining === 1 ? "business like yours" : "businesses like yours"}
-          </span>
+          <motion.span
+            key={numbersLabel}
+            className="meter-label"
+            initial={{ opacity: 0, y: 3 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {numbersLabel}
+          </motion.span>
         </div>
       )}
 

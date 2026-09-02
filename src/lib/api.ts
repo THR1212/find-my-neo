@@ -38,11 +38,36 @@ export interface ProfileResult {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * Shout if a deployed build is serving fixtures.
+ *
+ * This cost a production outage that looked like success. `VITE_LLM_MODE` is a BUILD-TIME
+ * client variable; the three server vars (LLM_MODE, LLM_MODEL, LLM_API_KEY) were set on
+ * Vercel and `/api/profile` answered correctly to curl — but the browser bundle had defaulted
+ * to "replay", so the app never called the route at all and every visitor saw the recorded
+ * bakery. Testing the route directly passed while the thing that was broken sat one layer up.
+ *
+ * On localhost replay is a legitimate choice (it is how you rehearse for free). Anywhere else
+ * it means someone forgot a build variable, and nothing else will ever say so.
+ */
+let warnedReplay = false;
+function warnIfReplayInProduction(): void {
+  if (warnedReplay || MODE !== "replay") return;
+  const host = typeof location === "undefined" ? "" : location.hostname;
+  if (host === "localhost" || host === "127.0.0.1" || host === "") return;
+  warnedReplay = true;
+  reportDegraded(
+    "replay-in-production",
+    `VITE_LLM_MODE is not "live" on ${host} — every visitor is seeing the recorded fixture`,
+  );
+}
+
+/**
  * Fired on screen-1 submit. Resolves while the user taps through screens 2-4, so the
  * reveal is already in memory by the time they arrive. Do not move this call to screen 5.
  */
 export async function buildProfile(businessText: string): Promise<ProfileResult> {
   if (MODE === "replay") {
+    warnIfReplayInProduction();
     await sleep(REPLAY_DELAY_MS);
     const { profile, reveal, nextQuestionId } = demoFixture as unknown as ProfileResult;
     return { profile, reveal, nextQuestionId };

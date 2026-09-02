@@ -75,7 +75,11 @@ export const FEATURES: Feature[] = [
     /* Neo's own description literally cites sales@ and info@ — exactly the shape of the
        hello@/orders@ split we put on the reveal. */
     because: "so orders@ and hello@ can live apart instead of in one personal inbox",
-    matches: (p) => is(p, "customerChannel", "social") || ((p.teamSize as number) ?? 0) >= 2,
+    /* Either count qualifies: two mailboxes is the trigger whether that's two people or
+       one person running hello@ alongside their own name. mailboxCount is what the question
+       now asks; teamSize is the model's headcount read and only stands in without it. */
+    matches: (p) =>
+      is(p, "customerChannel", "social") || Number(p.mailboxCount ?? p.teamSize ?? 0) >= 2,
     priority: 9,
   },
   {

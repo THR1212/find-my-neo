@@ -265,7 +265,9 @@ export default function App() {
                 loading={loading}
                 error={error}
                 surface={(engine.profile.surface as string) ?? null}
-                teamSize={(engine.profile.teamSize as number) ?? null}
+                mailboxCount={
+                  Number(engine.profile.mailboxCount ?? engine.profile.teamSize ?? 0) || null
+                }
                 profile={engine.profile}
                 businessText={rawText}
                 neoSite={neoSite}

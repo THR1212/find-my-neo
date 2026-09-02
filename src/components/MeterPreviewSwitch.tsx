@@ -13,8 +13,8 @@ export default function MeterPreviewSwitch({
 
   return (
     <div className="meter-demo">
-      <p className="meter-demo-kicker">Team preview — no counts</p>
-      <div className="meter-demo-row" role="tablist" aria-label="Meter without numbers">
+      <p className="meter-demo-kicker">Team preview — numbers from persona data</p>
+      <div className="meter-demo-row" role="tablist" aria-label="Meter treatments">
         {METER_VARIANTS.map((v) => (
           <button
             key={v.id}

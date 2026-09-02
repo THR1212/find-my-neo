@@ -36,8 +36,8 @@ const emptyEngine: EngineState = { profile: {}, asked: [], freeText: {} };
 
 function readMeterVariant(): MeterVariant {
   const q = new URLSearchParams(window.location.search).get("meter");
-  if (q === "words" || q === "closer" || q === "ring") return q;
-  return "words";
+  if (q === "numbers" || q === "words" || q === "closer" || q === "ring") return q;
+  return "numbers";
 }
 
 export default function App() {

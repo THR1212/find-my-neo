@@ -1,0 +1,257 @@
+{
+  "_source": "Neo_vs_Non-neo_clients.xlsx, sheet Retention-Raw, deduped on order_id",
+  "_dateRange": "2023-03-15 to 2024-02-21",
+  "_computedOn": "2026-09-02",
+  "_computedBy": "analysis/scripts/retention_cuts.py",
+  "_caveats": [
+    "Deduped on order_id: 33,024 raw rows -> 18,399 unique orders.",
+    "retention_tag is a single end-state flag, not a monthly cohort measure, so these levels are not comparable with the Athena m*_retained columns.",
+    "2023-24 window and a 2023-24 product state \u2014 directional only.",
+    "The import-intent and current_email_app cuts are selection effects: both fields are filled on the same 2,484 orders and reflect onboarding progress, not a preference available at pre-purchase time."
+  ],
+  "rawRows": 33024,
+  "dedupedOrders": 18399,
+  "duplicateRowsDropped": 14625,
+  "baseline": {
+    "retained": 0.3622,
+    "retainedCount": 6664,
+    "cancelledCount": 11735,
+    "n": 18399,
+    "claimed": 0.36
+  },
+  "byBillingCycle": [
+    {
+      "billingCycle": "two_yearly",
+      "retained": 0.7303,
+      "n": 393
+    },
+    {
+      "billingCycle": "yearly",
+      "retained": 0.4526,
+      "n": 5639
+    },
+    {
+      "billingCycle": "monthly",
+      "retained": 0.3093,
+      "n": 12367
+    }
+  ],
+  "byModel": [
+    {
+      "model": "co.site",
+      "retained": 0.4294,
+      "n": 9210
+    },
+    {
+      "model": "custom domain",
+      "retained": 0.2948,
+      "n": 9189
+    }
+  ],
+  "byLogin": [
+    {
+      "login": "login",
+      "retained": 0.3979,
+      "n": 14903
+    },
+    {
+      "login": "No-login",
+      "retained": 0.21,
+      "n": 3496
+    }
+  ],
+  "byImportIntent": [
+    {
+      "importIntent": "Yes, import contacts",
+      "retained": 0.8302,
+      "n": 53
+    },
+    {
+      "importIntent": "Yes, import both emails and contacts",
+      "retained": 0.8235,
+      "n": 102
+    },
+    {
+      "importIntent": "No, don\u2019t want to import",
+      "retained": 0.7955,
+      "n": 2122
+    },
+    {
+      "importIntent": "Yes, import emails",
+      "retained": 0.744,
+      "n": 207
+    }
+  ],
+  "byCurrentEmailApp": [
+    {
+      "app": "Mac Mail",
+      "retained": 0.8113,
+      "n": 53
+    },
+    {
+      "app": "Microsoft Outlook",
+      "retained": 0.8095,
+      "n": 378
+    },
+    {
+      "app": "Other.1",
+      "retained": 0.8061,
+      "n": 294
+    },
+    {
+      "app": "Gmail mobile app",
+      "retained": 0.7967,
+      "n": 723
+    },
+    {
+      "app": "Gmail website",
+      "retained": 0.7706,
+      "n": 946
+    },
+    {
+      "app": "iPhone Mail",
+      "retained": 0.7612,
+      "n": 268
+    },
+    {
+      "app": "Thunderbird",
+      "retained": 0.5417,
+      "n": 24
+    }
+  ],
+  "bySignupReason": [
+    {
+      "reason": "Other",
+      "retained": 0.4649,
+      "n": 570
+    },
+    {
+      "reason": "Simple one-page site",
+      "retained": 0.4626,
+      "n": 735
+    },
+    {
+      "reason": "Free domain",
+      "retained": 0.4379,
+      "n": 2117
+    },
+    {
+      "reason": "Email with my company name",
+      "retained": 0.4183,
+      "n": 3581
+    },
+    {
+      "reason": "Read receipt email feature",
+      "retained": 0.4116,
+      "n": 277
+    },
+    {
+      "reason": "Zero setup email",
+      "retained": 0.4055,
+      "n": 1317
+    }
+  ],
+  "byTrial": [
+    {
+      "startedOnTrial": "False",
+      "retained": 0.4303,
+      "n": 9238
+    },
+    {
+      "startedOnTrial": "True",
+      "retained": 0.2935,
+      "n": 9161
+    }
+  ],
+  "byMailboxCount": [
+    {
+      "mailboxCount": "1",
+      "retained": 0.3563,
+      "n": 13243
+    },
+    {
+      "mailboxCount": "2",
+      "retained": 0.4006,
+      "n": 2811
+    },
+    {
+      "mailboxCount": "3-5",
+      "retained": 0.3409,
+      "n": 1672
+    },
+    {
+      "mailboxCount": "6-20",
+      "retained": 0.3878,
+      "n": 624
+    },
+    {
+      "mailboxCount": "21+",
+      "retained": 0.3478,
+      "n": 23
+    }
+  ],
+  "importSelectionEffect": {
+    "answeredRetained": 0.7931,
+    "answeredN": 2484,
+    "blankRetained": 0.2949,
+    "blankN": 15915,
+    "ratio": 2.69,
+    "spreadBetweenAnswers": 0.0862,
+    "note": "Answering the field predicts far better than which answer is given. 'No, don't want to import' retains 79.5% vs 82.4% for 'Yes, both'."
+  },
+  "fieldAnsweredVsBlank": [
+    {
+      "field": "import_emails_contacts",
+      "answeredRetained": 0.7931,
+      "answeredN": 2484,
+      "blankRetained": 0.2949,
+      "blankN": 15915
+    },
+    {
+      "field": "current_email_app",
+      "answeredRetained": 0.7931,
+      "answeredN": 2484,
+      "blankRetained": 0.2949,
+      "blankN": 15915
+    },
+    {
+      "field": "signup_reason",
+      "answeredRetained": 0.4313,
+      "answeredN": 7714,
+      "blankRetained": 0.3123,
+      "blankN": 10685
+    },
+    {
+      "field": "employee_count",
+      "answeredRetained": 0.3303,
+      "answeredN": 13099,
+      "blankRetained": 0.4409,
+      "blankN": 5300
+    },
+    {
+      "field": "role_in_business",
+      "answeredRetained": 0.3302,
+      "answeredN": 13091,
+      "blankRetained": 0.4412,
+      "blankN": 5308
+    },
+    {
+      "field": "business_industry",
+      "answeredRetained": 0.3301,
+      "answeredN": 13085,
+      "blankRetained": 0.4413,
+      "blankN": 5314
+    }
+  ],
+  "claimVerdicts": {
+    "baseline36pct": "CONFIRMED",
+    "twoYearly73pct": "CONFIRMED",
+    "monthly31pct": "CONFIRMED",
+    "coSite43pct": "CONFIRMED",
+    "customDomain29_5pct": "CONFIRMED",
+    "neverLoggedIn21pct": "CONFIRMED",
+    "importBoth82pct": "CONFIRMED",
+    "importBothN102": "CONFIRMED",
+    "importEmailsOnly74pct": "CONFIRMED"
+  }
+}

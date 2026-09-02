@@ -6,7 +6,8 @@
  * After a question → the last answer, in plain English
  * Reveal → setups that fit you
  *
- * Cutoffs and counts still come from the engine. Do not invent a remaining figure here.
+ * Opening count is 5,318 distinct industries, confirmed in analysis/output/findings.json.
+ * Cutoffs and remaining() still come from the engine. Do not invent a remaining figure here.
  */
 
 export type MeterStage = "hook" | "describe" | "guess" | "question" | "reveal";

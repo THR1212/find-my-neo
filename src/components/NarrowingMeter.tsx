@@ -1,29 +1,31 @@
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { DISTINCT_INDUSTRY_VALUES } from "../data/industryUniverse";
 import {
   closerMeterCopy,
+  numbersMeterLabel,
   wordsMeterCopy,
   type MeterProfile,
   type MeterStage,
 } from "./meterNumbersCopy";
-
-/**
- * Number-free narrowing. The engine still tells us *that* the set shrank (pulse),
- * but we never print 5,318 — we do not have data to stand behind that figure.
- */
 
 const SIZE = 54;
 const STROKE = 3;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export type MeterVariant = "words" | "closer" | "ring";
+export type MeterVariant = "numbers" | "words" | "closer" | "ring";
 
 export const METER_VARIANTS: { id: MeterVariant; label: string; hint: string }[] = [
   {
+    id: "numbers",
+    label: "Numbers",
+    hint: "5,318 distinct industries from Neo persona data (Sheet13, n=13,833). The count ticks down as answers land.",
+  },
+  {
     id: "words",
     label: "Words",
-    hint: "Recommended without data. Ring + what we just learned (DMs, Gmail…). No count.",
+    hint: "Ring + what we just learned (DMs, Gmail…). No count.",
   },
   {
     id: "closer",
@@ -70,8 +72,8 @@ function MeterRing({
           stroke="var(--meter-fill)"
           strokeWidth={STROKE}
           strokeLinecap="round"
-          strokeDasharray={CIRCUMFERENCE}
           transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
+          strokeDasharray={CIRCUMFERENCE}
           initial={false}
           animate={{ strokeDashoffset: CIRCUMFERENCE * (1 - confidence) }}
           transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
@@ -107,30 +109,81 @@ export default function NarrowingMeter({
   lastQuestionId?: string | null;
   profile?: MeterProfile;
 }) {
+  const count = useMotionValue(DISTINCT_INDUSTRY_VALUES);
+  const spring = useSpring(count, { stiffness: 55, damping: 18 });
+  const rounded = useTransform(spring, (v) => Math.round(v).toLocaleString("en-IN"));
   const reduceMotion = useReducedMotion();
   const prevRemaining = useRef(remaining);
-  const [drop, setDrop] = useState(false);
+  const [drop, setDrop] = useState<{ delta: number; tight: boolean } | null>(null);
+
+  const hideCount = stage === "reveal";
+
+  useEffect(() => {
+    if (hideCount) return;
+    if (reduceMotion) {
+      count.jump(remaining);
+      return;
+    }
+    count.set(remaining);
+  }, [remaining, count, reduceMotion, hideCount]);
 
   useEffect(() => {
     const previous = prevRemaining.current;
     if (remaining < previous) {
-      setDrop(true);
-      const id = window.setTimeout(() => setDrop(false), 780);
+      setDrop({ delta: previous - remaining, tight: remaining <= 12 });
+      const id = window.setTimeout(() => setDrop(null), 780);
       prevRemaining.current = remaining;
       return () => window.clearTimeout(id);
     }
     prevRemaining.current = remaining;
   }, [remaining]);
 
-  const dropping = drop;
+  const dropping = drop !== null;
+  const tight = Boolean(drop?.tight);
   const words = wordsMeterCopy(stage, lastQuestionId, profile);
   const closer = closerMeterCopy(confidence);
   const ringLine =
     stage === "reveal" ? "Your setup" : closer.title === "Your setup" ? "Almost there" : closer.title;
+  const numberLabel = hideCount
+    ? "ready for you"
+    : numbersMeterLabel(remaining, stage, lastQuestionId, profile);
 
   return (
-    <div className={`meter meter--${variant}${dropping ? " is-dropping" : ""}`}>
+    <div
+      className={`meter meter--${variant}${dropping ? " is-dropping" : ""}${tight && dropping ? " is-tight" : ""}`}
+    >
       <MeterRing confidence={confidence} dropping={dropping} reduceMotion={reduceMotion} />
+
+      {variant === "numbers" && (
+        <div className="meter-readout" aria-live="polite" aria-atomic="true">
+          {hideCount ? (
+            <>
+              <span className={`meter-headline${dropping ? " is-dropping" : ""}`}>Your setup</span>
+              <span className="meter-label">{numberLabel}</span>
+            </>
+          ) : (
+            <>
+              <div className="meter-count-row">
+                <motion.span
+                  className={`meter-count${dropping ? " is-dropping" : ""}`}
+                  initial={false}
+                  animate={dropping && !reduceMotion ? { scale: [1, 1.16, 1] } : { scale: 1 }}
+                  transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ originX: 0, originY: 0.5 }}
+                >
+                  {rounded}
+                </motion.span>
+                {drop ? (
+                  <span className="meter-delta" aria-hidden="true">
+                    −{drop.delta.toLocaleString("en-IN")}
+                  </span>
+                ) : null}
+              </div>
+              <span className="meter-label">{dropping ? "that helped" : numberLabel}</span>
+            </>
+          )}
+        </div>
+      )}
 
       {variant === "words" && (
         <div className="meter-readout" aria-live="polite" aria-atomic="true">

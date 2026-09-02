@@ -8,6 +8,7 @@ export type SoundCue = "curious" | "mcq" | "social" | "setup" | "cta";
 
 let muted = true;
 let ctx: AudioContext | null = null;
+let describeClip: HTMLAudioElement | null = null;
 
 export function soundIsMuted() {
   return muted;
@@ -49,6 +50,21 @@ function tone(
   osc.stop(at + duration + 0.03);
 }
 
+/** Keyboard clip on the “what's your business” screen. Still mute-gated. */
+export function playDescribeKeyboard() {
+  if (muted) return;
+  if (typeof window === "undefined") return;
+  if (!describeClip) {
+    describeClip = new Audio("/sounds/computer-keyboard.mp3");
+    describeClip.preload = "auto";
+    describeClip.volume = 0.55;
+  }
+  describeClip.currentTime = 0;
+  void describeClip.play().catch(() => {
+    /* Autoplay can fail until a gesture; typing and Continue are gestures. */
+  });
+}
+
 export function playSound(cue: SoundCue) {
   if (muted) return;
   const audio = context();
@@ -57,20 +73,16 @@ export function playSound(cue: SoundCue) {
   const t = audio.currentTime + 0.01;
 
   if (cue === "curious") {
-    /* Rising question — after they describe the business. */
     tone(audio, 392, t, 0.09, 0.04, "sine");
     tone(audio, 494, t + 0.1, 0.1, 0.04, "sine");
     tone(audio, 587, t + 0.22, 0.16, 0.045, "triangle");
   } else if (cue === "mcq") {
-    /* Same soft tick on every multiple-choice tap. */
     tone(audio, 704, t, 0.055, 0.032, "sine");
     tone(audio, 880, t + 0.05, 0.05, 0.028, "triangle");
   } else if (cue === "social") {
-    /* Original message ping — not Instagram's sound. */
     tone(audio, 1174, t, 0.07, 0.038, "triangle");
     tone(audio, 1397, t + 0.09, 0.11, 0.042, "triangle");
   } else if (cue === "setup") {
-    /* Warm “it’s ready” arpeggio on the last screen. */
     tone(audio, 392, t, 0.14, 0.04, "sine");
     tone(audio, 523, t + 0.11, 0.14, 0.04, "sine");
     tone(audio, 659, t + 0.22, 0.22, 0.045, "triangle");

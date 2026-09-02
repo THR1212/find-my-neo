@@ -71,7 +71,6 @@ export default function App() {
    * the time they reach it. Do not await before advancing.
    */
   const submitDescription = useCallback((text: string) => {
-    playSound("curious");
     setRawText(text);
     setLoading(true);
     setError(null);

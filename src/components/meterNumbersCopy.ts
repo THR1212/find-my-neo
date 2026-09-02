@@ -11,14 +11,35 @@
 
 export type MeterStage = "hook" | "describe" | "guess" | "question" | "reveal";
 
-/** Engine profile values may be scalar or arrays (multi-select). */
-export type MeterProfile = Record<string, string | number | boolean | null | string[] | undefined>;
+/**
+ * Compatible with engine Profile without importing lib.
+ * Values may be scalar or arrays (multi-select).
+ */
+export type MeterProfile = Record<
+  string,
+  string | number | boolean | null | string[] | undefined
+>;
 
-function scalar(profile: MeterProfile, key: string): string | number | boolean | undefined {
+type MeterValue = MeterProfile[string];
+
+/** Same idea as engine has() — arrays from multi-select must still match. */
+function has(profile: MeterProfile, key: string, value: unknown): boolean {
   const v = profile[key];
-  if (v == null) return undefined;
-  if (Array.isArray(v)) return v[0];
-  return v;
+  return Array.isArray(v) ? v.includes(value as string) : v === value;
+}
+
+function first(value: MeterValue): string | number | boolean | undefined {
+  if (value == null) return undefined;
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+function pickString(profile: MeterProfile, key: string, preferred: string[]): string | undefined {
+  for (const option of preferred) {
+    if (has(profile, key, option)) return option;
+  }
+  const head = first(profile[key]);
+  return typeof head === "string" ? head : undefined;
 }
 
 function many(n: number, one: string, more: string) {
@@ -98,6 +119,19 @@ function afterSells(n: number, sellsOnline: boolean | undefined) {
   return many(n, "who gets paid like you", "who get paid like you");
 }
 
+function teamSizeOf(profile: MeterProfile): number | undefined {
+  const v = profile.teamSize;
+  if (typeof v === "number") return v;
+  const head = first(v);
+  return typeof head === "number" ? head : undefined;
+}
+
+function sellsOnlineOf(profile: MeterProfile): boolean | undefined {
+  if (has(profile, "sellsOnline", true)) return true;
+  if (has(profile, "sellsOnline", false)) return false;
+  return undefined;
+}
+
 /**
  * @param lastQuestionId the question they just left (engine.asked tail), not the one on screen
  */
@@ -117,17 +151,26 @@ export function numbersMeterLabel(
 
   switch (lastQuestionId) {
     case "channel":
-      return afterChannel(remaining, scalar(profile, "customerChannel") as string | undefined);
+      return afterChannel(
+        remaining,
+        pickString(profile, "customerChannel", ["social", "personal_email", "offline", "site"]),
+      );
     case "import":
-      return afterImport(remaining, scalar(profile, "importIntent") as string | undefined);
+      return afterImport(
+        remaining,
+        pickString(profile, "importIntent", ["none", "emails", "both", "contacts"]),
+      );
     case "client":
-      return afterClient(remaining, scalar(profile, "currentClient") as string | undefined);
+      return afterClient(
+        remaining,
+        pickString(profile, "currentClient", ["gmail", "outlook", "apple", "none"]),
+      );
     case "surface":
-      return afterSurface(remaining, scalar(profile, "surface") as string | undefined);
+      return afterSurface(remaining, pickString(profile, "surface", ["mail", "both"]));
     case "team":
-      return afterTeam(remaining, scalar(profile, "teamSize") as number | undefined);
+      return afterTeam(remaining, teamSizeOf(profile));
     case "sells":
-      return afterSells(remaining, scalar(profile, "sellsOnline") as boolean | undefined);
+      return afterSells(remaining, sellsOnlineOf(profile));
     default:
       return remaining === 1 ? "match like yours" : "matches like yours";
   }

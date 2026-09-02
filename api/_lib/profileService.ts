@@ -17,13 +17,26 @@
 import { complete } from "./llm.js";
 
 /**
- * Titan's own industry taxonomy — 16 values, applied across 1.3M domains.
+ * Titan's analytics industry taxonomy — 16 industries over 103 sub-industries.
  *
- * This is the answer to the 5,318 problem, and what makes it worth having is that it is
- * *Neo's own*: normalising into their categories is far harder to argue with than inventing
- * ours. Neo's `business_industry` field is free text with 5,318 distinct values, 78% of them
- * appearing exactly once and 1,128 of them the same answer typed differently — it routes
- * nothing. See docs/data-findings.md §6 and analysis/output/titan-persona-notes.md §1.
+ * Be precise about whose taxonomy this is, because three of them are in play:
+ *   1. Neo's `business_industry` survey field — free text, 5,318 distinct values, 78% of them
+ *      appearing exactly once and 1,128 the same answer typed differently. Routes nothing.
+ *      This is the problem being solved.
+ *   2. THIS one — Titan's, from the V2 persona dashboard. Not Neo-specific: the unfiltered
+ *      pages cover 1.3M domains, i.e. all of Titan. But the same dashboard applies it to a
+ *      `Neo Business` filter (29.9K domains), so it demonstrably classifies Neo's customers
+ *      too — Neo's domains are a subset of Titan's.
+ *   3. Neo's site-builder `industryKey` picker — what their generator actually consumes.
+ *      We have only ever observed 7 of these, recovered from real requests.
+ *
+ * We normalise into (2) because it is the one with retention and conversion data behind it,
+ * then map to (3) in `src/lib/handoff.ts` for the handoff. If someone gets Neo's full
+ * industryKey list, emitting (3) directly would remove the mapping step — worth asking for.
+ *
+ * Do NOT say "1.3M Neo domains" anywhere near a judge. That figure is Titan-wide and the
+ * Neo-filtered number is 29.9K; conflating them is wrong by two orders of magnitude.
+ * See docs/data-findings.md §6 and its caveats.
  *
  * A strict enum so the model cannot invent a 5,319th value. "Bakery" resolves to Food &
  * Beverage instead of matching nothing, which is the entire point.

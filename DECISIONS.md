@@ -792,12 +792,22 @@ whichever unresolved signal narrows most (CLAUDE.md). Full workings in `docs/dat
 so `vite.config.ts` can mount the same function and `npm run dev` behaves like the deployed
 build — the pattern `domainService.ts` already set.
 
-**The model is constrained to Titan's 16-industry taxonomy** as a strict enum. This is the part
-worth defending: Neo's `business_industry` field is free text with 5,318 distinct values, 78% of
-them appearing exactly once and 1,128 of them the same answer typed differently, so it routes
-nothing. The 16 are Titan's own, applied across 1.3M domains — normalising into *their*
-categories is far harder to argue with than inventing ours. "Bakery" now resolves to Food &
-Beverage instead of matching nothing. Darrel's §6.
+**The model is constrained to Titan's analytics taxonomy** (16 industries) as a strict enum.
+Neo's `business_industry` field is free text with 5,318 distinct values, 78% of them appearing
+exactly once and 1,128 the same answer typed differently, so it routes nothing. "Bakery" now
+resolves to Food & Beverage instead of matching nothing. Darrel's §6.
+
+**Three taxonomies, and it matters which is which.** (1) Neo's free-text survey field, the
+problem. (2) Titan's analytics taxonomy, what we normalise into. (3) Neo's site-builder
+`industryKey` picker, what their generator consumes — we have observed only 7 of these.
+We emit (2) and map to (3).
+
+(2) is Titan's, not Neo's: the unfiltered dashboard pages cover 1.3M domains, all of Titan.
+The same dashboard applies the taxonomy under a `Neo Business` filter at **29.9K domains**, so
+it does classify Neo's customers — but **29.9K is the number to quote for Neo**, never 1.3M.
+Conflating them is wrong by two orders of magnitude and is the exact error Darrel's caveats
+warn about. Getting Neo's full `industryKey` list would let us emit (3) directly and drop the
+mapping; worth asking Neo for.
 
 That fixed a live bug on the way. `industryKeyFor()` only knew Neo's builder spellings, so it
 returned null for everything and **the handoff URL never carried `industryKey` at all**. Verified

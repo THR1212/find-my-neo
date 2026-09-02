@@ -52,7 +52,10 @@ const INDUSTRY_KEYS: Record<string, string> = {
 };
 
 /**
- * Titan's 16-industry taxonomy -> Neo's builder keys.
+ * Titan's analytics taxonomy (16 industries) -> Neo's site-builder keys.
+ *
+ * Two different taxonomies owned by two different systems. `api/profile.ts` emits Titan's
+ * because that is the one with data behind it; Neo's generator only understands its own.
  *
  * `api/profile.ts` constrains the model to Titan's 16 industries, because Neo's free-text
  * `business_industry` field has 5,318 distinct values and routes nothing. Those 16 labels are

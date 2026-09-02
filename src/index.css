@@ -510,6 +510,30 @@ h1 {
   box-shadow: 0 4px 20px rgba(16, 24, 40, 0.08);
 }
 
+.meter-ring {
+  display: flex;
+  flex-shrink: 0;
+}
+
+/* Pulse + signed delta when remaining falls. Colours are Neo tokens already in :root
+   (--accent / brand gradient / --ok), not new ones. */
+.meter.is-dropping {
+  animation: meter-drop-glow 0.7s var(--ease-out);
+}
+
+.meter.is-dropping.is-tight {
+  background: var(--ok-bg);
+  border-color: var(--ok);
+}
+
+@keyframes meter-drop-glow {
+  35% {
+    box-shadow:
+      0 4px 20px rgba(16, 24, 40, 0.08),
+      0 0 0 4px var(--accent-glow);
+  }
+}
+
 :root {
   --meter-track: #e9edf3;
   --meter-fill: var(--accent);
@@ -521,11 +545,64 @@ h1 {
   line-height: 1.15;
 }
 
+.meter-count-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 1.15em;
+}
+
 .meter-count {
   font-size: 17px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+  display: inline-block;
+}
+
+.meter-count.is-dropping {
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.meter.is-tight .meter-count.is-dropping {
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  color: var(--ok);
+}
+
+.meter-delta {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+  white-space: nowrap;
+  animation: meter-delta-in 0.7s var(--ease-out) forwards;
+}
+
+.meter.is-tight .meter-delta {
+  color: var(--ok);
+}
+
+@keyframes meter-delta-in {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  22% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .meter-label {
@@ -534,6 +611,17 @@ h1 {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter.is-dropping {
+    animation: none;
+  }
+
+  .meter-delta {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 /* The guessed business name carries Neo's own brand gradient. It is the one moment in the

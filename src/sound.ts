@@ -10,6 +10,7 @@ let muted = true;
 let ctx: AudioContext | null = null;
 let describeClip: HTMLAudioElement | null = null;
 let describeWanted = false;
+let successClip: HTMLAudioElement | null = null;
 
 export function soundIsMuted() {
   return muted;
@@ -29,6 +30,7 @@ export function setSoundMuted(next: boolean) {
   muted = next;
   if (next) {
     if (describeClip) describeClip.pause();
+    if (successClip) successClip.pause();
     return;
   }
   void context()?.resume();
@@ -80,6 +82,21 @@ export function stopDescribeKeyboard() {
   if (!describeClip) return;
   describeClip.pause();
   describeClip.currentTime = 0;
+}
+
+/** One-shot on the last page, when the setup (and generated site, if shown) is ready. */
+export function playSetupReady() {
+  if (muted) return;
+  if (typeof window === "undefined") return;
+  if (!successClip) {
+    successClip = new Audio("/sounds/success.mp3");
+    successClip.preload = "auto";
+    successClip.volume = 0.55;
+  }
+  successClip.currentTime = 0;
+  void successClip.play().catch(() => {
+    /* Autoplay can fail until a gesture; they have already typed and tapped. */
+  });
 }
 
 export function playSound(cue: SoundCue) {

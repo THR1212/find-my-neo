@@ -9,7 +9,7 @@ import NeoSitePreview from "../components/NeoSitePreview";
 import NeoSiteGenerating from "../components/NeoSiteGenerating";
 import { block as blockData, type NeoSite } from "../lib/neoSite";
 import type { Profile } from "../lib/engine";
-import { playSound } from "../sound";
+import { playSetupReady, playSound } from "../sound";
 
 /**
  * THE screen. Everything else exists to set it up.
@@ -82,10 +82,12 @@ export default function Reveal({
 
   useEffect(() => {
     if (error || loading || !reveal) return;
+    const siteShown = surface !== "mail";
+    if (siteShown && !neoSite) return;
     if (revealCuePlayed.current) return;
     revealCuePlayed.current = true;
-    playSound("setup");
-  }, [error, loading, reveal]);
+    playSetupReady();
+  }, [error, loading, reveal, neoSite, surface]);
 
   if (error) {
     return (

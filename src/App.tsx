@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import {
@@ -11,6 +11,7 @@ import {
 } from "./lib/engine";
 import { buildProfile } from "./lib/api";
 import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
+import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
 
 import NarrowingMeter, { type MeterVariant } from "./components/NarrowingMeter";
@@ -23,8 +24,6 @@ import Describe from "./screens/Describe";
 import Guess from "./screens/Guess";
 import AdaptiveQuestion from "./screens/AdaptiveQuestion";
 import Reveal from "./screens/Reveal";
-
-type Stage = "hook" | "describe" | "guess" | "question" | "reveal";
 
 const transition = { duration: 0.32, ease: [0.16, 1, 0.3, 1] as const };
 const variants = {
@@ -42,14 +41,26 @@ function readMeterVariant(): MeterVariant {
 }
 
 export default function App() {
-  const [stage, setStage] = useState<Stage>("hook");
+  /**
+   * Read once, as a lazy initialiser, so the restored screen is what paints first. Reading it
+   * in an effect instead would flash the hook screen and then jump, which reads as a bug.
+   */
+  const [restored] = useState(loadSnapshot);
+
+  const [stage, setStage] = useState<Stage>(restored?.stage ?? "hook");
   const [meterVariant, setMeterVariant] = useState<MeterVariant>(readMeterVariant);
-  const [engine, setEngine] = useState<EngineState>(emptyEngine);
-  const [rawText, setRawText] = useState("");
-  const [reveal, setReveal] = useState<RevealContent | null>(null);
-  const [summary, setSummary] = useState<string | null>(null);
+  const [engine, setEngine] = useState<EngineState>(restored?.engine ?? emptyEngine);
+  const [rawText, setRawText] = useState(restored?.rawText ?? "");
+  const [reveal, setReveal] = useState<RevealContent | null>(restored?.reveal ?? null);
+  const [summary, setSummary] = useState<string | null>(restored?.summary ?? null);
   /** The model's suggestion for what to ask next. Advisory — the engine can overrule it. */
-  const [preferredQuestionId, setPreferredQuestionId] = useState<string | null>(null);
+  const [preferredQuestionId, setPreferredQuestionId] = useState<string | null>(
+    restored?.preferredQuestionId ?? null,
+  );
+  /**
+   * Never restored. A snapshot taken mid-flight would otherwise come back as a spinner with
+   * no request behind it; the resume effect below re-fires the work instead.
+   */
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -57,7 +68,7 @@ export default function App() {
    * their generator is genuinely slow (their own UI shows a 12-step loader for up to 24s).
    * Starting it any later and the reveal would sit waiting on it.
    */
-  const [neoSite, setNeoSite] = useState<NeoSite | null>(null);
+  const [neoSite, setNeoSite] = useState<NeoSite | null>(restored?.neoSite ?? null);
 
   const conf = useMemo(() => confidence(engine.profile), [engine.profile]);
   const remaining = useMemo(() => remainingSetups(engine.profile), [engine.profile]);
@@ -69,44 +80,99 @@ export default function App() {
   );
 
   /**
-   * Screen-1 submit. Fires the profile request AND advances immediately — it resolves while
-   * the user reads the guess and answers questions, so the reveal is already in memory by
-   * the time they reach it. Do not await before advancing.
+   * Fire the two slow calls for `text`.
+   *
+   * Split out of submitDescription because a resumed session needs exactly this work re-done
+   * for whichever half had not landed when the tab reloaded — same calls, same handlers, so
+   * the two paths cannot drift apart.
+   *
+   * `seedNextQuestion` is off on resume once questions have been answered: the model's
+   * suggestion was for the FIRST question, and reintroducing it mid-flow would point the
+   * engine back at ground it has already covered.
    */
-  const submitDescription = useCallback((text: string) => {
-    setRawText(text);
-    setLoading(true);
-    setError(null);
-    setStage("guess");
+  const kickOff = useCallback(
+    (text: string, opts: { profile: boolean; site: boolean; seedNextQuestion: boolean }) => {
+      /* fetchNeoSite never rejects; it falls back to a recorded real response. */
+      if (opts.site) fetchNeoSite("", text).then(setNeoSite);
+      if (!opts.profile) return;
 
-    /* Kick Neo's generator off immediately and in parallel — it is the slowest thing in the
-       flow by a wide margin, and it must be ready by the time they reach the reveal.
-       fetchNeoSite never rejects; it falls back to a recorded real response. */
-    fetchNeoSite("", text).then(setNeoSite);
+      setLoading(true);
+      setError(null);
+      buildProfile(text)
+        .then((res) => {
+          setSummary(res.profile.summary);
+          setReveal(res.reveal);
+          if (opts.seedNextQuestion) setPreferredQuestionId(res.nextQuestionId ?? null);
+          // Seed the engine with what the free text alone told us. This is why the ring
+          // opens partly filled rather than empty.
+          setEngine((prev) => ({
+            ...prev,
+            /* Model wording for this business. Lands in engine state so it persists with the
+               rest of the run and `nextQuestion` can overlay it. */
+            ...(res.surface ? { surface: res.surface } : {}),
+            profile: {
+              ...prev.profile,
+              industry: res.profile.industry,
+              brandName: res.profile.domainStem,
+              ...(res.profile.teamSize ? { teamSize: res.profile.teamSize } : {}),
+            },
+          }));
+          setLoading(false);
+        })
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : String(err));
+          setLoading(false);
+        });
+    },
+    [],
+  );
 
-    buildProfile(text)
-      .then((res) => {
-        setSummary(res.profile.summary);
-        setReveal(res.reveal);
-        setPreferredQuestionId(res.nextQuestionId ?? null);
-        // Seed the engine with what the free text alone told us. This is why the ring
-        // opens partly filled rather than empty.
-        setEngine((prev) => ({
-          ...prev,
-          profile: {
-            ...prev.profile,
-            industry: res.profile.industry,
-            brandName: res.profile.domainStem,
-            ...(res.profile.teamSize ? { teamSize: res.profile.teamSize } : {}),
-          },
-        }));
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : String(err));
-        setLoading(false);
-      });
-  }, []);
+  /**
+   * Screen-1 submit. Fires both requests AND advances immediately — they resolve while the
+   * user reads the guess and answers questions, so the reveal is already in memory by the
+   * time they reach it. Do not await before advancing.
+   */
+  const submitDescription = useCallback(
+    (text: string) => {
+      setRawText(text);
+      setStage("guess");
+      kickOff(text, { profile: true, site: true, seedNextQuestion: true });
+    },
+    [kickOff],
+  );
+
+  /**
+   * Re-fire whatever was still in flight when the tab reloaded. Guarded by a ref rather than
+   * an empty dep array because StrictMode runs effects twice in development, and the guard is
+   * the difference between one Neo generation and two.
+   */
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (resumed.current) return;
+    resumed.current = true;
+    if (!restored?.rawText) return;
+    /* Only stages that actually consume the results. Parked on Describe the user is about to
+       rewrite the description, so firing a profile and a Neo generation for the text they are
+       replacing is pure waste — and Neo's generator is the one call worth not wasting. */
+    if (restored.stage !== "guess" && restored.stage !== "question" && restored.stage !== "reveal") {
+      return;
+    }
+
+    const needProfile = restored.reveal === null;
+    const needSite = restored.neoSite === null;
+    if (!needProfile && !needSite) return;
+
+    kickOff(restored.rawText, {
+      profile: needProfile,
+      site: needSite,
+      seedNextQuestion: restored.engine.asked.length === 0,
+    });
+  }, [restored, kickOff]);
+
+  /** Snapshot after every meaningful change, so a reload lands on the current screen. */
+  useEffect(() => {
+    saveSnapshot({ stage, engine, rawText, reveal, summary, preferredQuestionId, neoSite });
+  }, [stage, engine, rawText, reveal, summary, preferredQuestionId, neoSite]);
 
   /**
    * Apply an answer and decide where to go next.
@@ -131,14 +197,22 @@ export default function App() {
     setReveal(null);
     setError(null);
     setEngine(emptyEngine);
+    /* Clear Neo's site too. It was generated from the description they are about to rewrite,
+       so keeping it means the reveal can show the PREVIOUS business's site until the new
+       generation lands — the same wrong-content failure the 90s timeout exists to avoid. */
+    setNeoSite(null);
   }, []);
 
   const restart = useCallback(() => {
+    /* Explicit, because saveSnapshot skips the hook stage: without this the cleared run would
+       still be in storage and the next reload would resurrect it. */
+    clearSnapshot();
     setStage("hook");
     setEngine(emptyEngine);
     setRawText("");
     setReveal(null);
     setSummary(null);
+    setNeoSite(null);
     setPreferredQuestionId(null);
     setError(null);
   }, []);
@@ -233,7 +307,9 @@ export default function App() {
                 loading={loading}
                 error={error}
                 surface={(engine.profile.surface as string) ?? null}
-                teamSize={(engine.profile.teamSize as number) ?? null}
+                mailboxCount={
+                  Number(engine.profile.mailboxCount ?? engine.profile.teamSize ?? 0) || null
+                }
                 profile={engine.profile}
                 businessText={rawText}
                 neoSite={neoSite}

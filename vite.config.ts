@@ -3,6 +3,7 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 
 import { handleDomainLookup } from "./api/_lib/domainService.js";
 import { generateNeoSite } from "./api/_lib/neoSite.js";
+import { handleProfile } from "./api/_lib/profileService.js";
 
 /**
  * Mounts /api/domains on the dev server so `npm run dev` behaves like the deployed build.
@@ -15,8 +16,12 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
   return {
     name: "domain-api-dev",
     configureServer(server) {
-      // loadEnv doesn't populate process.env, and domainService reads from there.
+      // loadEnv doesn't populate process.env, and the services read from there.
       if (env.DOMSCAN_API_KEY) process.env.DOMSCAN_API_KEY = env.DOMSCAN_API_KEY;
+      // Same for the model seam. These stay inside the dev server — never the client bundle.
+      for (const k of ["LLM_MODE", "LLM_MODEL", "LLM_API_KEY", "LLM_BASE_URL"]) {
+        if (env[k]) process.env[k] = env[k];
+      }
 
       // Client error / degradation sink. Mirrors api/log.ts; prints to the dev terminal.
       server.middlewares.use("/api/log", (req, res) => {
@@ -49,6 +54,30 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         } catch (err) {
           res.end(JSON.stringify({ site: null, error: String(err) }));
         }
+      });
+
+      // The model step. Same handler the Vercel function uses.
+      server.middlewares.use("/api/profile", async (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        if (req.method !== "POST") {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: "method not allowed" }));
+          return;
+        }
+        let raw = "";
+        req.on("data", (c) => (raw += c));
+        req.on("end", async () => {
+          try {
+            const { businessText } = JSON.parse(raw || "{}") as { businessText?: unknown };
+            const sid = String(req.headers["x-fmn-session"] ?? "none").slice(0, 24);
+            const { status, body } = await handleProfile(businessText, sid);
+            res.statusCode = status;
+            res.end(JSON.stringify(body));
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: String(err) }));
+          }
+        });
       });
 
       server.middlewares.use("/api/domains", async (req, res) => {

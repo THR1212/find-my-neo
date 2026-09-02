@@ -635,3 +635,292 @@ The local folder is still `Projects/neo-akinator` — harmless, nobody outside s
 
 The **Vercel alias** `neo-akinator.vercel.app` is a separate thing and still regenerates on
 every production deploy; keep removing it.
+
+---
+
+### 2026-09-02 · A refresh no longer loses the run (`src/lib/persist.ts`)
+
+The whole flow lived in React state, so a reload dropped the profile, every answer, and Neo's
+generated site. That was survivable while questions came from a fixed local bank and the only
+cost was retyping. It stops being survivable once questions are **generated per session**: a
+refresh then means paying for every generation again *and* sitting through Neo's 22-38s
+generator a second time. On venue wifi, in front of judges, that is the difference between a
+recoverable fat-finger and a dead demo.
+
+**sessionStorage, not localStorage.** This is "don't lose my place", not "remember me next
+week". A new tab should start clean, and a profile silently restoring days later is worse than
+no restore at all. Belt and braces on top: a `v` field (a shape change discards rather than
+deserialising last week's fields into today's) and a 2h TTL.
+
+Three things worth knowing before touching it:
+
+- **`loading` and `error` are deliberately not persisted.** Restoring `loading: true` would
+  paint a spinner with no request behind it, and it would never resolve. Instead a resume
+  effect re-fires whichever half had not landed - profile if `reveal` is null, Neo's site if
+  `neoSite` is null. Verified both ways: with both present, **zero** network calls on reload;
+  with `neoSite` stripped, **exactly one** `/api/neo-site`.
+- **The resume effect is ref-guarded, not dep-array-guarded.** StrictMode runs effects twice in
+  development, and here that guard is the difference between one Neo generation and two.
+- **`restart()` calls `clearSnapshot()` explicitly.** `saveSnapshot` skips the hook stage, so
+  without the explicit clear the run the user just cleared would survive in storage and the
+  next reload would resurrect it.
+
+Snapshot measures ~9.5KB, nearly all of it Neo's 17-block site. sessionStorage caps around 5MB.
+
+### 2026-09-02 · The narrowing meter was eating clicks on the first option
+
+Found while testing the above, not by looking for it. `.meter-dock` is `position: fixed`,
+`z-index: 4`, and was `pointer-events: auto`. On a short viewport (a laptop with devtools open,
+a landscape phone) it lands on top of the **first option button** and swallows the click:
+`elementFromPoint` at the button's centre returned `DIV.meter-dock`.
+
+The failure is completely silent - the option just never selects, no error, nothing in the
+console. It reads as "the app is broken" to anyone it happens to.
+
+Fix is one line, `pointer-events: none` on `.meter-dock`. Nothing in the meter is interactive,
+so it has no business intercepting pointer events at all.
+
+**Worth generalising:** anything `position: fixed` floating over the flow needs
+`pointer-events: none` unless it is genuinely clickable. Check this again after Moin's
+animation pass - a new fixed overlay is the obvious way to reintroduce it.
+
+### 2026-09-02 · Correction: the dock did not cause the double-advance
+
+Earlier the same day I wrote that the meter-dock overlay "explains both oddities". It explains
+one. The dock **swallowed** clicks; the other symptom was one click producing **two**
+`applyAnswer` calls. Opposite failure modes - an overlay cannot manufacture a click.
+
+Instrumented `applyAnswer` with question id + `performance.now()` and re-ran the flow. One
+click produces exactly one call, four questions, four entries. **The double-advance was a
+stale-uid artifact of the browser automation, not app behaviour.** Instrumentation removed.
+
+While proving that, two things did turn up that are real:
+
+- **The outgoing screen stays clickable for ~700ms+** after an answer. `AnimatePresence
+  mode="wait"` keeps it mounted through the exit, and `elementFromPoint` at the option's centre
+  still returns that option the whole time. Two clicks 150ms apart both fire - reproduced.
+- **It happens to be harmless.** `answer()` computes `applyAnswer(engine, ...)` from the
+  current `engine`, and both clicks run before React commits, so both derive the same result
+  from the same base state. Idempotent, `asked` picks up no duplicate. Verified.
+
+That second point is luck, not design, and it holds *only* while a repeat click hits the same
+question. If the incoming screen ever becomes reachable at that coordinate mid-transition, the
+second call would compute from the stale `engine` and **drop the first answer**. So Moin's
+click-feedback task is not only polish - it removes the reason a person clicks twice at all.
+Whoever adds a post-advance input lockout should not treat this as merely cosmetic.
+
+### 2026-09-02 · Two follow-ups on the persistence work
+
+- **`rejectGuess` now clears `neoSite`.** `restart()` always did; "Not quite" did not. Neo's
+  site was generated from the description the user is about to rewrite, so keeping it lets the
+  reveal show the *previous* business's site until the new generation lands - the same
+  wrong-content failure the 90s timeout exists to prevent. Pre-existing, but persistence would
+  have carried it across a reload too.
+- **The resume effect only fires for `guess` / `question` / `reveal`.** Parked on Describe the
+  user is about to retype, so re-firing a profile call and a Neo generation for the text being
+  replaced is pure waste, and Neo's generator is the one call worth not wasting.
+
+Version and TTL guards tested rather than assumed, each against a control: `v: 0` -> hook
+screen; `savedAt` 3h old -> hook screen; a byte-identical snapshot with a fresh `savedAt` ->
+restores to question 2. Without that last control, "did not restore" would prove nothing.
+
+### 2026-09-02 · Questions reweighted; the import-first order is retired
+
+The flow led with the import question because `docs/handoff.md` called import intent "the
+strongest retention signal in the persona data", and `questions.ts` carried `weight: 0.3` on it
+to make the engine ask it first. That claim has now been recomputed from source and it does not
+mean what we thought.
+
+It is true that "imported emails and contacts" retains at 82.4%. But **"No, don't want to
+import" retains at 79.5%** — the entire spread between answers is 8.6 points. What actually
+separates people is whether the field is filled at all: **79.3% answered vs 29.5% blank**, a
+2.7x gap that survives holding login fixed and holding billing cycle fixed. And it is not
+"answering anything is good" — the signup-time fields (`employee_count`, `role_in_business`,
+`business_industry`) run the other way, 33.0% answered against 44.1% blank.
+
+`import_emails_contacts` and `current_email_app` are filled on the same 2,484 of 18,399 orders,
+far fewer than the signup-time fields, so they sit later in Neo's onboarding. Their retention
+measures **how far someone got**, not what they wanted. Worse, for our purposes it is not
+knowable at the moment we ask: we ask before purchase, of a cold visitor, and the 82% was
+measured on people who answered after signing up. It is an outcome leak, not a predictor.
+
+**New weights, by how much the answer moves the recommendation** rather than by how interesting
+it is. Totals still sum to 1.25, so the narrowing meter's pacing is untouched — only the order
+in which questions surface has moved.
+
+| Question | Was | Now | Why |
+|---|---|---|---|
+| `team` → `mailboxCount` | 0.15 | **0.30** | straight multiplier on price, and gates Lite/Starter/Standard |
+| `surface` | 0.25 | 0.25 | gates the site plan entirely, and the billing cycle |
+| `sells` | 0.15 | 0.20 | picks the site tier, so it moves the price |
+| `channel` | 0.20 | 0.20 | no plan effect, but six feature rules |
+| `import` | **0.30** | 0.15 | still gates Lite vs Starter — just not the most |
+| `client` | 0.20 | 0.15 | same selection effect as import, and feeds no plan decision |
+
+### The team question now asks for addresses, not headcount
+
+Related and more than cosmetic. `mbx_segment` in Neo's own data shows **39–64% of mailboxes per
+domain are generic role addresses** — info@, sales@, support@ — so a one-person business
+routinely wants three mailboxes. Asking "how many of you are there?" got us a headcount that
+`rules.ts` then priced as a mailbox count. That is wrong in the common case and wrong in the
+direction that annoys people: a solo operator wanting `info@` and `sales@` alongside their own
+name was priced for **one** mailbox and pushed to **Lite**, which caps them.
+
+So the question is now "How many email addresses do you need?" and resolves a new
+`mailboxCount` signal. `teamSize` survives and still means headcount — the model infers it from
+the free text and the guess screen reads it back ("A team of three") — but it only stands in for
+pricing when the mailbox question never got asked. `rules.ts` prefers `mailboxCount`;
+`Reveal.tsx`'s prop was renamed from `teamSize` to match, since it was only ever used to compute
+a mailbox count.
+
+### What did NOT change
+
+The **yearly billing default in `rules.ts` stands**, and is now verified rather than inherited:
+two-yearly 73.0% vs monthly 30.9% on 18,399 deduped orders, confirmed in the same direction on a
+second and much larger dataset (22.0% vs 3.7% m12 across 153,673 accounts, a 5.9x gap that
+survives holding mailbox count fixed). The caveat now sits next to the number in the code: this
+is correlational, and a yearly default may sort customers rather than save them.
+
+No fixed screen order was reintroduced — this is a reweighting, and the engine still asks
+whichever unresolved signal narrows most (CLAUDE.md). Full workings in `docs/data-findings.md`.
+
+---
+
+### 2026-09-02 · The profile step goes live, on Titan's own taxonomy
+
+`api/profile.ts` + `api/_lib/profileService.ts`. The logic sits in the service, not the route,
+so `vite.config.ts` can mount the same function and `npm run dev` behaves like the deployed
+build — the pattern `domainService.ts` already set.
+
+**The model is constrained to Titan's analytics taxonomy** (16 industries) as a strict enum.
+Neo's `business_industry` field is free text with 5,318 distinct values, 78% of them appearing
+exactly once and 1,128 the same answer typed differently, so it routes nothing. "Bakery" now
+resolves to Food & Beverage instead of matching nothing. Darrel's §6.
+
+**Three taxonomies, and it matters which is which.** (1) Neo's free-text survey field, the
+problem. (2) Titan's analytics taxonomy, what we normalise into. (3) Neo's site-builder
+`industryKey` picker, what their generator consumes — we have observed only 7 of these.
+We emit (2) and map to (3).
+
+(2) is Titan's, not Neo's: the unfiltered dashboard pages cover 1.3M domains, all of Titan.
+The same dashboard applies the taxonomy under a `Neo Business` filter at **29.9K domains**, so
+it does classify Neo's customers — but **29.9K is the number to quote for Neo**, never 1.3M.
+Conflating them is wrong by two orders of magnitude and is the exact error Darrel's caveats
+warn about. Getting Neo's full `industryKey` list would let us emit (3) directly and drop the
+mapping; worth asking Neo for.
+
+That fixed a live bug on the way. `industryKeyFor()` only knew Neo's builder spellings, so it
+returned null for everything and **the handoff URL never carried `industryKey` at all**. Verified
+in production earlier that day. `TAXONOMY_TO_NEO` maps the six industries with a real
+equivalent; the other ten stay unmapped deliberately — omitting the param lets Neo pick, whereas
+guessing a near neighbour is how a painter gets a photography template.
+
+**The model still decides nothing that costs money.** No price, no plan, no billing cycle, and
+explicitly not the mailbox count — the prompt says so, because headcount and address count
+diverge for most Neo customers (§7). Domain entries come back with `priceInr: null`; DomScan
+fills them in.
+
+**gpt-5.6-luna, not terra.** Same industry, headcount, stem and mailboxes on the same inputs,
+at a tenth of the price — roughly $0.0005 a call, so ~30,000 calls inside a $15 budget against
+~3,300 on terra. One prompt fix was needed: luna read "one lowercase noun phrase" literally and
+flattened proper nouns to "a two-person bakery in bandra called proof & butter". The schema now
+says to keep proper-noun capitalisation.
+
+### 2026-09-02 · Two silent failures found while wiring it up
+
+**`llm.ts` captured `LLM_MODE` into a module-level const.** `vite.config.ts` copies the LLM vars
+into `process.env` from inside `configureServer`, which runs *after* the config module graph is
+imported — so the const captured `undefined`, defaulted to `"replay"`, and the dev server served
+fixtures while `.env.local` plainly said `LLM_MODE=live`. There was no symptom: replay threw "no
+fixture for profile", the route caught it and degraded, and the response was an ordinary HTTP
+200. You would iterate prompts against an LLM that was switched off. `mode()`, `model()` and the
+client are now read at call time. On Vercel the env exists before any import, so this only ever
+bit in dev — which is exactly where prompts get written.
+
+**`Guess.tsx` treated an empty summary as "still loading".** The condition was
+`if (loading || !summary)`. A degraded profile has an empty summary, so the screen that exists to
+keep the flow alive when the model fails instead hung on "Working it out…" forever. Degradation
+now has its own state — "We didn't catch enough to guess", with *Keep going* and *Rewrite it*.
+The questions work fine without a summary; the engine simply asks more of them, which is correct
+when we know less.
+
+Both were invisible in normal use and only surfaced because the degraded path was deliberately
+exercised. Worth remembering that a fallback nobody tests is a fallback that does not work.
+
+---
+
+### 2026-09-02 · Every production deploy was failing, and neither build caught it
+
+Since `api/profile.ts` landed, every push to master produced `● Error` in production while
+previews stayed `● Ready`. The message:
+
+    The Edge Function "api/domains" is referencing unsupported modules:
+      - api/_lib/replay.js: node:fs/promises, node:path
+      - openai: #x509-transport-state
+
+Adding the profile route pulled `llm.ts` -> `replay.ts` (node:fs) and the OpenAI SDK into the
+Edge bundle, where neither exists.
+
+**Three things worth keeping from this.**
+
+It blames `api/domains`, which imports neither module. Vercel bundles Edge functions into one
+shared namespace, so the function named in the error is not the function at fault. Chasing
+`api/domains` would have wasted the afternoon.
+
+It fires at "Deploying outputs" — after the build. `npm run build` passed, and so did a local
+`vercel build` (`"status": "ok"`). **Only `npx vercel deploy` reproduces it.** Add that to the
+verification loop alongside "test on the deployed URL".
+
+And `api/` was never typechecked at all. `tsconfig.app` covers `src/`, `tsconfig.node` covers
+`vite.config.ts`, and nothing covered `api/` — so eleven pre-existing "Cannot find name
+'process'" errors in `domainService`, `llm` and `replay` had been reaching Vercel unseen for
+days. `api/tsconfig.json` now covers it, referenced from the root so `tsc -b` builds it.
+
+**Fixed by moving the route to the Node runtime**, which is where it belonged: no Edge CPU
+ceiling on a multi-second model call, and the OpenAI SDK is supported rather than tolerated.
+The other three routes stay on Edge — they are plain fetch-and-shape handlers. The value must
+be `"nodejs"`; `"nodejs20.x"` is rejected at deploy time.
+
+### 2026-09-02 · The reveal claimed a taken domain was available
+
+Found by running the flow, not by reading it. A florist was shown
+**"thistletwine.com — Available"**. DomScan says it is taken.
+
+Three things lined up. `api/profile.ts` emitted `available: true` "optimistically for the
+first paint". The client lookup then aborted at its 6s timeout — a cold lookup spends 4
+credits across several upstream calls and measured past that. And `Reveal.tsx` renders the
+green badge on `(live ?? fallback) === true`, so the optimism became the answer.
+
+`available` is now `boolean | null`, and **null is load-bearing: it means we do not know.** A
+badge prints only for an explicit true or false. Timeout raised to 12s, which costs nothing —
+the reveal is already waiting on Neo's 22-38s generator.
+
+The generalisable bit: an optimistic default is a lie with a delay on it. For anything a
+person can check in one keystroke, silence beats a guess.
+
+Separately, `chosenDomain` was pinned to 0, so a taken `.com` stayed on the hero and drove
+the mailbox addresses, the plan line and the handoff URL — while the alternates that exist for
+exactly that case sat below it. The selection now moves to the first domain DomScan explicitly
+says is free, but only if the person has not chosen one themselves. `available === true`,
+never `!== false`.
+
+### 2026-09-02 · A domain of your own, and the TLD cap was set on a guess
+
+Our three suggestions all come from one stem the model guessed, so when that guess is wrong —
+or when everything is taken — the flow had no answer but "start over". The reveal now takes a
+typed domain, checks it through the same live lookup, and appends it as a fourth option,
+selected only if DomScan says it is free.
+
+`MAX_TLDS` 3 -> 6. The cap predated understanding the credit model: `/v1/status` costs 1
+credit **per request** regardless of how many TLDs are batched, so availability for six costs
+exactly what three cost. Only `/v1/prices` bills per TLD, so a cold lookup goes ~4 -> ~7
+against a balance of ~9,900 free credits a month (~1,400 cold sessions).
+
+That exposed a sanitiser bug: the TLD filter stripped dots, turning `co.uk` into `couk` and
+asking DomScan about a TLD that does not exist. Multi-label TLDs are real and anyone typing
+their own domain will use one.
+
+**Still crooked, and not fixed:** the suggested TLDs are `com/in/co`. An Edinburgh florist is
+offered `.in` with a model-written note about serving customers in India. It is the honest
+consequence of an India-first default and the custom input only mitigates it; locale-aware
+suggestions are the real fix.

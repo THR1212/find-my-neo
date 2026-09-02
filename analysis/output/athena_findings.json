@@ -1,0 +1,398 @@
+{
+  "_source": "persona data with athena.xlsx, sheet athena_data (retention/segments) joined to sheet Titan Persona Analysis - V2_Acq on domain for the industry cuts",
+  "_computedOn": "2026-09-02",
+  "_computedBy": "analysis/scripts/athena_retention.py",
+  "_caveats": [
+    "m*_retained here averages 0.23 at m1 vs ~0.94 in the V2 dashboard PDF \u2014 different measures. Compare orderings between segments, not absolute levels.",
+    "1,048 rows have m12=1 while m1=0, so flags mean 'active in month m', not 'survived continuously to month m'.",
+    "mbx_segment labels '2-5' and '6-20' arrived Excel-mangled as dates and were decoded back in this script.",
+    "mbx is constant (1) and geo_type is entirely empty; both dropped.",
+    "Industry cuts cover only the joined subset - see joinCoverage.",
+    "Unit is the account, not the domain: 153,673 accounts over 81,670 domains."
+  ],
+  "accounts": 153673,
+  "domains": 81670,
+  "orders": 83477,
+  "ageMonths": {
+    "min": 12,
+    "max": 41,
+    "median": 23
+  },
+  "joinCoverage": {
+    "personaDomains": 5661,
+    "matchedDomains": 2700,
+    "matchedAccounts": 6996
+  },
+  "retentionCurve": {
+    "m1_retained": 0.2276,
+    "m2_retained": 0.1472,
+    "m3_retained": 0.1134,
+    "m4_retained": 0.0969,
+    "m5_retained": 0.0851,
+    "m6_retained": 0.0777,
+    "m7_retained": 0.0717,
+    "m8_retained": 0.0673,
+    "m9_retained": 0.0632,
+    "m10_retained": 0.0592,
+    "m11_retained": 0.0565,
+    "m12_retained": 0.0553
+  },
+  "byBillingCycle": [
+    {
+      "billingCycle": "four_yearly",
+      "m1": 0.2608,
+      "m6": 0.1622,
+      "m12": 0.148,
+      "n": 1480
+    },
+    {
+      "billingCycle": "two_yearly",
+      "m1": 0.3656,
+      "m6": 0.247,
+      "m12": 0.2201,
+      "n": 2899
+    },
+    {
+      "billingCycle": "yearly",
+      "m1": 0.2144,
+      "m6": 0.1048,
+      "m12": 0.0849,
+      "n": 48763
+    },
+    {
+      "billingCycle": "quarterly",
+      "m1": 0.2509,
+      "m6": 0.1203,
+      "m12": 0.0834,
+      "n": 2627
+    },
+    {
+      "billingCycle": "monthly",
+      "m1": 0.2393,
+      "m6": 0.0614,
+      "m12": 0.0371,
+      "n": 84811
+    },
+    {
+      "billingCycle": "(missing)",
+      "m1": 0.1616,
+      "m6": 0.027,
+      "m12": 0.01,
+      "n": 13093
+    }
+  ],
+  "byMailboxSegment": [
+    {
+      "mailboxSegment": "1",
+      "m1": 0.3086,
+      "m6": 0.1014,
+      "m12": 0.0742,
+      "n": 54911
+    },
+    {
+      "mailboxSegment": "2-5",
+      "m1": 0.1971,
+      "m6": 0.0699,
+      "m12": 0.0504,
+      "n": 64500
+    },
+    {
+      "mailboxSegment": "6-20",
+      "m1": 0.1736,
+      "m6": 0.0604,
+      "m12": 0.0387,
+      "n": 24938
+    },
+    {
+      "mailboxSegment": "21+",
+      "m1": 0.1061,
+      "m6": 0.0383,
+      "m12": 0.0213,
+      "n": 9324
+    }
+  ],
+  "bySignupSource": [
+    {
+      "source": "(other)",
+      "m1": 0.0789,
+      "m6": 0.0526,
+      "m12": 0.0263,
+      "n": 38
+    },
+    {
+      "source": "Neo Site",
+      "m1": 0.2376,
+      "m6": 0.0825,
+      "m12": 0.0587,
+      "n": 140092
+    },
+    {
+      "source": "businessCloud",
+      "m1": 0.1422,
+      "m6": 0.0688,
+      "m12": 0.0489,
+      "n": 654
+    },
+    {
+      "source": "mobile_order",
+      "m1": 0.1237,
+      "m6": 0.0264,
+      "m12": 0.0183,
+      "n": 12889
+    }
+  ],
+  "byIndustry": [
+    {
+      "industry": "Food & Beverage",
+      "m1": 0.5873,
+      "m6": 0.4868,
+      "m12": 0.4762,
+      "n": 189
+    },
+    {
+      "industry": "Manufacturing & Industrial",
+      "m1": 0.6418,
+      "m6": 0.5177,
+      "m12": 0.461,
+      "n": 282
+    },
+    {
+      "industry": "Construction",
+      "m1": 0.5808,
+      "m6": 0.4899,
+      "m12": 0.4444,
+      "n": 198
+    },
+    {
+      "industry": "Arts & Creative Services",
+      "m1": 0.5987,
+      "m6": 0.4822,
+      "m12": 0.4207,
+      "n": 309
+    },
+    {
+      "industry": "Professional & Business Services",
+      "m1": 0.5554,
+      "m6": 0.4628,
+      "m12": 0.41,
+      "n": 1156
+    },
+    {
+      "industry": "Media & Entertainment",
+      "m1": 0.5602,
+      "m6": 0.4251,
+      "m12": 0.3907,
+      "n": 407
+    },
+    {
+      "industry": "Recreation & Sports",
+      "m1": 0.5484,
+      "m6": 0.4032,
+      "m12": 0.379,
+      "n": 248
+    },
+    {
+      "industry": "E-commerce & Retail",
+      "m1": 0.507,
+      "m6": 0.4005,
+      "m12": 0.365,
+      "n": 789
+    },
+    {
+      "industry": "Education & Training",
+      "m1": 0.5762,
+      "m6": 0.3808,
+      "m12": 0.3543,
+      "n": 302
+    },
+    {
+      "industry": "Logistics & Automotive",
+      "m1": 0.4955,
+      "m6": 0.3821,
+      "m12": 0.3493,
+      "n": 335
+    },
+    {
+      "industry": "Technology & IT Services",
+      "m1": 0.5541,
+      "m6": 0.4142,
+      "m12": 0.347,
+      "n": 536
+    },
+    {
+      "industry": "Travel & Hospitality",
+      "m1": 0.5614,
+      "m6": 0.4035,
+      "m12": 0.3392,
+      "n": 171
+    },
+    {
+      "industry": "Healthcare & Wellness",
+      "m1": 0.5106,
+      "m6": 0.4377,
+      "m12": 0.3374,
+      "n": 658
+    },
+    {
+      "industry": "Financial Services",
+      "m1": 0.5609,
+      "m6": 0.3842,
+      "m12": 0.3242,
+      "n": 583
+    },
+    {
+      "industry": "Marketing & Advertising",
+      "m1": 0.5939,
+      "m6": 0.4138,
+      "m12": 0.3103,
+      "n": 261
+    },
+    {
+      "industry": "Nonprofits, Social Impact & Public Services",
+      "m1": 0.4318,
+      "m6": 0.3531,
+      "m12": 0.3077,
+      "n": 572
+    }
+  ],
+  "byPlanType": [
+    {
+      "planType": "ultra",
+      "m1": 0.5911,
+      "m6": 0.4954,
+      "m12": 0.4435,
+      "n": 1098
+    },
+    {
+      "planType": "premium",
+      "m1": 0.5852,
+      "m6": 0.4867,
+      "m12": 0.429,
+      "n": 2100
+    },
+    {
+      "planType": "pro",
+      "m1": 0.5029,
+      "m6": 0.3719,
+      "m12": 0.3181,
+      "n": 3474
+    },
+    {
+      "planType": "lite",
+      "m1": 0.527,
+      "m6": 0.3333,
+      "m12": 0.3048,
+      "n": 315
+    },
+    {
+      "planType": "trial",
+      "m1": 0.5556,
+      "m6": 0.1111,
+      "m12": 0.0,
+      "n": 9
+    }
+  ],
+  "byModel": [
+    {
+      "model": "User custom domain",
+      "m1": 0.5477,
+      "m6": 0.4355,
+      "m12": 0.3816,
+      "n": 5291
+    },
+    {
+      "model": "co.site",
+      "m1": 0.5267,
+      "m6": 0.3871,
+      "m12": 0.3343,
+      "n": 1705
+    }
+  ],
+  "byCountry": [
+    {
+      "country": "Australia",
+      "m1": 0.3098,
+      "m6": 0.1358,
+      "m12": 0.1008,
+      "n": 6001
+    },
+    {
+      "country": "United Kingdom",
+      "m1": 0.2854,
+      "m6": 0.1227,
+      "m12": 0.094,
+      "n": 10057
+    },
+    {
+      "country": "Canada",
+      "m1": 0.2886,
+      "m6": 0.1156,
+      "m12": 0.0878,
+      "n": 7251
+    },
+    {
+      "country": "United Arab Emirates",
+      "m1": 0.2635,
+      "m6": 0.1063,
+      "m12": 0.0747,
+      "n": 1928
+    },
+    {
+      "country": "South Africa",
+      "m1": 0.2658,
+      "m6": 0.097,
+      "m12": 0.0633,
+      "n": 1279
+    },
+    {
+      "country": "United States",
+      "m1": 0.233,
+      "m6": 0.0786,
+      "m12": 0.0565,
+      "n": 76251
+    },
+    {
+      "country": "Germany",
+      "m1": 0.2923,
+      "m6": 0.1169,
+      "m12": 0.0523,
+      "n": 1779
+    },
+    {
+      "country": "Nigeria",
+      "m1": 0.2411,
+      "m6": 0.0304,
+      "m12": 0.0189,
+      "n": 1746
+    },
+    {
+      "country": "India",
+      "m1": 0.1758,
+      "m6": 0.0317,
+      "m12": 0.0159,
+      "n": 5894
+    },
+    {
+      "country": "Unclear",
+      "m1": 0.161,
+      "m6": 0.027,
+      "m12": 0.01,
+      "n": 13158
+    },
+    {
+      "country": "Andorra",
+      "m1": 0.0111,
+      "m6": 0.0,
+      "m12": 0.0008,
+      "n": 1266
+    },
+    {
+      "country": "Angola",
+      "m1": 0.0117,
+      "m6": 0.0005,
+      "m12": 0.0005,
+      "n": 1886
+    }
+  ],
+  "twoYearlyVsMonthlyM12Ratio": 5.93
+}

@@ -14,6 +14,15 @@
 
 const ENDPOINT = "/api/log";
 
+/** Inlined rather than imported: telemetry must not depend on, or crash with, persistence. */
+function readSid(): string {
+  try {
+    return sessionStorage.getItem("findmyneo.sid") ?? "none";
+  } catch {
+    return "nostore";
+  }
+}
+
 /** Same message twice is almost always the same bug. Report each distinct one once. */
 const seen = new Set<string>();
 const MAX_REPORTS = 8;
@@ -35,7 +44,10 @@ function report(payload: {
     void fetch(ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, url: location.href }),
+      /* `sid` is what ties this line to the /api/profile line from the same run. Read it
+         lazily and inline: importing persist.ts at module scope would pull sessionStorage
+         access into the error path, which is the one place that must never throw. */
+      body: JSON.stringify({ ...payload, sid: readSid(), url: location.href }),
       keepalive: true,
     }).catch(() => {});
   } catch {

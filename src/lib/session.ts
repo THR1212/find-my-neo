@@ -12,6 +12,12 @@ export interface Profile {
   summary: string;
   /** Normalised industry. Neo's own field has 5,318 distinct raw values — this is the fix. */
   industry: string;
+  /**
+   * Headcount, read out of the free text — "there are three of us". Deliberately NOT the
+   * mailbox count: the `mailboxCount` question asks for addresses, and most Neo domains run
+   * role addresses on top of the people. The model never answers that question, so this
+   * stays headcount and only stands in for pricing when the question never got asked.
+   */
   teamSize: number | null;
   location: string | null;
   /** Suggested domain stem, slugified, no TLD. */
@@ -27,7 +33,15 @@ export interface Mailbox {
 /** A domain candidate. Alternates carry their own price — TLDs are not priced alike. */
 export interface DomainOption {
   name: string;
-  available: boolean;
+  /**
+   * true / false / null, and null is load-bearing: it means WE DO NOT KNOW.
+   *
+   * The profile route used to emit `true` optimistically "for the first paint". That turns a
+   * failed DomScan lookup into a confident false claim — a florist was shown
+   * "thistletwine.com Available" when DomScan says it is taken. Unknown must render no badge,
+   * never a green one. Reveal.tsx only prints a badge for an explicit true or false.
+   */
+  available: boolean | null;
   priceInr: number | null;
   /** Why this one is worth considering. Shown only on alternates. */
   note?: string;

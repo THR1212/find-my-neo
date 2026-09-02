@@ -13,8 +13,7 @@ import { buildProfile } from "./lib/api";
 import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
 import type { RevealContent } from "./lib/session";
 
-import NarrowingMeter, { type MeterVariant } from "./components/NarrowingMeter";
-import MeterDemoSwitch from "./components/MeterDemoSwitch";
+import NarrowingMeter from "./components/NarrowingMeter";
 import Hook from "./screens/Hook";
 import Describe from "./screens/Describe";
 import Guess from "./screens/Guess";
@@ -32,15 +31,8 @@ const variants = {
 
 const emptyEngine: EngineState = { profile: {}, asked: [], freeText: {} };
 
-function readMeterVariant(): MeterVariant {
-  const q = new URLSearchParams(window.location.search).get("meter");
-  if (q === "numbers" || q === "closer" || q === "bands") return q;
-  return "closer";
-}
-
 export default function App() {
   const [stage, setStage] = useState<Stage>("hook");
-  const [meterVariant, setMeterVariant] = useState<MeterVariant>(readMeterVariant);
   const [engine, setEngine] = useState<EngineState>(emptyEngine);
   const [rawText, setRawText] = useState("");
   const [reveal, setReveal] = useState<RevealContent | null>(null);
@@ -141,13 +133,6 @@ export default function App() {
   const showMeter = stage === "guess" || stage === "question" || stage === "reveal";
   const stepNumber = engine.asked.length + 1;
 
-  const chooseMeter = useCallback((next: MeterVariant) => {
-    setMeterVariant(next);
-    const url = new URL(window.location.href);
-    url.searchParams.set("meter", next);
-    window.history.replaceState(null, "", url);
-  }, []);
-
   return (
     <>
       <div className="backdrop" aria-hidden="true">
@@ -169,7 +154,6 @@ export default function App() {
             <NarrowingMeter
               confidence={conf}
               remaining={remaining}
-              variant={meterVariant}
               stage={stage}
               lastQuestionId={engine.asked[engine.asked.length - 1] ?? null}
               profile={engine.profile}
@@ -177,8 +161,6 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      <MeterDemoSwitch value={meterVariant} onChange={chooseMeter} />
 
       <main className="stage">
         <AnimatePresence mode="wait">

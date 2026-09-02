@@ -69,7 +69,8 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         req.on("end", async () => {
           try {
             const { businessText } = JSON.parse(raw || "{}") as { businessText?: unknown };
-            const { status, body } = await handleProfile(businessText);
+            const sid = String(req.headers["x-fmn-session"] ?? "none").slice(0, 24);
+            const { status, body } = await handleProfile(businessText, sid);
             res.statusCode = status;
             res.end(JSON.stringify(body));
           } catch (err) {

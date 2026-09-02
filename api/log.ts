@@ -28,6 +28,7 @@ export default async function handler(req: Request): Promise<Response> {
     console.error(
       "[client-error]",
       JSON.stringify({
+        sid: clip(b.sid),
         msg: clip(b.message),
         src: clip(b.source),
         stack: clip(b.stack),

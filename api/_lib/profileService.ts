@@ -445,7 +445,11 @@ export interface ProfileServiceResult {
   body: Record<string, unknown>;
 }
 
-export async function handleProfile(businessTextRaw: unknown): Promise<ProfileServiceResult> {
+export async function handleProfile(
+  businessTextRaw: unknown,
+  sid = "none",
+): Promise<ProfileServiceResult> {
+  const startedAt = Date.now();
   const businessText = String(businessTextRaw ?? "").slice(0, 2000);
   if (businessText.trim().length < 8) {
     return { status: 400, body: { error: "businessText too short" } };
@@ -453,6 +457,7 @@ export async function handleProfile(businessTextRaw: unknown): Promise<ProfileSe
 
   let profile: ModelProfile;
   let degraded = false;
+  let reason = "";
 
   try {
     profile = await complete<ModelProfile>({
@@ -466,14 +471,40 @@ export async function handleProfile(businessTextRaw: unknown): Promise<ProfileSe
       maxOutputTokens: 3000,
     });
   } catch (err) {
-    /* Greppable in `npx vercel logs`, same convention as /api/log. */
-    console.error("[profile-degraded]", err instanceof Error ? err.message : String(err));
+    reason = err instanceof Error ? err.message : String(err);
     profile = derivedProfile(businessText);
     degraded = true;
   }
 
   const { surface, dropped } = validateQuestions(profile.questions);
-  if (dropped.length) console.error("[surface-dropped]", dropped.join(" | ").slice(0, 500));
+
+  /**
+   * ONE line per request, on every path — not just failures.
+   *
+   * Logging only errors tells you what broke and nothing about how often. Without a success
+   * line there is no denominator, so "are we degrading?" is unanswerable: three
+   * [profile-degraded] lines could be 3 of 4 requests or 3 of 400. `console.error` because
+   * that is what reliably surfaces in Vercel runtime logs.
+   *
+   * `sid` matches the client-error lines from the same run, so one grep returns a whole
+   * session. `ms` is ours end-to-end and is the number that says whether the model is slow
+   * or the function is.
+   */
+  console.error(
+    "[profile]",
+    JSON.stringify({
+      sid,
+      ms: Date.now() - startedAt,
+      model: process.env.LLM_MODEL ?? "default",
+      mode: process.env.LLM_MODE ?? "replay",
+      chars: businessText.length,
+      degraded,
+      surfaced: Object.keys(surface).length,
+      dropped: dropped.length,
+      ...(reason ? { reason: reason.slice(0, 200) } : {}),
+      ...(dropped.length ? { droppedDetail: dropped.join(" | ").slice(0, 300) } : {}),
+    }),
+  );
 
   const stem = cleanStem(profile.domainStem);
   const locals = (profile.suggestedMailboxes ?? [])

@@ -43,6 +43,9 @@ const mode = () => process.env.LLM_MODE ?? "replay";
 // Both do strict structured outputs. Terra is the safe default; Luna is the cost story.
 const model = () => process.env.LLM_MODEL ?? "gpt-5.6-terra";
 
+/** See the note at the call site. One retry, because a cold provider often works second try. */
+const TIMEOUT_MS = 20000;
+
 /**
  * Not cached across calls either: a cached client would pin the first key and base URL it
  * saw, reintroducing the same staleness one layer down.
@@ -82,7 +85,19 @@ export async function complete<T>({
     return replayFixture<T>(key, user);
   }
 
-  const res = await getClient().chat.completions.create({
+  /**
+   * Hard ceiling on the model call.
+   *
+   * Without it, a provider that accepts the connection and then stalls holds the Edge
+   * function until the platform kills it — the caller sees a generic function timeout, the
+   * degraded path never runs, and the user gets an error screen instead of a working flow.
+   * A bounded failure is a degradation; an unbounded one is an outage.
+   *
+   * 20s against a p50 of 3-6s. Generous enough that a slow-but-alive call still lands,
+   * tight enough to stay inside the platform limit and leave room to fall back.
+   */
+  const res = await getClient().chat.completions.create(
+    {
     model: model(),
     messages: [
       { role: "system", content: system },
@@ -95,7 +110,9 @@ export async function complete<T>({
     // NOT max_tokens. See header.
     max_completion_tokens: maxOutputTokens,
     // NO temperature. gpt-5.6-* rejects it outright. See header.
-  });
+    },
+    { timeout: TIMEOUT_MS, maxRetries: 1 },
+  );
 
   const choice = res.choices[0];
   if (choice?.finish_reason === "length") {

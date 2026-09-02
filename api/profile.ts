@@ -32,15 +32,28 @@ export default async function handler(req: Request): Promise<Response> {
     });
   }
 
-  const { status, body } = await handleProfile(businessText);
+  /* Correlates the server log line with the client-error lines from the same run. */
+  const sid = (req.headers.get("x-fmn-session") ?? "none").slice(0, 24);
+  const { status, body } = await handleProfile(businessText, sid);
 
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "Content-Type": "application/json",
-      /* Same description in, same profile out. A short shared cache means a rehearsal loop,
-         or two judges typing the demo business, do not each pay for a completion. */
-      "Cache-Control": "public, max-age=60, s-maxage=600",
+      /**
+       * No shared cache, and no pretending otherwise.
+       *
+       * This carried `s-maxage=600` with a comment claiming it stopped a rehearsal loop
+       * paying for repeat completions. That was wrong: this is a POST, and Vercel's CDN does
+       * not cache POST responses, so the header did nothing at all. Worse than nothing —
+       * it read like a cost control that existed.
+       *
+       * Repeat-submit protection, if it is ever wanted, has to be a real cache keyed on a
+       * hash of the description (Upstash Redis, or Vercel's Runtime Cache). Until then the
+       * honest answer is that every submit costs a completion, which at ~$0.0005 on luna is
+       * a deliberate non-problem. Use `VITE_LLM_MODE=replay` to rehearse for free.
+       */
+      "Cache-Control": "no-store",
     },
   });
 }

@@ -112,6 +112,33 @@ export function loadSnapshot(): Snapshot | null {
   }
 }
 
+const SID_KEY = "findmyneo.sid";
+
+/**
+ * A short id for this browser session, stable across reloads within the tab.
+ *
+ * The one thing that makes the logs usable. Without it a `[client-error]` line and the
+ * `[profile]` line that caused it are two unrelated entries in a stream of many, and the only
+ * way to connect them is a guess about timestamps. With it, `npx vercel logs | grep <sid>`
+ * returns one person's entire run.
+ *
+ * Not a user identifier and not persistent: it dies with the tab, is never sent anywhere but
+ * our own log endpoint, and carries nothing about who someone is.
+ */
+export function sessionId(): string {
+  try {
+    const existing = sessionStorage.getItem(SID_KEY);
+    if (existing) return existing;
+    const sid = Math.random().toString(36).slice(2, 10);
+    sessionStorage.setItem(SID_KEY, sid);
+    return sid;
+  } catch {
+    /* Storage unavailable. An unstable id still beats none — lines from one request still
+       correlate with each other, they just will not survive a reload. */
+    return "nostore";
+  }
+}
+
 export function clearSnapshot(): void {
   try {
     sessionStorage.removeItem(KEY);

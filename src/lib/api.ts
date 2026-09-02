@@ -14,6 +14,7 @@
  */
 
 import { reportDegraded } from "./errorLog";
+import { sessionId } from "./persist";
 import type { SurfaceMap } from "./questions";
 import type { Profile, RevealContent } from "./session";
 import demoFixture from "../data/replay/demo.json";
@@ -55,7 +56,11 @@ export async function buildProfile(businessText: string): Promise<ProfileResult>
   try {
     const res = await fetch("/api/profile", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        /* Correlates this request with the client-error lines from the same run. */
+        "x-fmn-session": sessionId(),
+      },
       body: JSON.stringify({ businessText }),
     });
     if (!res.ok) {

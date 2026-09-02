@@ -14,6 +14,7 @@
  */
 
 import { reportDegraded } from "./errorLog";
+import type { SurfaceMap } from "./questions";
 import type { Profile, RevealContent } from "./session";
 import demoFixture from "../data/replay/demo.json";
 
@@ -25,6 +26,11 @@ const REPLAY_DELAY_MS = Number(import.meta.env.VITE_REPLAY_DELAY_MS ?? 1400);
 export interface ProfileResult {
   profile: Profile;
   reveal: RevealContent;
+  /**
+   * Model-written question wording, by question id, already validated server-side.
+   * Absent or partial is fine — every missing entry renders from the fixed bank.
+   */
+  surface?: SurfaceMap;
   /**
    * Which question the model thinks is most worth asking first, given what the free text
    * already revealed. Advisory only — engine.ts overrules it if that signal is already

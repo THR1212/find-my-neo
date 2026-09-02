@@ -94,6 +94,9 @@ export default function App() {
           // opens partly filled rather than empty.
           setEngine((prev) => ({
             ...prev,
+            /* Model wording for this business. Lands in engine state so it persists with the
+               rest of the run and `nextQuestion` can overlay it. */
+            ...(res.surface ? { surface: res.surface } : {}),
             profile: {
               ...prev.profile,
               industry: res.profile.industry,

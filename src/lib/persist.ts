@@ -32,10 +32,14 @@ const KEY = "findmyneo.session";
  * the snapshot instead of deserialising yesterday's shape into today's fields, which fails
  * silently and looks like an engine bug.
  */
-const VERSION = 1;
+const VERSION = 2;
+/* v2: EngineState gained `surface` (model-written wording) and `trail` (what was shown).
+   Both live inside `engine`, so they ride along in the snapshot automatically — but a v1
+   snapshot restored into v2 would have neither, and every question would silently revert to
+   fixed wording mid-run. Discarding is cheaper to reason about than half-restoring. */
 
 /**
- * READ THIS BEFORE WIRING GENERATED QUESTIONS.
+ * RESOLVED 02 Sep — kept because the reasoning still governs the design.
  *
  * `engine.asked` stores question *ids*, not questions. That round-trips today only because
  * QUESTIONS is a static import with stable ids, so a restored id always resolves.
@@ -45,8 +49,11 @@ const VERSION = 1;
  * and `{stage === "question" && current && ...}` in App renders NOTHING. A blank screen with
  * no error — which is exactly the failure that has already cost us two rounds of debugging.
  *
- * The fix is to add the generated questions themselves to Snapshot and rehydrate the bank from
- * it, then bump VERSION. Cheap now, expensive once generation is live.
+ * The answer taken: generation never invents a question id. It only overrides the WORDING of
+ * the six fixed ones, and those overrides live in `engine.surface`, which is already part of
+ * the snapshot. So every restored id still resolves against the static bank, and a restored
+ * run keeps the wording it was shown. This is a large part of why the surface-override design
+ * was chosen over letting the model emit whole questions.
  */
 
 /** Long enough to survive a refresh or a closed lid; short enough that a stale run never returns. */

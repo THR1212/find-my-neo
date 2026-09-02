@@ -10,7 +10,15 @@
  * close in on you — a form with nice animation does not do that.
  */
 
-import { QUESTIONS, QUESTION_BY_ID, TOTAL_WEIGHT, type Question, type SignalId } from "./questions";
+import {
+  QUESTIONS,
+  QUESTION_BY_ID,
+  TOTAL_WEIGHT,
+  withSurface,
+  type Question,
+  type SignalId,
+  type SurfaceMap,
+} from "./questions";
 
 /**
  * Starting universe. 5,318 is not decorative — it is the real number of distinct
@@ -48,12 +56,43 @@ export function has(p: Profile, key: string, value: unknown): boolean {
 /** Free text a person typed on a question screen, keyed by question id. */
 export type FreeTextAnswers = Record<string, string>;
 
+/**
+ * One question exactly as a person saw it, and what they did with it.
+ *
+ * This exists because generated wording makes every session different. Without a trail,
+ * "the third question was wrong" is unreproducible: the bank that produced it is gone the
+ * moment the tab closes. It also carries `origin`, so a bug report says whether the words
+ * came from the model or from the fixed bank — which is the first thing you need to know.
+ *
+ * Persisted with the rest of the snapshot, so a reload keeps the record.
+ */
+export interface QuestionTrace {
+  id: string;
+  signal: SignalId;
+  /** "generated" when model wording was applied, "fixed" when it came from questions.ts. */
+  origin: "fixed" | "generated";
+  /** The prompt as displayed, after any override. */
+  prompt: string;
+  /** Option ids and the labels as displayed, in order. */
+  options: { id: string; label: string }[];
+  pickedOptionIds: string[];
+  freeText?: string;
+  answeredAt: number;
+}
+
 export interface EngineState {
   profile: Profile;
   /** Question ids already answered, in order. */
   asked: string[];
   /** Anything typed into a question's free-text box, by question id. */
   freeText: FreeTextAnswers;
+  /**
+   * Model-written wording, by question id. Validated server-side before it gets here.
+   * Absent means every question uses the fixed bank verbatim.
+   */
+  surface?: SurfaceMap;
+  /** What was actually shown and answered, in order. Append-only. */
+  trail?: QuestionTrace[];
 }
 
 /** A signal counts as resolved once the profile carries a non-null value for it. */
@@ -103,11 +142,17 @@ export function nextQuestion(state: EngineState, preferredId?: string | null): Q
   );
   if (unresolved.length === 0) return null;
 
+  /* Choose from the FIXED bank — weights and signals are never model-touched — then overlay
+     the model's wording on the winner. Choosing and wording are separate powers on purpose. */
+  let chosen: Question | null = null;
   if (preferredId) {
     const preferred = QUESTION_BY_ID.get(preferredId);
-    if (preferred && unresolved.includes(preferred)) return preferred;
+    if (preferred && unresolved.includes(preferred)) chosen = preferred;
   }
-  return unresolved.reduce((best, q) => (q.weight > best.weight ? q : best), unresolved[0]);
+  if (!chosen) {
+    chosen = unresolved.reduce((best, q) => (q.weight > best.weight ? q : best), unresolved[0]);
+  }
+  return withSurface(chosen, state.surface);
 }
 
 /**
@@ -179,9 +224,28 @@ export function applyAnswer(
   const typed = freeText?.trim();
   if (typed && chosen.length === 0) profile[q.signal] = typed;
 
+  /* Record what was actually on screen, not what the fixed bank says — the two differ
+     whenever the model reworded it, and the displayed version is the one a person can
+     report a problem with. */
+  const shown = withSurface(q, state.surface);
+  const trace: QuestionTrace = {
+    id: q.id,
+    signal: q.signal,
+    origin: state.surface?.[q.id] ? "generated" : "fixed",
+    prompt: shown.prompt,
+    options: shown.options.map((o) => ({ id: o.id, label: o.label })),
+    pickedOptionIds: optionIds,
+    ...(typed ? { freeText: typed } : {}),
+    answeredAt: Date.now(),
+  };
+
   return {
+    /* Spread state first: `surface` and `trail` must survive every answer, and rebuilding
+       this object field-by-field is how they would quietly stop doing so. */
+    ...state,
     profile,
     asked: [...state.asked, questionId],
     freeText: typed ? { ...state.freeText, [questionId]: typed } : state.freeText,
+    trail: [...(state.trail ?? []), trace],
   };
 }

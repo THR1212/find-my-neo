@@ -1192,3 +1192,53 @@ a.btn {
   margin-top: 6px;
   color: var(--text-faint);
 }
+
+/* Check a domain of your own, on the reveal. Deliberately quiet: it is an escape hatch for
+   when our three suggestions are wrong, not a competing call to action. */
+.own-domain {
+  margin-top: 14px;
+}
+
+.own-label {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+.own-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.own-input {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+}
+
+.own-input:focus-visible {
+  outline: 2px solid var(--neo-blue);
+  outline-offset: 1px;
+}
+
+.own-check {
+  flex: 0 0 auto;
+  padding: 9px 16px;
+  font-size: 14px;
+}
+
+.own-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}

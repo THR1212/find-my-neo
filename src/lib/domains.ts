@@ -21,8 +21,17 @@ export interface DomainInfo {
   priceSource: string | null;
 }
 
-/** Matches MAX_TLDS server-side. Three alternates is a recommendation; more is a shopping list. */
-export const TLDS = ["com", "in", "co"] as const;
+/**
+ * Matches MAX_TLDS server-side.
+ *
+ * Six, but the reveal still SHOWS three — `api/profile.ts` suggests three and the rest are
+ * here so a person checking a domain of their own is answered from the same batch. Availability
+ * for six costs the same single credit as three (see domainService), so the extra coverage is
+ * free on the expensive half.
+ *
+ * Three shown is still deliberate: more than that is a shopping list, not a recommendation.
+ */
+export const TLDS = ["com", "in", "co", "net", "org", "shop"] as const;
 
 export async function lookupDomains(
   stem: string,

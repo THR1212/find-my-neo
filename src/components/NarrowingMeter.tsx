@@ -157,31 +157,44 @@ export default function NarrowingMeter({
 
       {variant === "numbers" && (
         <div className="meter-readout" aria-live="polite" aria-atomic="true">
-          <div className="meter-count-row">
-            <motion.span
-              className={`meter-count${dropping ? " is-dropping" : ""}`}
-              initial={false}
-              animate={dropping && !reduceMotion ? { scale: [1, 1.16, 1] } : { scale: 1 }}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              style={{ originX: 0, originY: 0.5 }}
-            >
-              {rounded}
-            </motion.span>
-            {drop ? (
-              <span className="meter-delta" aria-hidden="true">
-                −{drop.delta.toLocaleString("en-IN")}
+          {stage === "reveal" ? (
+            <>
+              <span className={`meter-headline${dropping ? " is-dropping" : ""}`}>
+                Your setup
               </span>
-            ) : null}
-          </div>
-          <motion.span
-            key={numbersLabel}
-            className="meter-label"
-            initial={{ opacity: 0, y: 3 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          >
-            {numbersLabel}
-          </motion.span>
+              <span className="meter-label">{numbersLabel}</span>
+            </>
+          ) : (
+            <>
+              <div className="meter-count-row">
+                <motion.span
+                  className={`meter-count${dropping ? " is-dropping" : ""}`}
+                  initial={false}
+                  animate={
+                    dropping && !reduceMotion ? { scale: [1, 1.16, 1] } : { scale: 1 }
+                  }
+                  transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ originX: 0, originY: 0.5 }}
+                >
+                  {rounded}
+                </motion.span>
+                {drop ? (
+                  <span className="meter-delta" aria-hidden="true">
+                    −{drop.delta.toLocaleString("en-IN")}
+                  </span>
+                ) : null}
+              </div>
+              <motion.span
+                key={numbersLabel}
+                className="meter-label"
+                initial={{ opacity: 0, y: 3 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {numbersLabel}
+              </motion.span>
+            </>
+          )}
         </div>
       )}
 

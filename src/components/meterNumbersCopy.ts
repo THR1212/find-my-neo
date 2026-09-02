@@ -142,7 +142,7 @@ export function numbersMeterLabel(
   profile: MeterProfile,
 ): string {
   if (stage === "reveal") {
-    return remaining === 1 ? "setup that fits you" : "setups that fit you";
+    return "ready for you";
   }
 
   if (stage === "guess" || !lastQuestionId) {

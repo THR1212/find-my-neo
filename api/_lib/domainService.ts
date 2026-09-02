@@ -65,7 +65,18 @@ export interface DomainInfo {
 /** Hard cap on TLDs per request. Three is a real design choice, not just thrift: more than
  *  three alternates turns a confident recommendation into a shopping list. It also bounds
  *  what one crafted query can spend. */
-export const MAX_TLDS = 3;
+/**
+ * 6, up from 3.
+ *
+ * The credit model makes this nearly free on the expensive half: `/v1/status` is 1 credit per
+ * REQUEST regardless of how many TLDs you batch, so availability for six costs exactly what
+ * three cost. Only `/v1/prices` bills per TLD, so a cold lookup goes from ~4 credits to ~7.
+ *
+ * Against a balance of ~9,900 free credits a month that is ~1,400 cold sessions, and the cap
+ * was set conservatively before the credit model was understood. Raising it also leaves room
+ * for a person to check a domain of their own on top of the three we suggest.
+ */
+export const MAX_TLDS = 6;
 
 function key(): string {
   const k = process.env.DOMSCAN_API_KEY;
@@ -193,7 +204,11 @@ export async function handleDomainLookup(
 
   const tlds = (tldsRaw ?? "com,in,co")
     .split(",")
-    .map((t) => t.trim().toLowerCase().replace(/[^a-z0-9]/g, ""))
+    /* Dots are allowed: multi-label TLDs are real (co.uk, com.au) and someone checking a
+       domain of their own will type one. Stripping them turned co.uk into "couk", which
+       DomScan answers for a TLD that does not exist. Leading/trailing dots are trimmed so
+       the sanitiser cannot emit ".com" or "com.". */
+    .map((t) => t.trim().toLowerCase().replace(/[^a-z0-9.]/g, "").replace(/^\.+|\.+$/g, ""))
     .filter(Boolean)
     .slice(0, MAX_TLDS);
 

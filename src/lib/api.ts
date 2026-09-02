@@ -13,6 +13,9 @@
  * a real key that must never reach the browser. Both paths return the same shape.
  */
 
+import { reportDegraded } from "./errorLog";
+import { sessionId } from "./persist";
+import type { SurfaceMap } from "./questions";
 import type { Profile, RevealContent } from "./session";
 import demoFixture from "../data/replay/demo.json";
 
@@ -24,6 +27,11 @@ const REPLAY_DELAY_MS = Number(import.meta.env.VITE_REPLAY_DELAY_MS ?? 1400);
 export interface ProfileResult {
   profile: Profile;
   reveal: RevealContent;
+  /**
+   * Model-written question wording, by question id, already validated server-side.
+   * Absent or partial is fine — every missing entry renders from the fixed bank.
+   */
+  surface?: SurfaceMap;
   /**
    * Which question the model thinks is most worth asking first, given what the free text
    * already revealed. Advisory only — engine.ts overrules it if that signal is already
@@ -45,14 +53,78 @@ export async function buildProfile(businessText: string): Promise<ProfileResult>
     return { profile, reveal, nextQuestionId };
   }
 
-  const res = await fetch("/api/profile", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ businessText }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`profile request failed: ${res.status} ${await res.text()}`);
+  try {
+    const res = await fetch("/api/profile", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        /* Correlates this request with the client-error lines from the same run. */
+        "x-fmn-session": sessionId(),
+      },
+      body: JSON.stringify({ businessText }),
+    });
+    if (!res.ok) {
+      throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
+    }
+    return (await res.json()) as ProfileResult;
+  } catch (err) {
+    /**
+     * Degrade, don't throw (CLAUDE.md rule 4).
+     *
+     * This used to reject, and rejecting put "We couldn't read that. / Failed to fetch" on
+     * screen — a dead end with a Try again button, from a dev server that had simply stopped.
+     * Every other external call in this project already degrades: `fetchNeoSite` falls back to
+     * a recorded response, `domainService` renders no badge rather than a wrong one. The
+     * profile call was the last one that could take the whole flow down.
+     *
+     * Note what it deliberately does NOT fall back to: the replay fixture. That would show
+     * "a two-person bakery in Bandra" to someone who typed a cinema in Texas, which is the
+     * single most visible way this can embarrass itself in front of an audience. An empty
+     * summary is honest — the guess screen has a state for exactly this, and the questions
+     * still work without it; the engine just asks more of them.
+     */
+    reportDegraded("profile", err instanceof Error ? err.message : String(err));
+    return derivedFallback(businessText);
   }
-  return (await res.json()) as ProfileResult;
+}
+
+/**
+ * Mirrors `derivedProfile` in api/_lib/profileService.ts, for when the route is unreachable
+ * and that server-side fallback never gets to run. Deliberately claims nothing: no summary,
+ * no industry, no headcount. Domain prices stay null — DomScan fills them on the reveal.
+ */
+function derivedFallback(businessText: string): ProfileResult {
+  const stem =
+    businessText
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 3)
+      .slice(0, 2)
+      .join("")
+      .slice(0, 24) || "yourbusiness";
+
+  return {
+    profile: {
+      summary: "",
+      industry: "",
+      teamSize: null,
+      location: null,
+      domainStem: stem,
+      suggestedMailboxes: ["hello", "contact"],
+    },
+    nextQuestionId: null,
+    reveal: {
+      domains: [
+        { name: `${stem}.com`, available: null, priceInr: null, recommended: true },
+        { name: `${stem}.in`, available: null, priceInr: null },
+        { name: `${stem}.co`, available: null, priceInr: null },
+      ],
+      mailboxes: [
+        { address: `hello@${stem}.com`, label: "For enquiries and new customers" },
+        { address: `contact@${stem}.com`, label: "For everything else" },
+      ],
+      site: { headline: "", subhead: "", sections: [] },
+    },
+  };
 }

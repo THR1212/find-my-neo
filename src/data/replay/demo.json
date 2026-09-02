@@ -3,7 +3,8 @@
 
   "profile": {
     "summary": "a two-person bakery in Bandra taking custom cake orders over Instagram",
-    "industry": "Bakery & confectionery",
+    "_industryNote": "Titan's 16-industry taxonomy, which api/profile.ts constrains the model to. Was 'Bakery & confectionery' - a label matching neither Titan's taxonomy nor Neo's builder categories, so the handoff URL never carried an industryKey. See docs/data-findings.md section 6.",
+    "industry": "Food & Beverage",
     "teamSize": 2,
     "location": "Bandra, Mumbai",
     "domainStem": "proofandbutter",

@@ -21,13 +21,26 @@ export interface DomainInfo {
   priceSource: string | null;
 }
 
-/** Matches MAX_TLDS server-side. Three alternates is a recommendation; more is a shopping list. */
-export const TLDS = ["com", "in", "co"] as const;
+/**
+ * Matches MAX_TLDS server-side.
+ *
+ * Six, but the reveal still SHOWS three — `api/profile.ts` suggests three and the rest are
+ * here so a person checking a domain of their own is answered from the same batch. Availability
+ * for six costs the same single credit as three (see domainService), so the extra coverage is
+ * free on the expensive half.
+ *
+ * Three shown is still deliberate: more than that is a shopping list, not a recommendation.
+ */
+export const TLDS = ["com", "in", "co", "net", "org", "shop"] as const;
 
 export async function lookupDomains(
   stem: string,
   tlds: readonly string[] = TLDS,
-  timeoutMs = 6000,
+  /* 12s, not 6s. A cold lookup costs 4 DomScan credits across several upstream calls and
+     measured past 6s in practice, which aborted the request and left the reveal with no
+     prices and no availability. There is time to spare: the reveal is already waiting on
+     Neo's 22-38s generator. */
+  timeoutMs = 12000,
 ): Promise<DomainInfo[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -46,7 +59,8 @@ export async function lookupDomains(
   } catch (err) {
     reportDegraded("domains unreachable", err instanceof Error ? err.message : String(err));
     // Network failure, timeout, no key configured — the reveal must still render.
-    // It falls back to the fixture's domains with no availability badge.
+    // Returning [] leaves `available` and `priceInr` null upstream, so no badge and no price
+    // appear. That is the whole point: silence beats a guess someone can check instantly.
     return [];
   } finally {
     clearTimeout(timer);

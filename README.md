@@ -74,7 +74,8 @@ you're not. See "Changing the demo answer" below.
 | `src/lib/engine.ts` | Picks the next question; works out the "possible setups" counter. |
 | `src/lib/rules.ts` | Turns a profile into a plan + price. The model never does this. |
 | `src/lib/session.ts` | The shapes everything agrees on. |
-| `src/lib/handoff.ts` | Builds the link into Neo's purchase flow. Not wired to the button yet. |
+| `src/lib/persist.ts` | Saves your place to `sessionStorage`, so a refresh doesn't lose the run. |
+| `src/lib/handoff.ts` | Builds the link into Neo's purchase flow. Wired to the reveal's CTA. |
 | **Talking to the outside world** | |
 | `api/_lib/neoSite.ts` | Calls **Neo's real site generator**. Three chained calls. |
 | `api/_lib/domainService.ts` | Domain availability + price via DomScan. **Holds an API key — server only.** |
@@ -122,6 +123,38 @@ response and the card says "offline — recorded earlier".
 
 ---
 
+## The flow, step by step
+
+Two diagrams of this live in FigJam - one showing what fires when, one showing the stages and
+what decides each one. This table is the same thing in text, with the actual function names.
+
+| # | Screen | What fires | Where it goes | What comes back |
+|---|---|---|---|---|
+| 1 | `Hook.tsx` | nothing | - | - |
+| 2 | `Describe.tsx` | `App.submitDescription` -> `kickOff` | starts 3 and 4 **in parallel**, then advances immediately | - |
+| 3 | *(background)* | `api.buildProfile` | `POST /api/profile` -> `profileService.handleProfile()` -> `llm.complete()` -> gpt-5.6-luna | Summary, industry (one of Titan's 16), headcount, domain stem, mailboxes, and which question to ask first. On failure returns a derived profile with `degraded: true` rather than an error |
+| 4 | *(background)* | `neoSite.fetchNeoSite` | `GET /api/neo-site` -> `generateNeoSite()` -> 3 chained calls to `api.titan.email` | Real site: 17 blocks, font, pallet, Pexels URLs. 22-38s. Falls back to `neo-site.json` after 90s |
+| 5 | `Guess.tsx` | - | - | Shows `profile.summary` while 3 and 4 are still resolving |
+| 6 | `AdaptiveQuestion.tsx` | `engine.nextQuestion` picks the question; `App.answer` -> `engine.applyAnswer` | nothing leaves the browser | Meter redraws from `confidence()` and `remainingSetups()`; `persist.saveSnapshot()` writes the run |
+| 7 | *(loop)* | `engine.shouldReveal` | - | Repeats 6 until confident or `MAX_QUESTIONS` (4) |
+| 8 | `Reveal.tsx` | `domains.lookupDomains` | `GET /api/domains` -> `domainService.lookupDomains()` -> DomScan | Availability plus USD list price, converted to INR |
+| 9 | `Reveal.tsx` | `features.pickFeatures` and `rules.recommend` | nothing leaves the browser | The plan, the price, the "worth knowing" lines |
+| 10 | `Reveal.tsx` | `handoff.buildHandoffUrl` | `join.neo.space` - an `<a>` a person clicks | - |
+
+Throughout, `errorLog.ts` posts crashes **and silent degradations** to `/api/log`.
+
+**The line that matters when presenting this:** a model is used in exactly one place - step 3,
+reading free text into a profile and suggesting which question to ask first. Every number a
+visitor sees (the counter, the plan, the price, the domain price) is computed by `engine.ts`,
+`rules.ts`, `features.ts` and `domainService.ts`. No model picks a plan or a price. That is
+deliberate, and it is why the numbers can be defended in a demo.
+
+**What is live today:** all of it. Neo's site generation, domain availability and pricing, the
+plan and price maths, persistence, the handoff link, and now the profile step. Set
+`VITE_LLM_MODE=replay` to run the whole flow off fixtures with no spend.
+
+---
+
 ## Changing the demo answer
 
 Open `src/data/replay/demo.json`. It looks like this:
@@ -142,6 +175,15 @@ those two — undo (`Ctrl+Z`) and try again.
 ---
 
 ## When something breaks
+
+**A green build does not mean a working deploy.** Vercel's unsupported-module check runs at
+"Deploying outputs", after the build. `npm run build` and even `npx vercel build` can both say
+success while every production deploy fails. Run `npx vercel deploy` and hit the real URL.
+
+And when an Edge function is blamed for importing something it does not import: Vercel bundles
+Edge functions into one shared namespace, so the function named in the error is often not the
+one at fault. Look for whatever new route pulled a Node-only module into the bundle.
+
 
 **No "Available" badge, and no price on the domains.** The `DOMSCAN_API_KEY` is missing or wrong.
 Check `.env.local` exists and has the line `DOMSCAN_API_KEY=dsk_...`. **You must restart
@@ -197,8 +239,15 @@ sheet, and `rules.ts` turns a profile into a plan — so the reveal shows a genu
 list price converted at a fixed rate. Availability *is* real. The right fix is Neo's own domain
 search API.
 
-**The CTA doesn't go anywhere.** Handing users into Neo's builder is the next real piece of work,
-and it must stay a button a person clicks, never an automatic redirect.
+**The CTA works.** It hands off to `join.neo.space/site/domain-selection` carrying the business
+name and description Neo's own generator produced. It stays a link a person clicks, never an
+automatic redirect. Cold visitors still land on `/site/industry` rather than the domain step -
+that's the remaining gap.
+
+**The profile step is live.** `api/profile.ts` + `api/_lib/profileService.ts` call gpt-5.6-luna
+and return a real profile. Nothing in the flow is fixture-backed any more. `VITE_LLM_MODE=replay`
+still serves the recorded fixture instantly, which is the right setting for rehearsing the demo
+without spending tokens.
 
 ---
 

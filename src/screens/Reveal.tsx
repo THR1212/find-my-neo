@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
-import type { RevealContent } from "../lib/session";
+import type { DomainOption, RevealContent } from "../lib/session";
 import { lookupDomains, type DomainInfo } from "../lib/domains";
 import { pickFeatures, type FeatureSurface } from "../lib/features";
 import { recommend, CYCLE_LABEL } from "../lib/rules";
@@ -64,6 +64,25 @@ export default function Reveal({
 }) {
   const [chosenDomain, setChosenDomain] = useState(0);
   /**
+   * Has the person chosen a domain themselves?
+   *
+   * Gates the auto-switch below. Once someone has picked, we never move the selection under
+   * them — a UI that overrides a deliberate choice is worse than one that recommends badly.
+   */
+  const [userPickedDomain, setUserPickedDomain] = useState(false);
+  /**
+   * Domains the person checked themselves, appended after our three suggestions.
+   *
+   * Our suggestions are built from one stem the model chose. That is a guess about their name,
+   * and when it is wrong — or when every TLD is taken — the flow previously had no answer
+   * except "start over". This is the escape hatch, and it uses the same live DomScan lookup,
+   * so a name they type is verified exactly as strictly as one we suggested.
+   */
+  const [extraDomains, setExtraDomains] = useState<DomainOption[]>([]);
+  const [ownInput, setOwnInput] = useState("");
+  const [ownChecking, setOwnChecking] = useState(false);
+  const [ownError, setOwnError] = useState<string | null>(null);
+  /**
    * Live availability + indicative pricing, keyed by domain name. Starts empty and fills in:
    * the fixture is the optimistic first paint and the real answer corrects it.
    * Deliberately non-blocking — the reveal must never wait on a third-party service.
@@ -78,6 +97,25 @@ export default function Reveal({
     lookupDomains(stem).then((rows) => {
       if (cancelled || !rows.length) return;
       setLive(Object.fromEntries(rows.map((r) => [r.domain, r])));
+
+      /**
+       * Move off a taken domain.
+       *
+       * The .com is recommended and pre-selected because it is the one people guess. But the
+       * selection drives the hero, the mailbox addresses, the plan line AND the handoff URL,
+       * so leaving it parked on a taken domain recommends something nobody can buy — and the
+       * alternates exist precisely for this case.
+       *
+       * Only when the person has not chosen for themselves, and only towards a domain DomScan
+       * explicitly says is free. `available === true`, never `!== false`: unknown is not
+       * available, which is the same distinction that put a wrong "Available" badge on screen.
+       */
+      if (userPickedDomain) return;
+      const names = reveal?.domains.map((d) => d.name) ?? [];  // suggestions only
+      const chosenIsTaken = rows.some((r) => r.domain === names[chosenDomain] && !r.available);
+      if (!chosenIsTaken) return;
+      const freeIdx = names.findIndex((n) => rows.some((r) => r.domain === n && r.available === true));
+      if (freeIdx >= 0) setChosenDomain(freeIdx);
     });
     return () => {
       cancelled = true;
@@ -114,7 +152,59 @@ export default function Reveal({
   // Mail-only hides the site block. Anything else (including an unanswered surface
   // question) shows it — the drafted site is too much of the payoff to hide by default.
   const showSite = surface !== "mail";
-  const domain = reveal.domains[chosenDomain] ?? reveal.domains[0];
+  /* Suggestions first, then anything they checked themselves. `chosenDomain` indexes into
+     this combined list, so a domain they added is selectable exactly like ours. */
+  const allDomains = [...reveal.domains, ...extraDomains];
+  const domain = allDomains[chosenDomain] ?? allDomains[0];
+
+  /**
+   * Check a domain the person typed.
+   *
+   * Explicit button, never on keystroke: each check costs DomScan credits (1 status + 1 price)
+   * and debouncing a metered call is a slower way to spend the same money.
+   */
+  async function checkOwnDomain() {
+    const raw = ownInput.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    if (!raw) return;
+    const dot = raw.indexOf(".");
+    /* No dot means they typed a name, not a domain — assume the TLD everyone assumes. */
+    const stemPart = (dot === -1 ? raw : raw.slice(0, dot)).replace(/[^a-z0-9-]/g, "");
+    const tldPart = dot === -1 ? "com" : raw.slice(dot + 1).replace(/[^a-z0-9.]/g, "");
+    if (!stemPart || !tldPart) {
+      setOwnError("That doesn't look like a domain name.");
+      return;
+    }
+    const name = `${stemPart}.${tldPart}`;
+    if (allDomains.some((d) => d.name === name)) {
+      setOwnError("That one's already in the list.");
+      return;
+    }
+
+    setOwnChecking(true);
+    setOwnError(null);
+    const rows = await lookupDomains(stemPart, [tldPart]);
+    setOwnChecking(false);
+
+    const row = rows.find((r) => r.domain === name) ?? rows[0];
+    if (!row) {
+      setOwnError("Couldn't check that one just now.");
+      return;
+    }
+    setLive((prev) => ({ ...prev, [row.domain]: row }));
+    setExtraDomains((prev) => [
+      ...prev,
+      { name: row.domain, available: row.available, priceInr: row.priceInr, note: "Your own idea" },
+    ]);
+    /* Select it only if it is actually free. Switching onto a taken domain would undo the
+       auto-switch above and put an unbuyable name back on the plan line. */
+    if (row.available === true) {
+      setUserPickedDomain(true);
+      /* allDomains.length is the index the new entry lands on, and it is already narrowed
+         — `reveal` is not, inside this closure. */
+      setChosenDomain(allDomains.length);
+    }
+    setOwnInput("");
+  }
   const mailboxCount = Math.max(reveal.mailboxes.length, answeredMailboxes ?? 0);
 
   /**
@@ -191,9 +281,9 @@ export default function Reveal({
             made the row reshuffle on every switch and meant you could never see the full set
             at once. Each is priced separately: a .in is not a .com is not a .co, and flattening
             that is what loses trust at checkout. */}
-        {reveal.domains.length > 1 && (
+        {allDomains.length > 1 && (
           <div className="alts" role="group" aria-label="Choose a domain">
-            {reveal.domains.map((d, i) => {
+            {allDomains.map((d, i) => {
               const active = i === chosenDomain;
               const taken = live[d.name]?.available === false;
               const price = live[d.name]?.priceInr ?? d.priceInr;
@@ -201,7 +291,10 @@ export default function Reveal({
                 <button
                   key={d.name}
                   className={`alt${active ? " alt-active" : ""}`}
-                  onClick={() => setChosenDomain(i)}
+                  onClick={() => {
+                    setUserPickedDomain(true);
+                    setChosenDomain(i);
+                  }}
                   title={d.note}
                   aria-pressed={active}
                 >
@@ -215,6 +308,43 @@ export default function Reveal({
             })}
           </div>
         )}
+        {/* The escape hatch. Our three come from one stem the model guessed; when that guess
+            is wrong, or every TLD is taken, this is the only way forward that is not "start
+            over". Same live lookup, so a name they type is verified as strictly as ours. */}
+        <div className="own-domain">
+          <label className="own-label" htmlFor="own-domain-input">
+            Had a different name in mind?
+          </label>
+          <div className="own-row">
+            <input
+              id="own-domain-input"
+              className="own-input"
+              value={ownInput}
+              placeholder="thistleandtwine.co.uk"
+              spellCheck={false}
+              autoComplete="off"
+              onChange={(e) => {
+                setOwnInput(e.target.value);
+                setOwnError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void checkOwnDomain();
+                }
+              }}
+            />
+            <button
+              className="btn btn-ghost own-check"
+              onClick={() => void checkOwnDomain()}
+              disabled={ownChecking || !ownInput.trim()}
+            >
+              {ownChecking ? "Checking…" : "Check"}
+            </button>
+          </div>
+          {ownError && <p className="own-error">{ownError}</p>}
+        </div>
+
         {domain.note && <p className="domain-note">{domain.note}</p>}
       </motion.div>
 

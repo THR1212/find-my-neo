@@ -35,7 +35,7 @@ export default function Guess({
     );
   }
 
-  if (loading || !summary) {
+  if (loading) {
     return (
       <div>
         <p className="eyebrow">Reading that back</p>
@@ -44,6 +44,38 @@ export default function Guess({
           <i />
           <i />
           <i />
+        </div>
+      </div>
+    );
+  }
+
+  /**
+   * Resolved, but with nothing to say.
+   *
+   * This is the degraded path: `api/profile` returns `degraded: true` with an empty summary
+   * when the model call fails, precisely so the flow can continue (CLAUDE.md rule 4). The
+   * condition used to be folded into `loading || !summary`, which turned "we could not read
+   * it" into a spinner that never resolved — the exact opposite of degrading gracefully, and
+   * silent, because a degraded response is a perfectly good HTTP 200.
+   *
+   * So: say so, and keep both doors open. The questions still work without a summary — the
+   * engine simply asks more of them, which is the right behaviour when we know less.
+   */
+  if (!summary) {
+    return (
+      <div>
+        <p className="eyebrow">Reading that back</p>
+        <h1>We didn't catch enough to guess.</h1>
+        <p className="lede">
+          The questions will get us there instead — there are only a few.
+        </p>
+        <div className="row">
+          <button className="btn" onClick={onConfirm} autoFocus>
+            Keep going
+          </button>
+          <button className="btn btn-ghost" onClick={onReject}>
+            Rewrite it
+          </button>
         </div>
       </div>
     );

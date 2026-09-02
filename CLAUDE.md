@@ -102,10 +102,26 @@ never know which one it got.
 React + Vite + TS · Framer Motion · Vercel **Edge** functions · plan data from Neo's own sheet.
 Ruled out and not to be revisited: gRPC, WebSockets, Unity WebGL, three.js.
 
-**Vercel functions must declare `runtime: "edge"`.** They are written against the Web API
-(`Request`/`Response`); the default Node runtime passes a bare path in `req.url` and
-`new URL()` throws. This cannot be caught locally — the Vite dev middleware hands over a
-different request object. Deploy and hit the real endpoint before believing an API works.
+**Runtime is per-route, and getting it wrong breaks the deploy, not the build.**
+
+`api/domains`, `api/neo-site`, `api/log` are **Edge**: written against the Web API
+(`Request`/`Response`), and the default Node runtime passes a bare path in `req.url` so
+`new URL()` throws. Cannot be caught locally — Vite's dev middleware hands over a different
+request object.
+
+`api/profile` is **Node** (`runtime: "nodejs"`, not `"nodejs20.x"` — the suffixed form is
+rejected). It reaches the OpenAI SDK and, in replay mode, the filesystem; neither exists on
+Edge, and putting it there failed **every production deploy** with
+`The Edge Function "api/domains" is referencing unsupported modules: node:fs/promises,
+openai: #x509-transport-state`. Two lessons in that: Vercel bundles Edge functions into one
+shared namespace, so **the function it blames is not the function at fault**; and the check
+runs at "Deploying outputs", AFTER the build, so `npm run build` and even a local
+`vercel build` both report success. **Only a real deploy catches it — `npx vercel deploy`
+before believing an API route works.**
+
+`api/` is typechecked via `api/tsconfig.json`, referenced from the root. Before that it was
+invisible: `tsconfig.app` covers only `src/`, `tsconfig.node` only `vite.config.ts`, so api/
+errors reached Vercel unseen.
 
 **Site content comes from Neo, not us.** `api/_lib/neoSite.ts` calls their real generator.
 We do not write site copy. See `docs/neo-product-facts.md` for the API shape and its gotchas
@@ -128,14 +144,38 @@ Full detail and sources in `TECHNICAL.md`.
 
 ## CURRENT STATE
 
-_Last updated: 28 Aug 2026. Repositioned 27 Aug after walking Neo's live builder —
-read `docs/neo-product-facts.md` before claiming anything about what Neo does._
+_Last updated: 02 Sep 2026 (hackathon day 1). Repositioned 27 Aug after walking Neo's live
+builder — read `docs/neo-product-facts.md` before claiming anything about what Neo does._
 
 **Working, live, and verified in production**
 - Full adaptive flow: hook → free text → guess → up to 4 engine-chosen questions → reveal.
   Verified in a real browser (clipboard paste, 1440×820 laptop, 390×844 mobile).
 - **Adaptive engine** — `src/lib/questions.ts` (6-question bank) + `src/lib/engine.ts`
   (next question, confidence, narrowing counter, confidence-based early stop).
+  **Weights are now data-derived** (Darrel, 02 Sep): `mailboxCount` leads at 0.3 because it
+  multiplies price; the old import-first order was retired as a selection effect. Do not
+  re-tune weights by feel — `docs/data-findings.md` §1c and §8 are the reason they are what
+  they are.
+- **Generated question wording** — the model rewrites all six questions for the business
+  someone typed: prompt, sub-line, placeholder, option labels and hints. Three layers, and
+  only the middle one is generated:
+  signals + weights fixed · surface text generated · option ids + `resolves` fixed.
+  So no generation can change what an answer means, only how it reads.
+  **An option describes the CUSTOMER'S situation, never what Neo does.** "Instagram and
+  WhatsApp" is a fact about them; "Sell tickets on your site" is a promise we cannot keep.
+  Server-side validation drops anything unprovable, and a question left with under 2 usable
+  options renders from the fixed bank verbatim — that floor is the safety story.
+- **The profile step is live** — `api/profile.ts` + `api/_lib/profileService.ts` on
+  **gpt-5.6-luna**, constrained to Titan's 16-industry taxonomy. Nothing in the flow is
+  fixture-backed any more.
+- **Session persistence** — `src/lib/persist.ts`, sessionStorage, versioned + 2h TTL. A
+  refresh keeps the run, the generated wording, and the trail.
+- **A trail of what each person saw** — `QuestionTrace` in engine.ts records the prompt and
+  labels **as displayed**, with `origin: fixed | generated`. Generated wording makes every
+  session different, so without it a bug report is unreproducible.
+  **Still only in memory — nothing posts or displays it yet.**
+- **Check-your-own-domain** — an input on the reveal runs the same live DomScan lookup and
+  appends a fourth option, selected only if DomScan says it is actually free.
 - **Narrowing meter** — 5,318 → single digits.
 - **Neo's real site generator** — `api/_lib/neoSite.ts` calls Neo's own API
   (`t:"bi"` → `t:"sc"` → image search). We render THEIR content, not our copy.
@@ -160,9 +200,13 @@ read `docs/neo-product-facts.md` before claiming anything about what Neo does._
 - Repo: https://github.com/THR1212/find-my-neo (branch `master`).
 
 **Not done / next**
-- **The LLM profile call is still fixture-backed.** `VITE_LLM_MODE=replay` is the default and
-  `api/profile.ts` does not exist. Going live needs that endpoint plus an OpenAI key. Everything
-  else in the flow is live. This is the biggest remaining gap.
+- ~~The LLM profile call is still fixture-backed~~ — **done 02 Sep.** `api/profile.ts` +
+  `api/_lib/profileService.ts`, live on gpt-5.6-**luna**. The model is constrained to Titan's
+  16-industry taxonomy (docs/data-findings.md §6), so "bakery" resolves to Food & Beverage
+  instead of matching nothing. It emits no price, no plan and no mailbox count. On failure it
+  degrades to a derived profile rather than erroring.
+  **Production needs the env vars set on Vercel** (`LLM_MODE`, `LLM_MODEL`, `LLM_API_KEY`) or
+  it will silently serve degraded profiles.
 - **Design chooser** — Neo returns three variants; we call once and show one. This is probably
   the best remaining demo beat.
 

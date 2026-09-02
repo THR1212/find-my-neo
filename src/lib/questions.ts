@@ -205,6 +205,64 @@ export const QUESTIONS: Question[] = [
   },
 ];
 
+/**
+ * Model-written surface text for one question.
+ *
+ * WHAT THE MODEL MAY CHANGE: the words. Prompt, sub-line, option labels, option hints, the
+ * free-text placeholder. Nothing else.
+ *
+ * WHAT IT MAY NOT: the option set, the option ids, the `resolves` payloads, the signal, the
+ * weight, or whether the question is multi-select. Those are the contract `rules.ts` and
+ * `features.ts` are built on, and a model that could edit them could change a price.
+ *
+ * THE RULE FOR LABELS, which is not obvious and matters more than the rest: an option
+ * describes the USER'S situation, never what this product does. "Instagram, WhatsApp and
+ * Twitter" is a fact about them. "Sell tickets on your site" is a promise about us — and one
+ * Neo may not keep. Feature claims live in `features.ts` with Neo's own verbatim names, and
+ * a generated option label must never imply a capability. See docs/neo-product-facts.md.
+ */
+export interface QuestionSurface {
+  prompt?: string;
+  sub?: string;
+  placeholder?: string;
+  /** Keyed by the EXISTING option id. Unknown ids are dropped server-side. */
+  options?: Record<string, { label?: string; hint?: string }>;
+}
+
+/** Surface overrides by question id, as validated by the server. */
+export type SurfaceMap = Record<string, QuestionSurface>;
+
+/**
+ * Overlay model-written wording onto a fixed question.
+ *
+ * Returns the question unchanged when there is no override, so every caller can treat the
+ * generated and fixed paths identically — and a failed generation degrades to exactly what
+ * ships today rather than to a broken screen.
+ */
+export function withSurface(q: Question, surface?: SurfaceMap): Question {
+  const s = surface?.[q.id];
+  if (!s) return q;
+
+  return {
+    ...q,
+    prompt: s.prompt?.trim() || q.prompt,
+    sub: s.sub?.trim() || q.sub,
+    freeText: q.freeText
+      ? { placeholder: s.placeholder?.trim() || q.freeText.placeholder }
+      : q.freeText,
+    options: q.options.map((o) => {
+      const ov = s.options?.[o.id];
+      if (!ov) return o;
+      return {
+        ...o,
+        label: ov.label?.trim() || o.label,
+        hint: ov.hint?.trim() || o.hint,
+        /* resolves is deliberately NOT spread from the override. It is the whole point. */
+      };
+    }),
+  };
+}
+
 export const QUESTION_BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]));
 
 /** Total narrowing available, used to normalise the confidence ring. */

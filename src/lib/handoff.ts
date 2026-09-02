@@ -40,6 +40,21 @@ const BASE =
  * template for a bakery, and shipping that would undercut the whole argument.
  *
  * Extend this only with keys seen in a real Neo request.
+ *
+ * WHAT WE KNOW OF THE FULL LIST (02 Sep 2026). Production's builder shows six under a heading
+ * reading "POPULAR INDUSTRIES":
+ *   Apparel & Fashion · E-commerce & Retail · Marketing & Advertising ·
+ *   Business & Management Consulting · Media & Entertainment · IT & Web Development Services
+ *
+ * That is a curated shortlist, NOT the taxonomy. Proof: `food_and_beverages` and
+ * `photography_and_videography` below were both captured from real Neo requests and neither
+ * appears in that six. So the real list is longer and reachable some other way — a search box,
+ * or a "see all". Worth capturing properly: with the complete list, `api/profile.ts` could emit
+ * Neo's own category directly and TAXONOMY_TO_NEO would disappear.
+ *
+ * `apparel_and_fashion` is the presumed key for the one we have seen on screen but not yet in a
+ * request. NOT added below, because this map's rule is observed-in-a-real-request only, and a
+ * guessed key is exactly the failure mode we are arguing against.
  */
 const INDUSTRY_KEYS: Record<string, string> = {
   "food & beverages": "food_and_beverages",
@@ -51,9 +66,36 @@ const INDUSTRY_KEYS: Record<string, string> = {
   "photography & videography": "photography_and_videography",
 };
 
+/**
+ * Titan's analytics taxonomy (16 industries) -> Neo's site-builder keys.
+ *
+ * Two different taxonomies owned by two different systems. `api/profile.ts` emits Titan's
+ * because that is the one with data behind it; Neo's generator only understands its own.
+ *
+ * `api/profile.ts` constrains the model to Titan's 16 industries, because Neo's free-text
+ * `business_industry` field has 5,318 distinct values and routes nothing. Those 16 labels are
+ * not spelled the way Neo's builder spells its categories, so without this map
+ * `industryKeyFor` returned null for everything the model produced and the handoff URL simply
+ * never carried an `industryKey` — which is what was happening in production.
+ *
+ * Only meanings that actually correspond are mapped. Nine of the sixteen have no observed Neo
+ * key and stay unmapped on purpose: omitting the param lets Neo pick, whereas guessing a near
+ * neighbour is how a painter gets a photography template. "Arts & Creative Services" is the
+ * tempting one to point at `photography_and_videography` — don't; it is a subset, not a match.
+ */
+const TAXONOMY_TO_NEO: Record<string, string> = {
+  "food & beverage": "food_and_beverages",
+  "e-commerce & retail": "ecommerce_and_retail",
+  "marketing & advertising": "marketing_and_advertising",
+  "professional & business services": "business_management_consulting",
+  "media & entertainment": "media_and_entertainment",
+  "technology & it services": "it_and_web_development_services",
+};
+
 function industryKeyFor(industry: unknown): string | null {
   if (typeof industry !== "string") return null;
-  return INDUSTRY_KEYS[industry.trim().toLowerCase()] ?? null;
+  const k = industry.trim().toLowerCase();
+  return INDUSTRY_KEYS[k] ?? TAXONOMY_TO_NEO[k] ?? null;
 }
 
 export interface HandoffInput {

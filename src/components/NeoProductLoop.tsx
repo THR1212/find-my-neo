@@ -60,6 +60,7 @@ export default function NeoProductLoop({
         />
       </div>
       <figcaption>
+        {clip.kicker ? <span className="neo-loop-kicker">{clip.kicker}</span> : null}
         <span className="neo-loop-name">{clip.name}</span>
         <span className="neo-loop-caption">{clip.caption}</span>
       </figcaption>

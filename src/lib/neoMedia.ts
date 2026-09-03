@@ -3,10 +3,11 @@
  *
  * SELF-HOSTED, not hotlinked. The originals are the exact assets the marketing site loads —
  * captured 3 Sep 2026 from the homepage markup (`<video data-src=…>` in the "Small business
- * bundle" section, and the `template-horizontal-scroll*.webp` reel under "Beautiful
- * templates, ready for anything"). They now live in `public/neo/`, re-encoded for the size
- * they are actually displayed at; `docs/neo-media.md` records every source URL and the exact
- * ffmpeg commands, so any of them can be re-pulled when Neo updates its site.
+ * bundle" section, the AI site-builder film, and the `template-horizontal-scroll*.webp` reel
+ * under "Beautiful templates, ready for anything"). They now live in `public/neo/`, re-encoded
+ * for the size they are actually displayed at (hero wait card ~880px, not a 150px thumbnail);
+ * `docs/neo-media.md` records every source URL and the exact ffmpeg commands, so any of them
+ * can be re-pulled when Neo updates its site.
  *
  * Serving them ourselves rather than from Neo's CDN means the reveal cannot break because a
  * marketing page was redeployed, and it drops a third-party request from the one screen that
@@ -38,6 +39,8 @@ export interface NeoClip {
    * Absent means every mail plan includes it (Starter, Standard and Max).
    */
   minMailPlan?: MailPlanId;
+  /** Wait-reel category label. Omit on the mail-only reveal — that pane is already one category. */
+  kicker?: string;
 }
 
 const VIDEOS = "/neo/videos";
@@ -82,6 +85,33 @@ export const MAIL_CLIPS: NeoClip[] = [
     caption: "The same inbox on your phone and your desktop",
     src: `${VIDEOS}/apps.mp4`,
   },
+];
+
+function mailClip(id: string): NeoClip {
+  const clip = MAIL_CLIPS.find((c) => c.id === id);
+  if (!clip) throw new Error(`neoMedia: missing mail clip "${id}"`);
+  return clip;
+}
+
+/**
+ * The wait reel — one flagship from each thing the lede names (mail, a site, inbox tools).
+ * Not the full mail catalogue: four overlapping mail films felt like a product dump, and the
+ * site half of Neo vanished for ten seconds. These are still Neo's own films, not mock-ups.
+ *
+ * Plan gating does not apply here. The profile (and therefore the plan) has not landed yet;
+ * this is a look at the product, not a promise about the recommended tier.
+ */
+export const SITE_CLIP: NeoClip = {
+  id: "site_builder",
+  name: "AI-powered site builder",
+  caption: "A one-page site generated from what you just described",
+  src: `${VIDEOS}/site.mp4`,
+};
+
+export const WAIT_CLIPS: NeoClip[] = [
+  { ...mailClip("fast_apps"), kicker: "Mail" },
+  { ...SITE_CLIP, kicker: "Site" },
+  { ...mailClip("invoice_builder"), kicker: "Inbox tools" },
 ];
 
 /**

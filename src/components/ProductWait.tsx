@@ -1,28 +1,23 @@
 import { useEffect, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import NeoProductLoop from "./NeoProductLoop";
-import { MAIL_CLIPS } from "../lib/neoMedia";
+import { WAIT_CLIPS } from "../lib/neoMedia";
 
 /**
  * The ~10s after they describe the business, while the profile (and therefore the first
  * questions) is still in flight.
  *
  * Three bouncing dots made that wait feel empty. This loops Neo's own product films so
- * the pause is a look at the product. Marketing-reel shots of other businesses stay off
- * this screen — those are not this person's generated site.
+ * the pause is a look at the product. One beat per category the lede names — mail, a site,
+ * inbox tools — not four overlapping mail films. Marketing-reel shots of other businesses
+ * stay off this screen: those are not this person's generated site.
  *
  * Beats stay mounted and fade. The sequence loops on purpose: unlike Neo's site-generator
  * loader (which must not loop), we do not know when the profile will land.
  * prefers-reduced-motion holds on the first beat.
  */
 
-const BEAT_MS = 2400;
-
-const BEATS = ["invoice_builder", "fast_apps", "signature", "bookings"] as const;
-
-function clip(id: string) {
-  return MAIL_CLIPS.find((c) => c.id === id) ?? null;
-}
+const BEAT_MS = 3200;
 
 export default function ProductWait() {
   const reduceMotion = useReducedMotion();
@@ -30,7 +25,7 @@ export default function ProductWait() {
 
   useEffect(() => {
     if (reduceMotion) return;
-    const t = setInterval(() => setI((n) => (n + 1) % BEATS.length), BEAT_MS);
+    const t = setInterval(() => setI((n) => (n + 1) % WAIT_CLIPS.length), BEAT_MS);
     return () => clearInterval(t);
   }, [reduceMotion]);
 
@@ -44,9 +39,7 @@ export default function ProductWait() {
       </p>
 
       <div className="product-wait-stage">
-        {BEATS.map((id, n) => {
-          const film = clip(id);
-          if (!film) return null;
+        {WAIT_CLIPS.map((film, n) => {
           const on = n === i;
           return (
             <div
@@ -61,8 +54,8 @@ export default function ProductWait() {
       </div>
 
       <ol className="product-wait-pips" aria-hidden="true">
-        {BEATS.map((id, n) => (
-          <li key={id} className={n === i ? "on" : ""} />
+        {WAIT_CLIPS.map((film, n) => (
+          <li key={film.id} className={n === i ? "on" : ""} />
         ))}
       </ol>
     </aside>

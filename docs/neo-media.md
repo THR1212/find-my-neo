@@ -29,6 +29,7 @@ of the neo.space homepage. Template shots are the `template-horizontal-scroll*.w
 | `videos/signature.mp4` | `https://static.flock.co/neo/website/videos/Signature-Builder.mp4` |
 | `videos/designer.mp4` | `https://static.flock.co/neo/website/videos/ED.mp4` |
 | `videos/apps.mp4` | `https://cdn.prod.website-files.com/6380708edae368c5674306ee/65035c87854b97797c0ad0a7_Fast%20Apps%2002-transcode.mp4` |
+| `videos/site.mp4` | `https://static.flock.co/neo/website/videos/Website_Launch.mp4` |
 | `templates/studio.webp` | `…/674db18c56a1cbebbcefacb6_template-horizontal-scroll1.webp` |
 | `templates/storefront.webp` | `…/674db18b27bed59220306062_template-horizontal-scroll3.webp` |
 | `templates/services.webp` | `…/674db18bf9d959ec7aaf732a_template-horizontal-scroll5.webp` |
@@ -38,20 +39,21 @@ Template shots share the prefix `https://cdn.prod.website-files.com/6380708edae3
 
 ## Re-encoding
 
-The originals are marketing masters — 1000×800 and 1600×1020, **29 MB of video in total**, with
-`ED.mp4` alone at 18 MB. They render in a card about 150 px wide, so shipping them untouched
-would put 29 MB in the repo and on the wire to show a thumbnail. Re-encoded, the whole folder is
-**under 900 KB**.
+The originals are marketing masters — 1000×800, 1140×720, and 1920×1192, **~58 MB of video in
+total**, with `Website_Launch.mp4` at 30 MB and `ED.mp4` at 18 MB. They used to be crushed to
+640px / CRF 30 for a ~150 px thumbnail on the mail-only reveal. The wait screen now shows the
+same films in an ~880 px hero card, so that encode looked like a stretched GIF.
 
-Audio is stripped because these autoplay muted and a silent track is bytes for nothing.
-`+faststart` moves the index to the front so playback can begin before the file is complete.
+Re-encoded at the display size: never upscale (`min(1280, iw)`), CRF 22, 30 fps. The folder is
+about **6.7 MB**. Audio is stripped because these autoplay muted. `+faststart` moves the index
+to the front so playback can begin before the file is complete.
 
 ```bash
-# Video: 640px wide, no audio, 24fps
+# Video: up to 1280px wide, no audio, 30fps
 ffmpeg -y -i "$SRC" -an \
-  -vf "scale=640:-2:flags=lanczos,fps=24" \
-  -c:v libx264 -profile:v main -pix_fmt yuv420p \
-  -crf 30 -preset slow -movflags +faststart \
+  -vf "scale='min(1280,iw)':-2:flags=lanczos,fps=30" \
+  -c:v libx264 -profile:v high -pix_fmt yuv420p \
+  -crf 22 -preset medium -movflags +faststart \
   "public/neo/videos/$NAME.mp4"
 
 # Template shots: 560px wide
@@ -59,12 +61,12 @@ ffmpeg -y -i "$SRC" -vf "scale=560:-1:flags=lanczos" -quality 72 \
   "public/neo/templates/$NAME.webp"
 ```
 
+The wait reel (`WAIT_CLIPS` in `src/lib/neoMedia.ts`) is one flagship per category — Mail
+(`apps.mp4`), Site (`site.mp4`), Inbox tools (`invoice.mp4`) — not the full mail catalogue.
+
 ## Refreshing
 
 Re-download from the table above and re-run the commands. If a URL 404s, open neo.space and
 re-read the markup — these are marketing assets and Neo renames them on redeploy. Check that
 the product name in `src/lib/neoMedia.ts` still matches Neo's feature catalogue
 (`https://static.flock.co/meta/plan/feature/config/en-US.json`) before shipping a renamed one.
-
-`Website_Launch.mp4` (30 MB, the AI site builder film) is deliberately **not** vendored: nothing
-renders it, and the reveal already shows a real generated site for that half of the product.

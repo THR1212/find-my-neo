@@ -1794,3 +1794,53 @@ server: the status is the whole answer, so parsing could only add a liability.
 
 **Reverse if:** a scoped credential arrives, or the 500 is fixed. Then `askPartnerPanel` moves
 into `cositeService.ts` as a rung below `askNeo`, and this CLI can stay as the manual spot-check.
+
+---
+
+### 2026-09-03 · The Partner Panel lookup, on the manual path only
+
+**Decided** (Darrel, narrowing the earlier "both"): typing a name into the reveal's
+*check a domain I typed* box now asks Titan's Partner Panel whether an order holds it. The
+reveal's own batch lookup, which fires on every page view, does not.
+
+**Why the manual path is worth it and the batch path is not.** The probe can prove a name is
+taken but never that it is free — it sees published sites only, about a fifth of orders. So
+before this, a person who typed a `.co.site` name got "Couldn't confirm that one's free" almost
+every time, and the name was never added to their options. The panel answers properly:
+`200` = an order holds it, `404` = free. That is the difference between a dead input and a
+working one.
+
+**`manual=1` is NOT a security boundary, and the code says so in three places.** The client sets
+that query parameter, so anyone can set it. What it actually guarantees is narrower and still
+worth having: a page view never reaches an admin-session endpoint. Calling it a gate would be
+the kind of comfortable half-truth that gets believed later, so the real brake is a rate limit —
+`PANEL_MAX_PER_WINDOW`, 30 calls per instance per 10 minutes — plus the existing per-domain
+cache, which makes repeat checks of one stem free. Per-instance on Vercel means the true ceiling
+is higher than 30; it is a brake on casual enumeration, not a wall.
+
+**Only the status code is read.** A `200` body carries the customer's email address, name,
+`customerId` and order history. There is no `res.json()` or `res.text()` in `askPartnerPanel`
+and there must never be — verified by test: with a stub returning a realistic PII-bearing 200,
+the API response contains the boolean and nothing else, and no PII appears in the server log.
+
+**One cache subtlety worth keeping.** A manual check re-asks when the cached answer is
+*inconclusive*, and reuses a cached definite yes/no as normal. Otherwise the batch lookup's
+"unknown" would be served to someone who then typed the same name and pressed a button — the
+probe's silence being exactly what they were trying to get past.
+
+**Ordering:** the panel sits *below* `askNeo` in the ladder even though it is the rung that
+currently works, because `check-domain-availability` is purpose-built and returns no customer
+data. When its 500 is fixed it takes over with no code change here.
+
+**Verified end to end** against a stub: batch lookups make **zero** panel calls; manual lookups
+return `available: false` for a name with an order and `available: true` — with
+`confidence: "authoritative"` — for one without; the 31st call in a window returns `null` rather
+than guessing; and an expired session (401) returns `null` and falls through to the probe.
+
+Also fixed here: `confidence` was still mapping only `source === "neo"` to authoritative, so
+panel answers were arriving unlabelled. Caught by the test rather than by reading — an earlier
+edit to that line had silently no-op'd.
+
+**Reverse if:** a working `check-domain-availability` or a scoped service credential arrives.
+Then `NEO_PARTNER_SESSION` comes out and the manual path stops depending on an admin session
+that expires without warning.

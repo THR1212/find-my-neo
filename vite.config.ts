@@ -187,6 +187,7 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         const { status, body } = await handleDomainLookup(
           url.searchParams.get("name"),
           url.searchParams.get("tlds"),
+          url.searchParams.get("manual"),
         );
         res.statusCode = status;
         res.setHeader("Content-Type", "application/json");

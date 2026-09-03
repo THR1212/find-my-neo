@@ -61,7 +61,7 @@ export interface CoSiteResult {
    * later gate on `confidence === "authoritative"` — the pattern the DomScan rows already
    * use — would have failed for reasons no one could see.
    */
-  source: "neo" | "probe" | "error";
+  source: "neo" | "panel" | "probe" | "error";
   /** Served from the process-local cache rather than a fresh upstream call. */
   cached?: boolean;
 }
@@ -71,6 +71,41 @@ const cache = new Map<string, { at: number; value: CoSiteResult }>();
 const TTL_MS = 10 * 60 * 1000;
 /** How long a hard failure is remembered. Short: an outage should not outlive itself. */
 const ERROR_TTL_MS = 30 * 1000;
+
+/** Partner Panel bundle lookup. `api.flockmail.com` — the host the real panel uses. */
+const PANEL_URL_DEFAULT = "https://api.flockmail.com/partner-panel/bundle/list";
+const PANEL_UA_DEFAULT =
+  "client=partner_panel;tp=titan;os=Linux;browser=Node;appVersion=294;locale=en";
+
+/**
+ * A cap on panel calls per instance, because `manual=1` is NOT a security boundary.
+ *
+ * The manual path was chosen over the automatic one on the reasoning that it is user-initiated
+ * and therefore low-volume. That reasoning is only half true and the half that fails matters:
+ * the flag arrives in a query string the client controls, so anyone can set it. What it really
+ * buys is that the reveal's own batch lookup never touches the panel — incidental volume, not
+ * access control.
+ *
+ * So the actual limit is this counter. It is per-instance, which on Vercel means the real
+ * ceiling is higher than the number suggests; it is a brake on casual enumeration, not a wall.
+ * The per-domain cache above does the rest of the work, since repeat checks of one stem are
+ * free. Say so plainly rather than let the flag imply a protection it does not provide.
+ */
+const PANEL_MAX_PER_WINDOW = 30;
+const PANEL_WINDOW_MS = 10 * 60 * 1000;
+let panelWindowStart = 0;
+let panelCallsInWindow = 0;
+
+function panelBudgetAvailable(): boolean {
+  const now = Date.now();
+  if (now - panelWindowStart > PANEL_WINDOW_MS) {
+    panelWindowStart = now;
+    panelCallsInWindow = 0;
+  }
+  if (panelCallsInWindow >= PANEL_MAX_PER_WINDOW) return false;
+  panelCallsInWindow += 1;
+  return true;
+}
 
 /** The probe is a courtesy call to a production host. Keep it short and never let it block. */
 const TIMEOUT_MS = 4000;
@@ -333,6 +368,62 @@ async function askNeo(stem: string, domain: string): Promise<CoSiteResult | null
 }
 
 /**
+ * Titan's Partner Panel bundle lookup — the only source that currently ANSWERS.
+ *
+ *   GET https://api.flockmail.com/partner-panel/bundle/list?query=<domain>
+ *   x-auth-token: <session>
+ *
+ * Verified against production 2026-09-03: a name with an order returns `200`, a name without
+ * returns `404`. Reached only from the MANUAL "check a domain I typed" path — the reveal's own
+ * batch lookup never calls it. See `PANEL_MAX_PER_WINDOW` for why that split is about volume
+ * rather than access.
+ *
+ * ┌──────────────────────────────────────────────────────────────────────────────────────────┐
+ * │ WE READ THE STATUS CODE AND NEVER THE BODY. THIS IS NOT AN OPTIMISATION.                 │
+ * │ A 200 body carries the CUSTOMER'S email address, name, customerId and order history.     │
+ * │ There is no `res.json()` or `res.text()` below and there must never be. The status is a   │
+ * │ complete answer — 200 means an order holds the name, 404 means none does — so parsing     │
+ * │ could only ever add a liability. Add body parsing here and you have created a PII leak    │
+ * │ in a public-facing function.                                                             │
+ * └──────────────────────────────────────────────────────────────────────────────────────────┘
+ *
+ * ┌──────────────────────────────────────────────────────────────────────────────────────────┐
+ * │ ONLY FOR `.co.site`. A 404 means "not in Titan's system" — the same as free inside Neo's  │
+ * │ OWN namespace and nothing at all outside it. Asked about `foo.com` this API answers 404   │
+ * │ for a domain that is very much registered, so reading that as available would call a      │
+ * │ taken domain free. `checkCoSite` is the only caller and `domainService` only reaches it    │
+ * │ for the co.site TLD. Keep it that way.                                                   │
+ * └──────────────────────────────────────────────────────────────────────────────────────────┘
+ *
+ * The session is a static `NEO_PARTNER_SESSION` and expires. Minting one needs
+ * `POST /partner-panel/login` with a human email and password, which is not something a
+ * serverless function should do on cold start — so when it expires this returns null, the
+ * ladder falls through to the probe, and the reveal goes quiet rather than wrong.
+ */
+async function askPartnerPanel(domain: string): Promise<CoSiteResult | null> {
+  const session = process.env.NEO_PARTNER_SESSION;
+  if (!session) return null;
+  if (!panelBudgetAvailable()) return null;
+
+  const base = process.env.NEO_PARTNER_PANEL_URL ?? PANEL_URL_DEFAULT;
+  const res = await withTimeout(`${base}?query=${encodeURIComponent(domain)}`, {
+    headers: {
+      "x-auth-token": session,
+      "x-user-agent": process.env.NEO_PARTNER_PANEL_UA ?? PANEL_UA_DEFAULT,
+      Accept: "application/json",
+    },
+  });
+
+  /* Status only. See the banner above — do not add body parsing. */
+  if (res.status === 200) return { domain, available: false, source: "panel" };
+  if (res.status === 404) return { domain, available: true, source: "panel" };
+
+  /* 401 session expired, 403, 5xx: say nothing. An expired admin session must never read as
+     "this domain is free". */
+  return null;
+}
+
+/**
  * The fallback. Can prove "taken", never "free" — see the header.
  *
  * `redirect: "manual"` on purpose: a claimed name that redirects elsewhere is still claimed,
@@ -344,11 +435,27 @@ async function probe(domain: string): Promise<CoSiteResult> {
   return { domain, available: taken ? false : null, source: "probe" };
 }
 
-export async function checkCoSite(stem: string): Promise<CoSiteResult> {
+export async function checkCoSite(
+  stem: string,
+  /**
+   * `allowPanel` opts this call into the Partner Panel rung, and only the manual
+   * "check a domain I typed" path sets it. The reveal's own batch lookup does not, so a page
+   * view never touches an admin-session endpoint. See PANEL_MAX_PER_WINDOW — this is a volume
+   * split, not an access boundary.
+   */
+  { allowPanel = false }: { allowPanel?: boolean } = {},
+): Promise<CoSiteResult> {
   const domain = `${stem}.${COSITE_SUFFIX}`;
 
   const hit = cache.get(domain);
-  if (hit && Date.now() - hit.at < TTL_MS) return { ...hit.value, cached: true };
+  /* A cached "unknown" is not good enough to answer a manual check: the person typed a name
+     and pressed a button, and the probe's silence is exactly what the panel exists to
+     improve on. So a manual check re-asks when the cached answer is inconclusive, and reuses
+     a cached definite yes/no as normal. */
+  if (hit && Date.now() - hit.at < TTL_MS) {
+    const conclusive = hit.value.available !== null;
+    if (conclusive || !allowPanel) return { ...hit.value, cached: true };
+  }
 
   /* A LADDER, not a single try/catch, and the difference matters when Neo's endpoint is
      configured but broken. `askNeo(...) ?? probe(...)` inside one try looked equivalent and
@@ -364,6 +471,18 @@ export async function checkCoSite(stem: string): Promise<CoSiteResult> {
     result = await askNeo(stem, domain);
   } catch {
     result = null; // configured but failing — fall through rather than give up
+  }
+
+  /* Rung 2: the Partner Panel, manual path only. Ordered AFTER askNeo on purpose even though
+     it is the one that currently works — `check-domain-availability` is purpose-built and
+     returns no customer data, so it should win the moment its 500 is fixed, with no code
+     change here. */
+  if (!result && allowPanel) {
+    try {
+      result = await askPartnerPanel(domain);
+    } catch {
+      result = null;
+    }
   }
 
   if (!result) {

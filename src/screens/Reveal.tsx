@@ -230,7 +230,10 @@ export default function Reveal({
 
     setOwnChecking(true);
     setOwnError(null);
-    const rows = await lookupDomains(stemPart, [tldPart]);
+    /* `manual: true` — the person typed this and pressed Check. For a `.co.site` name that
+       opts into Titan's Partner Panel lookup, the only source that can say FREE rather than
+       just "not published". The reveal's own batch lookup deliberately does not. */
+    const rows = await lookupDomains(stemPart, [tldPart], undefined, true);
     setOwnChecking(false);
 
     const row = rows.find((r) => r.domain === name) ?? rows[0];
@@ -241,7 +244,13 @@ export default function Reveal({
     setLive((prev) => ({ ...prev, [row.domain]: row }));
     /* Only free names join the recommendation. A taken result is an answer, not an option. */
     if (row.available !== true) {
-      setOwnError(row.available === false ? "That one's taken." : "Couldn't confirm that one's free.");
+      setOwnError(
+        row.available === false
+          ? isCoSite(row.domain)
+            ? "That one's already in use on Neo."
+            : "That one's taken."
+          : "Couldn't confirm that one's free.",
+      );
       return;
     }
     setExtraDomains((prev) => [

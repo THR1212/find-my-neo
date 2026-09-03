@@ -396,40 +396,6 @@ h1 {
   text-align: right;
 }
 
-.site-preview {
-  background: var(--bg-sunken);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: clamp(16px, 2.6vw, 22px);
-}
-
-.site-headline {
-  font-size: 21px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  margin: 0 0 7px;
-}
-
-.site-subhead {
-  font-size: 14px;
-  color: var(--text-dim);
-  margin: 0 0 16px;
-}
-
-.site-nav {
-  display: flex;
-  gap: 9px;
-  flex-wrap: wrap;
-}
-
-.site-nav span {
-  font-size: 12px;
-  color: var(--text-faint);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 5px 12px;
-}
-
 .plan-line {
   display: flex;
   justify-content: space-between;
@@ -645,8 +611,7 @@ h1 {
   color: #ffffff;
 }
 
-.alt-active .alt-price,
-.alt-active .alt-taken {
+.alt-active .alt-price {
   color: rgba(255, 255, 255, 0.78);
 }
 
@@ -673,19 +638,6 @@ h1 {
 
 .mailbox-domain {
   color: var(--text-faint);
-}
-
-.badge-taken {
-  color: var(--text-faint);
-  background: var(--bg-page);
-  border-color: var(--border);
-}
-
-.alt-taken {
-  font-size: 11px;
-  color: var(--text-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .price-caveat {
@@ -891,14 +843,6 @@ h1 {
   .domain-name {
     font-size: clamp(23px, 7vw, 30px);
     overflow-wrap: anywhere;
-  }
-
-  .site-preview {
-    padding: 18px;
-  }
-
-  .site-headline {
-    font-size: 18px;
   }
 
   .plan-line {

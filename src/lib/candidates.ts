@@ -196,15 +196,23 @@ export const NEEDS: Need[] = [
     minMail: "max",
     when: (p) => has(p, "extras", "bookings"),
   },
-  {
-    id: "know_it_was_read",
-    because: "you check whether mail was opened",
-    /* Starter caps read receipts at 50 and Standard is only a 90-day trial; unlimited is Max
-       alone. §5 puts this second only to storage as a paywall trigger. */
-    entitlement: "read_receipts",
-    minMail: "max",
-    when: (p) => has(p, "extras", "receipts"),
-  },
+  /* THERE IS NO `know_it_was_read` NEED, and the plan data is why.
+   *
+   * It was here until 03 Sep, forcing Max on anyone who ticked "Check whether mail was
+   * opened". But Pandora says read receipts are on **all three** tiers — Starter simply caps
+   * them at 50 a month, Standard is a 90-day trial, Max is unlimited. So the entitlement is
+   * not gated at Max; only the *unlimited* version is.
+   *
+   * A floor here therefore charged everyone Max for a cap we have no way of knowing they would
+   * hit. A solo operator with one mailbox does not send 50 tracked emails a month, and we do
+   * not ask anything that would tell us either way. This file's own rule settles it: a need
+   * that does not move a floor is not a need, it is a feature bullet — so Read Receipts is one,
+   * and features.ts surfaces it on whatever tier they land on.
+   *
+   * The cost of the mistake, on a real run (sid hmcrd0yw, a solo cinema-ticket reseller):
+   * Rs958 with the tick, Rs658 without. Invoice Builder still put them on Max, because that
+   * one genuinely is Max-only — which is the difference between our modelling error and Neo's
+   * actual gating. */
   {
     id: "a_real_catalogue",
     because: "you have hundreds of things to list",

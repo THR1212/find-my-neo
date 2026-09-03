@@ -28,7 +28,7 @@ export interface ProfileResult {
   profile: Profile;
   reveal: RevealContent;
   /**
-   * All six question ids, ranked most-worth-asking-first for THIS business.
+   * All nine question ids, ranked most-worth-asking-first for THIS business.
    *
    * Replaced `nextQuestionId`, which was a single pick that App consumed once and discarded —
    * leaving questions 2, 3 and 4 to the engine's fixed weight order, which is identical for

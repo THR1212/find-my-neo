@@ -199,9 +199,8 @@ export function remainingSetups(
 /**
  * Which question to ask next.
  *
- * `preferredId` is the model's suggestion. We honour it only if it is a real question that
- * is still unresolved — otherwise we fall back to the heaviest unresolved question. The model
- * gets to make the flow feel intelligent; it does not get to break it.
+ * Ranked by what an answer would actually change, with the model's ordering breaking ties.
+ * The model gets to make the flow feel intelligent; it does not get to break it.
  */
 export function nextQuestion(state: EngineState): Question | null {
   const unresolved = QUESTIONS.filter(
@@ -211,73 +210,61 @@ export function nextQuestion(state: EngineState): Question | null {
 
   /* Choose from the FIXED bank — weights and signals are never model-touched — then overlay
      the model's wording on the winner. Choosing and wording are separate powers on purpose. */
-  let chosen: Question | null = null;
 
   /**
-   * The model's ranking, head-first, for the whole flow.
+   * Rank lexicographically: what changes the PRICE, then what changes the reveal, then the
+   * model's opinion, then the data-derived weight.
    *
-   * Every id is re-checked against `unresolved` here, so a hallucinated id, a duplicate, or a
-   * question whose signal the free text already answered is skipped rather than trusted. The
-   * model orders; the engine still decides what is askable.
+   * A single combined score got the first two wrong and the probe showed it plainly. `client`
+   * scores 0.67 on the full outcome because it swaps two feature bullets, while `extras` scores
+   * only 0.25 — so a question about which mail app someone uses was asked BEFORE the one that
+   * decides whether they need Max. Feature lines outranking a tier is exactly backwards, and it
+   * also meant the plan never settled early enough for the feature budget to apply.
+   *
+   * WHY THE MODEL'S RANKING IS A TIE-BREAKER AND NOT AN OVERRIDE. It used to be an override: a
+   * loop over `state.priority` picked the first unresolved id and `break`ed, and the scoring
+   * below ran only `if (!chosen)`. Because the model returns a ranking on every successful
+   * profile call, that branch never executed in the live path — `discrimination` ran in replay
+   * and in degraded runs only. Everything above was inert in production, and the flow was
+   * ordered entirely by the model's opinion of what is interesting. Two symptoms, one cause:
+   * feature-only questions front-loaded, burning FEATURE_ONLY_BUDGET and revealing at three;
+   * and, once the model learned the new ids, `extras` asked second or third on almost every
+   * run — and four of its five options carry a Max floor, so almost everyone got Max.
+   *
+   * The model still shapes the flow, which is the point of asking it: it decides every case
+   * where two questions narrow the field equally, and that is most of them. It just cannot
+   * put a question that changes nothing ahead of one that changes the price.
    */
-  for (const id of state.priority ?? []) {
-    const q = QUESTION_BY_ID.get(id);
-    if (q && unresolved.includes(q)) {
+  const prio = state.priority ?? [];
+  /* Higher is better, so that every component of the tuple sorts the same way. Ids the model
+     did not rank — a stale list, a degraded call — score 0 and fall through to weight. */
+  const prioRank = (q: Question): number => {
+    const i = prio.indexOf(q.id);
+    return i === -1 ? 0 : prio.length - i;
+  };
+  const score = (q: Question): [number, number, number, number] => [
+    discrimination(state.profile, q, "plan"),
+    discrimination(state.profile, q),
+    prioRank(q),
+    q.weight,
+  ];
+  /* Lexicographic, with a tolerance on the two float components only. */
+  const beats = (a: [number, number, number, number], b: [number, number, number, number]) => {
+    for (let k = 0; k < a.length; k++) {
+      const tol = k < 2 ? 1e-9 : 0;
+      if (a[k] > b[k] + tol) return true;
+      if (a[k] < b[k] - tol) return false;
+    }
+    return false;
+  };
+  let chosen = unresolved[0];
+  let bestScore = score(chosen);
+  for (const q of unresolved.slice(1)) {
+    const s2 = score(q);
+    if (beats(s2, bestScore)) {
       chosen = q;
-      break;
+      bestScore = s2;
     }
-  }
-
-  /**
-   * Otherwise: whichever question most narrows the field of possible setups.
-   *
-   * This replaced a `reduce` over fixed weights, which — being a pure function of which
-   * signals were resolved — returned the same four questions in the same order for every
-   * business alive, and left `import` and `client` permanently unreachable.
-   *
-   * `discrimination` counts how the surviving candidates split across a question's answers,
-   * so the question that most changes the recommendation is asked first. That is the Akinator
-   * mechanic, and it is arithmetic rather than a model call.
-   *
-   * WHY A ZERO SCORE DOES NOT STOP THE FLOW. Once the plan is pinned, the remaining questions
-   * score 0 — no answer moves a candidate. It is tempting to stop there, and it would be wrong:
-   * `importIntent` and `currentClient` no longer gate any plan (Lite is gone) but they still
-   * decide which feature lines appear, so they change the reveal even when they cannot change
-   * the price. Weight order takes over, and `shouldReveal` still governs when to stop.
-   */
-  if (!chosen) {
-    /**
-     * Rank lexicographically: what changes the PRICE, then what changes the reveal, then the
-     * data-derived weight.
-     *
-     * A single combined score got this wrong and the probe showed it plainly. `client` scores
-     * 0.67 on the full outcome because it swaps two feature bullets, while `extras` scores
-     * only 0.25 — so a question about which mail app someone uses was asked BEFORE the one
-     * that decides whether they need Max. Feature lines outranking a tier is exactly backwards,
-     * and it also meant the plan never settled early enough for the feature budget to apply.
-     *
-     * Separating the two is what makes "ask what matters first" true rather than approximate.
-     */
-    const score = (q: Question): [number, number, number] => [
-      discrimination(state.profile, q, "plan"),
-      discrimination(state.profile, q),
-      q.weight,
-    ];
-    let best = unresolved[0];
-    let bestScore = score(best);
-    for (const q of unresolved.slice(1)) {
-      const s2 = score(q);
-      const better =
-        s2[0] > bestScore[0] + 1e-9 ||
-        (Math.abs(s2[0] - bestScore[0]) <= 1e-9 &&
-          (s2[1] > bestScore[1] + 1e-9 ||
-            (Math.abs(s2[1] - bestScore[1]) <= 1e-9 && s2[2] > bestScore[2])));
-      if (better) {
-        best = q;
-        bestScore = s2;
-      }
-    }
-    chosen = best;
   }
 
   return withSurface(chosen, state.surface);

@@ -177,7 +177,7 @@ interface ModelProfile {
   domainStem: string;
   suggestedMailboxes: string[];
   /**
-   * All six question ids, most worth asking first.
+   * All nine question ids, most worth asking first.
    *
    * Was `nextQuestionId`, a single pick — and App.tsx nulled it after one use, so questions
    * 2, 3 and 4 came from `nextQuestion`'s weight fallback. That fallback is a `reduce` over a
@@ -253,7 +253,7 @@ const SCHEMA = {
       maxItems: 9,
       items: { type: "string", enum: [...QUESTION_IDS] },
       description:
-        "All six question ids, each exactly once, ordered by how much asking it would tell " +
+        "All nine question ids, each exactly once, ordered by how much asking it would tell " +
         "us about THIS business that the description does not already say. Put a question " +
         "LAST if the description already answers it.",
     },

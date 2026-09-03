@@ -48,7 +48,6 @@ const SITE_RANK: Record<string, number> = { none: 0, basic: 1, plus: 2, growth: 
  */
 const ENTITLEMENT_FLOORS: Record<string, { mail?: MailTier; site?: SiteTier }> = {
   storage: { mail: "max" },
-  read_receipts: { mail: "max" },
   invoice_builder: { mail: "max" },
   email_marketing: { mail: "max" },
   appointment_booking: { mail: "max" },
@@ -78,7 +77,6 @@ const ENTITLEMENT_IDS = Object.keys(ENTITLEMENT_FLOORS);
  */
 const ENTITLEMENT_QUESTION: Record<string, string> = {
   storage: "volume",
-  read_receipts: "extras",
   invoice_builder: "extras",
   email_marketing: "extras",
   appointment_booking: "extras",
@@ -142,7 +140,6 @@ const SYSTEM = [
   "show they need it. Copy their phrase exactly; a paraphrase is rejected. These are the only",
   "entitlements you may cite, and what each one requires:",
   "  storage                   large files / heavy attachments  -> mail max",
-  "  read_receipts             needing to know mail was opened  -> mail max",
   "  invoice_builder           sending quotes or invoices       -> mail max",
   "  email_marketing           messaging customers as a group   -> mail max",
   "  appointment_booking       people booking time with them    -> mail max",

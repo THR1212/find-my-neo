@@ -155,8 +155,19 @@ research generally: **absence of evidence here was mostly absence of looking pro
    would pre-empt the most obvious objection.
 3. **Start over / try again** — Cynet and Rinda both offer it. We have `onRestart`; this says
    keep it visible rather than tucked away.
-4. **Three to four questions** — Mailchimp asks 4, Rinda 3. Our `MAX_QUESTIONS = 4` now has
-   direct precedent from the two closest analogues, not just the telecom/insurance range.
+4. **Three to four questions** — Mailchimp asks 4, Rinda 3, so the two closest analogues both
+   sit at three or four.
+
+   > **Stale as written, updated 2026-09-03.** `MAX_QUESTIONS` was 4 when this was researched
+   > and is now **12** (`src/lib/engine.ts`), raised on master to make Max and Growth reachable
+   > — six new questions across three screens. It is a *cap*, not a target, and the
+   > confidence-based early stop still ends most runs sooner, so a typical run may still land
+   > near four. But the sentence above no longer describes the code, and the competitor evidence
+   > now points the other way rather than supporting us: nothing found in this research asks
+   > more than eight, and the two closest analogues ask three and four. Recorded as a tension
+   > to be aware of in the room, not as an argument to reopen — the reachability problem the
+   > raise solves is real and was one of our own findings (§9 of `docs/data-findings.md`
+   > flagged `growth` as unreachable). Worth measuring completion against, given risk 2 below.
 
 **And the addresses gap holds even here.** Rinda asks "number of people". Mailchimp asks team
 size *and* number of contacts — a quantity that drives price, which is structurally what
@@ -183,9 +194,12 @@ product quizzes. Read generously: the ground is open. Read sceptically: many wel
 companies have not done this, and "nobody does it" is not the same as "nobody tried". We cannot
 tell which from desk research, and should not pretend to.
 
-On question count, our cap of four sits at the **short end** of the observed 4–8 range —
-consistent with high-intent transactional plan-finders rather than engagement quizzes. That
-looks like the right call, on a small sample.
+On question count, the cap was four when this was written — the **short end** of the observed
+4–8 range, consistent with high-intent transactional plan-finders rather than engagement
+quizzes. The cap is now 12, which sits **above** everything found in this research. The early
+stop means the cap is not the number a person actually answers, so this is not a like-for-like
+comparison; but if a run ever does ask ten questions on a pricing page, nothing in the observed
+market supports it, and risk 2 above is the reason to care.
 
 ---
 

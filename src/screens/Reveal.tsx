@@ -160,7 +160,13 @@ export default function Reveal({
 
     setOwnChecking(true);
     setOwnError(null);
-    const rows = await lookupDomains(stemPart, [tldPart]);
+    /* `manual: true`, and without it the whole Partner Panel rung is dead code.
+       `allowPanel` in cositeService, the `manual` param in handleDomainLookup, its forwarding
+       from api/domains.ts and from the dev-server mount all exist — and this, the only caller
+       that should set it, did not. The panel is the one source that can say a typed .co.site
+       name is FREE; the probe can only ever say taken. So without this the input answers
+       "Couldn't confirm that one's free" for every name and never adds one. */
+    const rows = await lookupDomains(stemPart, [tldPart], undefined, true);
     setOwnChecking(false);
 
     const row = rows.find((r) => r.domain === name) ?? rows[0];
@@ -170,7 +176,15 @@ export default function Reveal({
     }
     setLive((prev) => ({ ...prev, [row.domain]: row }));
     if (row.available !== true) {
-      setOwnError(row.available === false ? "That one's taken." : "Couldn't confirm that one's free.");
+      setOwnError(
+        row.available === false
+          ? isCoSite(row.domain)
+            ? /* Same phrasing as the suggested-row note below: a .co.site name is taken ON NEO,
+                 which is a different fact from a .com being registered by a stranger. */
+              "That one's already in use on Neo."
+            : "That one's taken."
+          : "Couldn't confirm that one's free.",
+      );
       return;
     }
     setExtraDomains((prev) => [
@@ -179,6 +193,8 @@ export default function Reveal({
         name: row.domain,
         available: true,
         priceInr: row.priceInr,
+        /* Carry `free` through or a typed .co.site name renders priced like a custom domain —
+           which is to say priced at nothing, since its priceInr is null. */
         free: row.free,
         note: "Your own idea",
       },

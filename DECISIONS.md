@@ -1803,3 +1803,150 @@ Marketing-reel shots of other shops are not used here either.
 
 **Reverse if:** the profile call is consistently under ~2s, at which point the reel would
 feel slower than the thing it is covering.
+
+---
+
+### 2026-09-03 · The path has no `v2` and the parameter is `domainName` — recovered from bll's own error codes
+
+"None of the bll endpoints working" turned out to be wrong in a useful way. `bll` distinguishes
+its failure modes precisely, and reading them in sequence recovered two things the supplied
+spec had wrong.
+
+**bll is mostly healthy.** `/internal/ip-to-country` → 200. `/external/cello/reward-details` →
+200. `/partner/token/generate` → 401 `UNAUTHENTICATED` — which is a route that *exists* and
+wants auth, not a missing one.
+
+**That contrast is the whole diagnostic.** `UnRegisteredEndpoint` means no such route;
+`UNAUTHENTICATED` / `BAD_REQUEST` mean the route is there. So:
+
+    /internal/neo/v2/check-domain-availability  -> 404 UnRegisteredEndpoint   (no such route)
+    /internal/neo/check-domain-availability     -> 400 BAD_REQUEST            (route EXISTS)
+      body: {"attrs":{"detail":"domainName or domainNames is required"}}
+    ...?domainName=<domain>                     -> 401 "Auth header missing"  (param accepted)
+    ...with an Authorization header present     -> 404 "Hosting server not found"
+
+**There is no `v2`**, and the parameter is **`domainName`** — the API named it itself. The
+plural `domainNames` implies batch support, which is worth using later: one call for the whole
+reveal rather than one per stem.
+
+**It still cannot answer from outside Titan's network, and this is now certain rather than
+inferred.** With the correct path, the correct parameter and a real session, *every* domain
+returns `NOT_FOUND / "Hosting server not found"` — including `titan.email` and `neo.space`,
+which certainly exist. A blanket downstream failure, not an availability answer, and it must
+never be read as "free".
+
+**And this edge is not validating credentials at all.** `Authorization: total-garbage` returns
+byte-for-byte the same response as a real session. So we are reaching the service past its
+gateway; nothing it says here is trustworthy, and that is where probing stopped. Poking at an
+internal service that is not enforcing auth is not something to continue doing to learn a
+response shape.
+
+**One consequence for the code:** the session is now sent in **both** `x-auth-token` and
+`Authorization: Bearer`, because the two sources of truth disagree — Titan's docs say
+`x-auth-token`, and this route answers "Auth header missing" when only that is set. Same
+secret, same host, same connection, so sending both costs nothing and removes a coin flip whose
+wrong side looks exactly like "no access" — the failure mode that has already cost time here.
+`NEO_COSITE_AUTH_HEADER` pins it once Titan confirms.
+
+**What is actually still needed:** how a Vercel function should reach this service *through* its
+gateway. That is the only remaining blocker; the path, the parameter and the login are all
+solved.
+
+---
+
+### 2026-09-03 · The `.co.site` check stays out of the app, and lives in `tools/` instead
+
+**Decided** (Darrel's call, after the trade-off was laid out): the Partner Panel bundle lookup
+answers the availability question, and we are **not** putting it behind the reveal. It ships as
+`tools/cosite-check.mjs`, a local CLI run by a person. The reveal keeps its HTTP probe and
+renders no availability badge on a `.co.site` name.
+
+**What we gave up:** the green "Available" tick on the one domain Neo can actually sell. That is
+a real loss on the screen CLAUDE.md calls the one that must be perfect.
+
+**Why it was still the right call.** Two reasons, and the second is the one that settles it.
+
+1. **An admin session must not sit in a function anonymous traffic can trigger.** Reading nothing
+   but a status code fully solves the PII problem — `200` versus `404` is a complete answer, so
+   there is no body to filter and none is read. What it does not solve is that a public endpoint
+   backed by a Titan Support session is an **enumeration oracle**: anyone who finds it can ask
+   which domains exist in Titan's system.
+2. **The session cannot be minted in code.** `POST /partner-panel/login` takes an email and
+   password. So the only options were a human pasting a session that silently expires
+   mid-demo, or a serverless function logging in as a human Titan Support user — an account with
+   `is2FAEnabled: false` — on every cold start. Neither is something to hand to judges as the
+   integration story, and the first one fails in the least convenient way possible.
+
+**What unblocks the badge, in preference order:** `check-domain-availability` returning something
+other than a `500` (it is purpose-built and returns no customer data, which is why the ladder
+still tries it first); or a scoped service credential for the panel lookup.
+
+**The contract, verified against production**, so this is a config change rather than research
+when either arrives:
+
+    GET https://api.flockmail.com/partner-panel/bundle/list?query=<domain>
+        x-auth-token: <session>
+        x-user-agent: client=partner_panel;tp=titan;…
+    200 = a bundle exists (taken) · 404 = none (free)
+
+Note the host: `api.flockmail.com`, which is what the real panel uses — the third host we were
+pointed at, after `bll.titan.email` and `flockmail-bll.flock-staging.com`.
+
+**Two guards in the tool that are not optional.** It refuses any domain that is not `.co.site`,
+because a `404` means "not in Titan's system" — the same as free inside Neo's own namespace and
+**nothing at all** outside it; asked about `example.com` the API answers 404 for a domain that is
+very much registered. And it never parses the response body, in a local tool as much as in a
+server: the status is the whole answer, so parsing could only add a liability.
+
+**Reverse if:** a scoped credential arrives, or the 500 is fixed. Then `askPartnerPanel` moves
+into `cositeService.ts` as a rung below `askNeo`, and this CLI can stay as the manual spot-check.
+
+---
+
+### 2026-09-03 · The Partner Panel lookup, on the manual path only
+
+**Decided** (Darrel, narrowing the earlier "both"): typing a name into the reveal's
+*check a domain I typed* box now asks Titan's Partner Panel whether an order holds it. The
+reveal's own batch lookup, which fires on every page view, does not.
+
+**Why the manual path is worth it and the batch path is not.** The probe can prove a name is
+taken but never that it is free — it sees published sites only, about a fifth of orders. So
+before this, a person who typed a `.co.site` name got "Couldn't confirm that one's free" almost
+every time, and the name was never added to their options. The panel answers properly:
+`200` = an order holds it, `404` = free. That is the difference between a dead input and a
+working one.
+
+**`manual=1` is NOT a security boundary, and the code says so in three places.** The client sets
+that query parameter, so anyone can set it. What it actually guarantees is narrower and still
+worth having: a page view never reaches an admin-session endpoint. Calling it a gate would be
+the kind of comfortable half-truth that gets believed later, so the real brake is a rate limit —
+`PANEL_MAX_PER_WINDOW`, 30 calls per instance per 10 minutes — plus the existing per-domain
+cache, which makes repeat checks of one stem free. Per-instance on Vercel means the true ceiling
+is higher than 30; it is a brake on casual enumeration, not a wall.
+
+**Only the status code is read.** A `200` body carries the customer's email address, name,
+`customerId` and order history. There is no `res.json()` or `res.text()` in `askPartnerPanel`
+and there must never be — verified by test: with a stub returning a realistic PII-bearing 200,
+the API response contains the boolean and nothing else, and no PII appears in the server log.
+
+**One cache subtlety worth keeping.** A manual check re-asks when the cached answer is
+*inconclusive*, and reuses a cached definite yes/no as normal. Otherwise the batch lookup's
+"unknown" would be served to someone who then typed the same name and pressed a button — the
+probe's silence being exactly what they were trying to get past.
+
+**Ordering:** the panel sits *below* `askNeo` in the ladder even though it is the rung that
+currently works, because `check-domain-availability` is purpose-built and returns no customer
+data. When its 500 is fixed it takes over with no code change here.
+
+**Verified end to end** against a stub: batch lookups make **zero** panel calls; manual lookups
+return `available: false` for a name with an order and `available: true` — with
+`confidence: "authoritative"` — for one without; the 31st call in a window returns `null` rather
+than guessing; and an expired session (401) returns `null` and falls through to the probe.
+
+Also fixed here: `confidence` was still mapping only `source === "neo"` to authoritative, so
+panel answers were arriving unlabelled. Caught by the test rather than by reading — an earlier
+edit to that line had silently no-op'd.
+
+**Reverse if:** a working `check-domain-availability` or a scoped service credential arrives.
+Then `NEO_PARTNER_SESSION` comes out and the manual path stops depending on an admin session
+that expires without warning.

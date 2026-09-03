@@ -7,7 +7,8 @@
     "ai_summary": "pricing page: MAX ONLY. plan-features.json: 'All three, limit 4 on Starter and Standard.'",
     "advanced_tracking": "pricing page: MAX ONLY. plan-features.json: 'All three, limited: Starter 5, Standard 5, Max unlimited.'",
     "sendLimitPerDay": "pricing page: Starter 500 / Standard 1000 / Max 1000 per day. plan-features.json sendLimitPerDay: max 2000. Nothing reads it today.",
-    "_resolution": "PANDORA WINS on all five. Recorded so nobody re-derives them from the page and 'corrects' the code in the wrong direction. What this table IS good for: catching a floor we assert that NEITHER source supports — which is how the attachments mis-citation was found."
+    "_resolution": "PANDORA WINS on all five. Recorded so nobody re-derives them from the page and 'corrects' the code in the wrong direction. What this table IS good for: catching a floor we assert that NEITHER source supports — which is how the attachments mis-citation was found.",
+    "_whichOnesActuallyMatter": "TWO of the five change a live recommendation, and both sit on the SAME line: does Standard have it, or only Max? `drive_storage` carries room_for_attachments (photos and documents -> Standard) and `signature_builder` carries look_established (moving off a personal address -> Standard). Under Pandora both are Standard+ and Standard is reachable. If the pricing page were right on either, that route collapses to Max and the tier gets much harder to reach. `ai_summary`, `advanced_tracking` and `sendLimitPerDay` are recorded for completeness and are read by nothing. Note both sources AGREE Drive is absent from Starter — the disagreement is only about Standard, which is exactly the boundary our two Standard needs rest on."
   },
   "rows": [
     {

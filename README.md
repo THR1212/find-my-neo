@@ -23,7 +23,7 @@ To stop it: `Ctrl+C` in that terminal.
 
 | Part | Live? | If it fails |
 |---|---|---|
-| The profile / guess | No — reads a saved answer | n/a |
+| The profile / guess | Only with `VITE_LLM_MODE=live` and a server `LLM_API_KEY` | A one-sentence guess from **their own words**. Never the bakery fixture. |
 | **Neo's site generation** | **Yes** — their real API, no key needed | Shows a recorded real response, card says "offline — recorded earlier" |
 | Domain availability + price | Yes — needs `DOMSCAN_API_KEY` | No "Available" badge and no price. Silently. |
 
@@ -137,7 +137,7 @@ what decides each one. This table is the same thing in text, with the actual fun
 |---|---|---|---|---|
 | 1 | `Hook.tsx` | nothing | - | - |
 | 2 | `Describe.tsx` | `App.submitDescription` -> `kickOff` | starts 3 and 4 **in parallel**, then advances immediately | - |
-| 3 | *(background)* | `api.buildProfile` | `POST /api/profile` -> `profileService.handleProfile()` -> `llm.complete()` -> gpt-5.6-luna | Summary, industry (one of Titan's 16), headcount, domain stem, mailboxes, and which question to ask first. On failure returns a derived profile with `degraded: true` rather than an error |
+| 3 | *(background)* | `api.buildProfile` | `POST /api/profile` -> `profileService.handleProfile()` -> `llm.complete()` -> gpt-5.6-luna | Summary, industry (one of Titan's 16), headcount, domain stem, mailboxes, and which question to ask first. On failure returns a derived profile (`degraded: true`) whose summary is still a guess from their own words |
 | 4 | *(background)* | `neoSite.fetchNeoSite` | `GET /api/neo-site` -> `generateNeoSite()` -> 3 chained calls to `api.titan.email` | Real site: 17 blocks, font, pallet, Pexels URLs. 22-38s. Falls back to `neo-site.json` after 90s |
 | 5 | `Guess.tsx` | - | - | Shows `profile.summary` while 3 and 4 are still resolving |
 | 6 | `AdaptiveQuestion.tsx` | `engine.nextQuestion` picks the question; `App.answer` -> `engine.applyAnswer` | nothing leaves the browser | Meter redraws from `confidence()` and `remainingSetups()`; `persist.saveSnapshot()` writes the run |
@@ -198,6 +198,14 @@ itself works, open this in a browser while the server is running:
 You should get JSON with `"available"` and `"priceInr"`. If you get `{"error":"DOMSCAN_API_KEY is not set"}`,
 the key isn't reaching the server.
 
+**Guess says "We didn't catch enough to guess" after you wrote a real description.** The
+model call failed and an older build left `summary` empty. Current code always derives a
+guess from what you typed. On a Preview URL that still degrades, the function is in replay
+(or has no `LLM_API_KEY`) — set both `LLM_MODE=live` and `LLM_API_KEY` on that Vercel
+environment for a *model* guess; the derived line still works without a key. Confirm with:
+`curl -s -X POST http://localhost:5173/api/profile -H 'Content-Type: application/json' -d '{"businessText":"a clinic in Austin that books by phone"}'`
+You should get a non-empty `"summary"`. `degraded: true` means the model did not run.
+
 **The site says "offline — recorded earlier".** Neo's generator didn't answer within 45 seconds
 — either their API is down, changed, or you have no internet. Nothing is broken on our side; you
 are seeing a real response recorded on 28 Aug. To check their API directly:
@@ -250,9 +258,10 @@ automatic redirect. Cold visitors still land on `/site/industry` rather than the
 that's the remaining gap.
 
 **The profile step is live.** `api/profile.ts` + `api/_lib/profileService.ts` call gpt-5.6-luna
-and return a real profile. Nothing in the flow is fixture-backed any more. `VITE_LLM_MODE=replay`
-still serves the recorded fixture instantly, which is the right setting for rehearsing the demo
-without spending tokens.
+and return a real profile when `LLM_MODE=live` and `LLM_API_KEY` are set (local `.env.local`,
+and the matching Vercel environment — Preview is a separate set of vars from Production).
+`VITE_LLM_MODE=replay` still serves the recorded bakery instantly for rehearsal. If the model
+cannot run, the guess is derived from the description rather than left blank.
 
 ---
 

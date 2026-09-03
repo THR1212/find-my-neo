@@ -67,14 +67,13 @@ export default function Guess({
   /**
    * Resolved, but with nothing to say.
    *
-   * This is the degraded path: `api/profile` returns `degraded: true` with an empty summary
-   * when the model call fails, precisely so the flow can continue (CLAUDE.md rule 4). The
-   * condition used to be folded into `loading || !summary`, which turned "we could not read
-   * it" into a spinner that never resolved — the exact opposite of degrading gracefully, and
-   * silent, because a degraded response is a perfectly good HTTP 200.
+   * Last resort. `derivedProfile` / `derivedFallback` now write a guess from the user's own
+   * words, so this should only fire if they typed nothing usable. The condition used to be
+   * folded into `loading || !summary`, which turned a blank summary into a spinner that
+   * never resolved.
    *
-   * So: say so, and keep both doors open. The questions still work without a summary — the
-   * engine simply asks more of them, which is the right behaviour when we know less.
+   * Keep both doors open. The questions still work without a summary — the engine simply
+   * asks more of them.
    */
   if (!summary) {
     return (

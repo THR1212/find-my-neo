@@ -14,6 +14,7 @@
  * "Not quite" beats a dead screen mid-demo. The payload carries `degraded: true`.
  */
 
+import { deriveGuessSummary } from "../../src/lib/derivedGuess.js";
 import { complete } from "./llm.js";
 
 /**
@@ -373,10 +374,11 @@ const STOPWORDS = new Set([
 /**
  * What to show when the model call fails.
  *
- * Deliberately dumb and deterministic: slugify the first meaningful words, offer two generic
- * role addresses, and claim nothing about the industry. An unresolved industry leaves the
- * ring lower and makes the engine ask more, which is the correct behaviour when we genuinely
- * do not know — better than a confident wrong guess.
+ * Summary is their own words, reshaped into the Guess-screen noun phrase — never a blank,
+ * never the bakery fixture. Industry, headcount and prefills stay empty: an unresolved
+ * industry leaves the ring lower and makes the engine ask more, which is the correct
+ * behaviour when we genuinely do not know. Inventing those would skip questions on facts
+ * we never read.
  */
 function derivedProfile(businessText: string): ModelProfile {
   const words = businessText
@@ -386,7 +388,7 @@ function derivedProfile(businessText: string): ModelProfile {
     .filter((w) => w.length > 2 && !STOPWORDS.has(w));
 
   return {
-    summary: "",
+    summary: deriveGuessSummary(businessText),
     industry: "" as ModelProfile["industry"],
     teamSize: null,
     location: null,

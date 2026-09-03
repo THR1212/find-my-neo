@@ -272,7 +272,7 @@ it is generated per business — see Call 3.
 
 | Call fails | You get |
 |---|---|
-| profile | a derived profile — empty summary, no industry. The guess screen says "We didn't catch enough to guess" and the engine simply asks more questions. **Never the replay fixture** — showing a Bandra bakery to someone who typed a Texas cinema is the most visible way this can embarrass itself. |
+| profile | a derived profile — a one-sentence guess from **their own words**, no industry. Guess still says "Here's what we think". **Never the replay fixture** — showing a Bandra bakery to someone who typed a cinema in Texas is the most visible way this can embarrass itself. The empty-guess screen is only if they typed nothing usable. |
 | questions | an empty surface — all six render from the fixed bank. Exactly what shipped before the feature existed. |
 | Neo's site | a *recorded real* response, and the card says "offline — recorded earlier". |
 | DomScan | no badge and no price, rather than a wrong one. |

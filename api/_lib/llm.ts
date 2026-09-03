@@ -119,7 +119,12 @@ export async function complete<T>({
       /* Local rehearsal with no fixture and no key should still fail loudly. A deployed
          preview that has a key should not degrade to an empty guess because profile.json
          was never recorded. */
-      if (!process.env.LLM_API_KEY) throw err;
+      if (!process.env.LLM_API_KEY) {
+        throw new Error(
+          `${err instanceof Error ? err.message : String(err)} ` +
+            `(LLM_API_KEY unset; cannot fall through to live)`,
+        );
+      }
       console.error(
         "[llm] replay fixture missing; falling through to live",
         JSON.stringify({ key, reason: err instanceof Error ? err.message : String(err) }),

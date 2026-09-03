@@ -13,6 +13,7 @@
  * a real key that must never reach the browser. Both paths return the same shape.
  */
 
+import { deriveGuessSummary } from "./derivedGuess";
 import { reportDegraded } from "./errorLog";
 import { sessionId } from "./persist";
 import type { SurfaceMap } from "./questions";
@@ -101,7 +102,7 @@ export async function buildProfile(businessText: string): Promise<ProfileResult>
     if (!res.ok) {
       throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
     }
-    return (await res.json()) as ProfileResult;
+    return withDerivedSummary((await res.json()) as ProfileResult, businessText);
   } catch (err) {
     /**
      * Degrade, don't throw (CLAUDE.md rule 4).
@@ -114,9 +115,8 @@ export async function buildProfile(businessText: string): Promise<ProfileResult>
      *
      * Note what it deliberately does NOT fall back to: the replay fixture. That would show
      * "a two-person bakery in Bandra" to someone who typed a cinema in Texas, which is the
-     * single most visible way this can embarrass itself in front of an audience. An empty
-     * summary is honest — the guess screen has a state for exactly this, and the questions
-     * still work without it; the engine just asks more of them.
+     * single most visible way this can embarrass itself in front of an audience. The guess
+     * is their own words, reshaped — honest, and specific to what they typed.
      */
     reportDegraded("profile", err instanceof Error ? err.message : String(err));
     return derivedFallback(businessText);
@@ -124,9 +124,20 @@ export async function buildProfile(businessText: string): Promise<ProfileResult>
 }
 
 /**
+ * If the route answered but left summary blank (older deploys, or a model that returned ""),
+ * fill it from the description so Guess never dead-ends on an empty string they wrote.
+ */
+function withDerivedSummary(result: ProfileResult, businessText: string): ProfileResult {
+  if (result.profile?.summary?.trim()) return result;
+  const summary = deriveGuessSummary(businessText);
+  if (!summary) return result;
+  return { ...result, profile: { ...result.profile, summary } };
+}
+
+/**
  * Mirrors `derivedProfile` in api/_lib/profileService.ts, for when the route is unreachable
- * and that server-side fallback never gets to run. Deliberately claims nothing: no summary,
- * no industry, no headcount. Domain prices stay null — DomScan fills them on the reveal.
+ * and that server-side fallback never gets to run. Summary is their own words. Industry and
+ * headcount stay empty — we did not read them. Domain prices stay null — DomScan fills them.
  */
 function derivedFallback(businessText: string): ProfileResult {
   const stem =
@@ -141,7 +152,7 @@ function derivedFallback(businessText: string): ProfileResult {
 
   return {
     profile: {
-      summary: "",
+      summary: deriveGuessSummary(businessText),
       industry: "",
       teamSize: null,
       location: null,

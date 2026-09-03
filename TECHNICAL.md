@@ -82,8 +82,10 @@ the fallback could mislead we say so on screen ("offline — recorded earlier").
 **The site content is Neo's, not ours.** We stopped drafting site copy entirely. See
 `docs/neo-product-facts.md` for the three-call pipeline and its gotchas.
 
-**Replay mode** (`VITE_LLM_MODE=replay`, the default) still covers the profile/guess step, which
-is the one part not yet live.
+**Replay mode** (`VITE_LLM_MODE=replay`, the default) serves the recorded bakery profile with no
+network. Live mode (`VITE_LLM_MODE=live` plus server `LLM_MODE` / `LLM_API_KEY`) calls the model.
+If that call cannot run, the guess is derived from the description — not left blank, and not
+swapped for the bakery fixture.
 
 ## Deterministic plan mapping
 

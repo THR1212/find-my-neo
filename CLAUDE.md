@@ -248,7 +248,8 @@ builder — read `docs/neo-product-facts.md` before claiming anything about what
   instead of matching nothing. It emits no price, no plan and no mailbox count. On failure it
   degrades to a derived profile rather than erroring.
   **Production needs the env vars set on Vercel** (`LLM_MODE`, `LLM_MODEL`, `LLM_API_KEY`) or
-  it will silently serve degraded profiles.
+  it will silently serve degraded profiles. A degraded profile still carries a guess written
+  from the user's own words — Preview without a key must not blank the Guess screen.
 - ~~Design chooser~~ — **done 03 Sep.** `generateNeoSites` classifies once for Neo's own
   `templateKey`, then generates that one AND a deliberately different one in parallel
   (`Promise.allSettled`, duplicate keys dropped), so the pair costs one call's wall-clock. Both

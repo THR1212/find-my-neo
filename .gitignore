@@ -37,8 +37,15 @@ neo_flows/
 *.har
 *.webm
 
-# Bookmarklet output embeds the Vercel share token — keep it local.
+# Bookmarklet output embeds the Vercel share token — keep it local. The token itself is
+# NOT in source.js any more: build.mjs reads it from VERCEL_SHARE_TOKEN. It was hardcoded
+# there until 03 Sep, which quietly defeated this rule — source.js is tracked, so the
+# token was in the repo regardless of what the generated file did.
 tools/bookmarklet/bookmarklet.txt
+bm_payload.txt
+
+# tsc -b writes this next to api/tsconfig.json. Build output, never source.
+api/tsconfig.tsbuildinfo
 
 # Raw source data — real customer records. Never commit.
 analysis/data/

@@ -1573,27 +1573,39 @@ a.btn {
   flex-direction: column;
 }
 
-/* Spread the spare height through the gaps instead of pooling it in one hole above the plan.
-   The plan card used to be pushed down with `margin-top: auto`, which sends ALL free space to
-   a single margin — fine when the column was full, a 200px void once the identity cards came
-   out. `space-between` divides the same space into three ordinary-looking gaps. */
+/* The column is short now that the identity cards are gone, so the question is where its
+   spare height goes. `margin-top: auto` on the plan pooled all of it into one void above the
+   CTA. `space-between` was worse: it pushed four blocks to the far corners and the column read
+   as four unrelated things floating in a field.
+   Grouping them and centring the group puts the same space into one balanced margin above and
+   below, which reads as breathing room rather than a hole.
+   `safe center` because a centred flex column with overflow clips its own top when the content
+   does grow past the viewport — the overflow lands above the scroll origin and is unreachable.
+   Same reason `.stage` uses it. */
 .reveal-setup {
   overflow-y: auto;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: center;
+  justify-content: safe center;
+  gap: clamp(14px, 2.2vh, 22px);
 }
 
 .reveal-domain {
   flex: 0 0 auto;
 }
 
+/* The column gap owns the vertical rhythm now — per-block margins on top of it double the
+   spacing and reintroduce the gaps this layout just removed. */
+.reveal-setup > * {
+  flex: 0 0 auto;
+}
+
 .reveal-setup .eyebrow {
-  margin-bottom: 8px;
+  margin: 0;
 }
 
 .reveal-block-tight {
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .reveal-setup .domain-name {
@@ -1665,10 +1677,12 @@ a.btn {
   flex-direction: column;
 }
 
+/* Capped: on a tall column an uncapped hero grows until the card stops reading as a website
+   and starts reading as a photo with a caption. */
 .reveal-preview .neo-site-hero {
   flex: 1 1 42%;
-  min-height: 120px;
-  max-height: none;
+  min-height: 110px;
+  max-height: 40%;
   aspect-ratio: auto;
 }
 

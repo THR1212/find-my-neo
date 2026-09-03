@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import type { DomainOption, RevealContent } from "../lib/session";
-import { lookupDomains, type DomainInfo } from "../lib/domains";
+import { availableFromLookup, lookupDomains, type DomainInfo } from "../lib/domains";
 import { pickFeatures, type FeatureSurface } from "../lib/features";
 import { recommend, CYCLE_LABEL } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
@@ -62,21 +62,20 @@ export default function Reveal({
   neoSite: NeoSite | null;
   onRestart: () => void;
 }) {
-  const [chosenDomain, setChosenDomain] = useState(0);
   /**
-   * Has the person chosen a domain themselves?
-   *
-   * Gates the auto-switch below. Once someone has picked, we never move the selection under
-   * them — a UI that overrides a deliberate choice is worse than one that recommends badly.
+   * Selected by name, not index. The suggestion list shrinks when DomScan marks a name taken
+   * and can grow when a free TLD from the same batch fills the gap — an index would point at
+   * the wrong row after that reshuffle.
    */
-  const [userPickedDomain, setUserPickedDomain] = useState(false);
+  const [chosenName, setChosenName] = useState<string | null>(null);
   /**
-   * Domains the person checked themselves, appended after our three suggestions.
+   * Domains the person checked themselves, appended after our suggestions.
    *
    * Our suggestions are built from one stem the model chose. That is a guess about their name,
    * and when it is wrong — or when every TLD is taken — the flow previously had no answer
    * except "start over". This is the escape hatch, and it uses the same live DomScan lookup,
-   * so a name they type is verified exactly as strictly as one we suggested.
+   * so a name they type is verified exactly as strictly as one we suggested. Only names
+   * DomScan says are free are added: a taken one is an error, not a recommendation.
    */
   const [extraDomains, setExtraDomains] = useState<DomainOption[]>([]);
   const [ownInput, setOwnInput] = useState("");
@@ -92,30 +91,12 @@ export default function Reveal({
   /** Stem drives the lookup, so switching the selected domain doesn't refetch. */
   const stem = reveal?.domains[0]?.name.split(".")[0] ?? "";
   useEffect(() => {
+    setChosenName(null);
     if (!stem) return;
     let cancelled = false;
     lookupDomains(stem).then((rows) => {
       if (cancelled || !rows.length) return;
-      setLive(Object.fromEntries(rows.map((r) => [r.domain, r])));
-
-      /**
-       * Move off a taken domain.
-       *
-       * The .com is recommended and pre-selected because it is the one people guess. But the
-       * selection drives the hero, the mailbox addresses, the plan line AND the handoff URL,
-       * so leaving it parked on a taken domain recommends something nobody can buy — and the
-       * alternates exist precisely for this case.
-       *
-       * Only when the person has not chosen for themselves, and only towards a domain DomScan
-       * explicitly says is free. `available === true`, never `!== false`: unknown is not
-       * available, which is the same distinction that put a wrong "Available" badge on screen.
-       */
-      if (userPickedDomain) return;
-      const names = reveal?.domains.map((d) => d.name) ?? [];  // suggestions only
-      const chosenIsTaken = rows.some((r) => r.domain === names[chosenDomain] && !r.available);
-      if (!chosenIsTaken) return;
-      const freeIdx = names.findIndex((n) => rows.some((r) => r.domain === n && r.available === true));
-      if (freeIdx >= 0) setChosenDomain(freeIdx);
+      setLive((prev) => ({ ...prev, ...Object.fromEntries(rows.map((r) => [r.domain, r])) }));
     });
     return () => {
       cancelled = true;
@@ -152,10 +133,23 @@ export default function Reveal({
   // Mail-only hides the site block. Anything else (including an unanswered surface
   // question) shows it — the drafted site is too much of the payoff to hide by default.
   const showSite = surface !== "mail";
-  /* Suggestions first, then anything they checked themselves. `chosenDomain` indexes into
-     this combined list, so a domain they added is selectable exactly like ours. */
-  const allDomains = [...reveal.domains, ...extraDomains];
-  const domain = allDomains[chosenDomain] ?? allDomains[0];
+  /* Taken names are dropped once DomScan answers; free TLDs from the same batch fill the
+     gaps. Suggestions first, then anything they checked themselves. Selection is by name so
+     that reshuffle cannot leave a taken domain on the hero. */
+  const notesByName = Object.fromEntries(reveal.domains.map((d) => [d.name, d.note]));
+  const extraNames = new Set(extraDomains.map((d) => d.name));
+  const suggested: DomainOption[] = availableFromLookup(
+    reveal.domains.map((d) => d.name),
+    Object.values(live).filter((r) => r.domain.startsWith(`${stem}.`) && !extraNames.has(r.domain)),
+  ).map((row, i) => ({
+    name: row.domain,
+    available: row.available,
+    priceInr: row.priceInr,
+    note: notesByName[row.domain],
+    recommended: i === 0,
+  }));
+  const allDomains = [...suggested, ...extraDomains];
+  const domain = allDomains.find((d) => d.name === chosenName) ?? allDomains[0];
 
   /**
    * Check a domain the person typed.
@@ -179,6 +173,10 @@ export default function Reveal({
       setOwnError("That one's already in the list.");
       return;
     }
+    if (live[name]?.available === false) {
+      setOwnError("That one's taken.");
+      return;
+    }
 
     setOwnChecking(true);
     setOwnError(null);
@@ -191,18 +189,16 @@ export default function Reveal({
       return;
     }
     setLive((prev) => ({ ...prev, [row.domain]: row }));
+    /* Only free names join the recommendation. A taken result is an answer, not an option. */
+    if (row.available !== true) {
+      setOwnError(row.available === false ? "That one's taken." : "Couldn't confirm that one's free.");
+      return;
+    }
     setExtraDomains((prev) => [
       ...prev,
-      { name: row.domain, available: row.available, priceInr: row.priceInr, note: "Your own idea" },
+      { name: row.domain, available: true, priceInr: row.priceInr, note: "Your own idea" },
     ]);
-    /* Select it only if it is actually free. Switching onto a taken domain would undo the
-       auto-switch above and put an unbuyable name back on the plan line. */
-    if (row.available === true) {
-      setUserPickedDomain(true);
-      /* allDomains.length is the index the new entry lands on, and it is already narrowed
-         — `reveal` is not, inside this closure. */
-      setChosenDomain(allDomains.length);
-    }
+    setChosenName(row.domain);
     setOwnInput("");
   }
   const mailboxCount = Math.max(reveal.mailboxes.length, answeredMailboxes ?? 0);
@@ -234,7 +230,8 @@ export default function Reveal({
 
   const handoffUrl = buildHandoffUrl({
     profile,
-    businessName: neoName ?? (profile.brandName as string) ?? domain.name.split(".")[0],
+    businessName:
+      neoName ?? (profile.brandName as string) ?? domain?.name.split(".")[0] ?? "your business",
     businessDescription: businessText ?? "",
   });
 
@@ -248,53 +245,53 @@ export default function Reveal({
         Your setup
       </motion.p>
 
-      {/* 1. The domain. The most convincing thing on the screen. */}
+      {/* 1. The domain. The most convincing thing on the screen. Taken names never appear
+             here — availableFromLookup drops them, and a name they typed only joins the list
+             when DomScan says it is free. */}
       <motion.div variants={block} transition={{ duration: 0.7, ease }}>
-        <div className="domain">
-          <span className="domain-name">{domain.name}</span>
-          {/* The live answer wins over the fixture's optimistic flag. A null/absent result
-              (network failure, no key, unsupported TLD) shows NO badge — silence beats a
-              wrong "Available" in front of people who can check in one keystroke. */}
-          {(live[domain.name]?.available ?? domain.available) === true && (
-            <span className="badge">Available</span>
-          )}
-          {live[domain.name]?.available === false && (
-            <span className="badge badge-taken">Taken</span>
-          )}
-          {/* Price stays labelled "approx" — it is a third-party registrar's USD list price
-              converted at a fixed rate, not Neo's.
-              DO NOT claim the domain is free until someone verifies who that discount applies
-              to. Neo's sheet shows a 100% domain discount on monthly/yearly billing, but that
-              is very likely the free `co.site` SUBDOMAIN, not a registrable custom domain —
-              co.site is Neo's own namespace. Claiming "free custom domain" to the people who
-              set Neo's prices, and being wrong, would cost more than the claim is worth.
-              Tracked in CLAUDE.md open questions. */}
-          {(live[domain.name]?.priceInr ?? domain.priceInr) !== null && (
-            <span className="domain-price">
-              ~₹{(live[domain.name]?.priceInr ?? domain.priceInr)!.toLocaleString("en-IN")}/yr
-              <span className="price-caveat">approx</span>
-            </span>
-          )}
-        </div>
+        {domain ? (
+          <div className="domain">
+            <span className="domain-name">{domain.name}</span>
+            {/* The live answer wins over the fixture. A null/absent result (network failure,
+                no key, unsupported TLD) shows NO badge — silence beats a wrong "Available"
+                in front of people who can check in one keystroke. */}
+            {(live[domain.name]?.available ?? domain.available) === true && (
+              <span className="badge">Available</span>
+            )}
+            {/* Price stays labelled "approx" — it is a third-party registrar's USD list price
+                converted at a fixed rate, not Neo's.
+                DO NOT claim the domain is free until someone verifies who that discount applies
+                to. Neo's sheet shows a 100% domain discount on monthly/yearly billing, but that
+                is very likely the free `co.site` SUBDOMAIN, not a registrable custom domain —
+                co.site is Neo's own namespace. Claiming "free custom domain" to the people who
+                set Neo's prices, and being wrong, would cost more than the claim is worth.
+                Tracked in CLAUDE.md open questions. */}
+            {(live[domain.name]?.priceInr ?? domain.priceInr) !== null && (
+              <span className="domain-price">
+                ~₹{(live[domain.name]?.priceInr ?? domain.priceInr)!.toLocaleString("en-IN")}/yr
+                <span className="price-caveat">approx</span>
+              </span>
+            )}
+          </div>
+        ) : (
+          <p className="domain-note">
+            Every name we tried is taken. Check one of yours below.
+          </p>
+        )}
 
-        {/* All options stay in the row, with the active one marked — hiding the selected one
-            made the row reshuffle on every switch and meant you could never see the full set
-            at once. Each is priced separately: a .in is not a .com is not a .co, and flattening
-            that is what loses trust at checkout. */}
+        {/* Alternates that remain are buyable (or still unchecked). Each is priced separately:
+            a .in is not a .com is not a .co, and flattening that is what loses trust at
+            checkout. */}
         {allDomains.length > 1 && (
           <div className="alts" role="group" aria-label="Choose a domain">
-            {allDomains.map((d, i) => {
-              const active = i === chosenDomain;
-              const taken = live[d.name]?.available === false;
+            {allDomains.map((d) => {
+              const active = d.name === (domain?.name ?? chosenName);
               const price = live[d.name]?.priceInr ?? d.priceInr;
               return (
                 <button
                   key={d.name}
                   className={`alt${active ? " alt-active" : ""}`}
-                  onClick={() => {
-                    setUserPickedDomain(true);
-                    setChosenDomain(i);
-                  }}
+                  onClick={() => setChosenName(d.name)}
                   title={d.note}
                   aria-pressed={active}
                 >
@@ -302,7 +299,6 @@ export default function Reveal({
                   {price !== null && (
                     <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
                   )}
-                  {taken && <span className="alt-taken">taken</span>}
                 </button>
               );
             })}
@@ -345,7 +341,7 @@ export default function Reveal({
           {ownError && <p className="own-error">{ownError}</p>}
         </div>
 
-        {domain.note && <p className="domain-note">{domain.note}</p>}
+        {domain?.note && <p className="domain-note">{domain.note}</p>}
       </motion.div>
 
       {/* 2. Mailboxes. Each is a small argument for why this is worth paying for. */}
@@ -361,7 +357,7 @@ export default function Reveal({
           >
             <span className="mailbox-address">
               {m.address.split("@")[0]}
-              <span className="mailbox-domain">@{domain.name}</span>
+              <span className="mailbox-domain">@{domain?.name ?? "yourdomain"}</span>
             </span>
             <span className="mailbox-label">{m.label}</span>
           </motion.div>
@@ -425,8 +421,9 @@ export default function Reveal({
               for the service that hasn't shipped. Saying so is stronger than hiding it: it is
               the reason the project exists. */}
           <div className="plan-meta plan-note">
-            We'll copy {domain.name} for you — Neo's domain purchase is coming, so for now
-            you'll connect it under "use a domain I own".
+            {domain
+              ? `We'll copy ${domain.name} for you — Neo's domain purchase is coming, so for now you'll connect it under "use a domain I own".`
+              : `Neo's domain purchase is coming, so for now you'll connect a name you own.`}
           </div>
         </div>
         <div className="row" style={{ marginTop: 0 }}>
@@ -446,7 +443,7 @@ export default function Reveal({
                  searchTerm work), and "Use a domain I own" is a button opening a modal, so it
                  isn't deep-linkable either. Copying is the only thing that saves the retype.
                  Best-effort: clipboard can be denied, and the handoff must still happen. */
-              void navigator.clipboard?.writeText(domain.name).catch(() => {});
+              if (domain) void navigator.clipboard?.writeText(domain.name).catch(() => {});
             }}
           >
             Claim it and start building

@@ -39,7 +39,7 @@ export interface DomainOption {
    * The profile route used to emit `true` optimistically "for the first paint". That turns a
    * failed DomScan lookup into a confident false claim — a florist was shown
    * "thistletwine.com Available" when DomScan says it is taken. Unknown must render no badge,
-   * never a green one. Reveal.tsx only prints a badge for an explicit true or false.
+   * never a green one. Reveal.tsx only prints a badge for an explicit true.
    */
   available: boolean | null;
   priceInr: number | null;

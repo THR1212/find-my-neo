@@ -24,14 +24,64 @@ export interface DomainInfo {
 /**
  * Matches MAX_TLDS server-side.
  *
- * Six, but the reveal still SHOWS three — `api/profile.ts` suggests three and the rest are
- * here so a person checking a domain of their own is answered from the same batch. Availability
- * for six costs the same single credit as three (see domainService), so the extra coverage is
- * free on the expensive half.
+ * Six, but the reveal still SHOWS three. `api/profile.ts` suggests com/in/co; the extra TLDs
+ * are a spare set so a taken .com can be replaced by a free .net from the same batch, and so a
+ * person checking a domain of their own is answered without a second status call. Availability
+ * for six costs the same single credit as three (see domainService).
  *
  * Three shown is still deliberate: more than that is a shopping list, not a recommendation.
  */
 export const TLDS = ["com", "in", "co", "net", "org", "shop"] as const;
+
+/** How many names the reveal recommends. Matches the profile payload. */
+export const SUGGESTED_COUNT = 3;
+
+/**
+ * Names to put on the reveal: never a domain DomScan said is taken.
+ *
+ * Preferred order (the model's three) is kept when those names are free or still unknown.
+ * Taken names are dropped, and free TLDs from the same lookup fill the gaps so we still
+ * recommend up to SUGGESTED_COUNT buyable names. Unknown stays until the lookup answers —
+ * hiding it would empty the screen on a failed request, which is worse than a quiet first
+ * paint.
+ */
+export function availableFromLookup(
+  preferred: string[],
+  live: DomainInfo[],
+  max = SUGGESTED_COUNT,
+): DomainInfo[] {
+  const byDomain = new Map(live.map((r) => [r.domain, r]));
+
+  const asInfo = (name: string, row?: DomainInfo): DomainInfo =>
+    row ?? {
+      domain: name,
+      tld: name.includes(".") ? name.slice(name.indexOf(".") + 1) : "",
+      available: null,
+      confidence: null,
+      priceInr: null,
+      priceSource: null,
+    };
+
+  const preferredAvailable: DomainInfo[] = [];
+  const preferredUnknown: DomainInfo[] = [];
+  for (const name of preferred) {
+    const row = byDomain.get(name);
+    if (row?.available === false) continue;
+    if (row?.available === true) preferredAvailable.push(row);
+    else preferredUnknown.push(asInfo(name, row));
+  }
+
+  const seen = new Set(preferredAvailable.map((r) => r.domain));
+  const extras = live.filter((r) => r.available === true && !seen.has(r.domain));
+
+  const picked: DomainInfo[] = [];
+  for (const row of [...preferredAvailable, ...extras, ...preferredUnknown]) {
+    if (picked.length >= max) break;
+    if (picked.some((p) => p.domain === row.domain)) continue;
+    picked.push(row);
+  }
+  return picked;
+}
 
 export async function lookupDomains(
   stem: string,

@@ -10,7 +10,8 @@ import {
   type EngineState,
 } from "./lib/engine";
 import { describePrefill } from "./lib/questions";
-import { buildProfile, fetchQuestionSurface, fetchReasons } from "./lib/api";
+import { buildProfile, fetchQuestionSurface, fetchReasons, fetchRationale } from "./lib/api";
+import { recommend } from "./lib/rules";
 import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
@@ -63,6 +64,15 @@ export default function App() {
    * hand-written string.
    */
   const [reasons, setReasons] = useState<Record<string, string>>(restored?.reasons ?? {});
+  /**
+   * The two sentences under the price, written with the whole run in hand.
+   *
+   * Empty until the last question is answered, and empty forever if that call fails — the
+   * reveal falls back to `buildRationale`, which is why those templates were kept.
+   */
+  const [rationale, setRationale] = useState<{ rationale: string; whyNotCheaper: string }>(
+    restored?.rationale ?? { rationale: "", whyNotCheaper: "" },
+  );
 
   /**
    * Current stage, readable from inside async callbacks.
@@ -223,8 +233,8 @@ export default function App() {
 
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
-    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, reasons });
-  }, [stage, engine, rawText, reveal, summary, neoSite, reasons]);
+    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, reasons, rationale });
+  }, [stage, engine, rawText, reveal, summary, neoSite, reasons, rationale]);
 
   /**
    * Apply an answer and decide where to go next.
@@ -237,9 +247,43 @@ export default function App() {
     (questionId: string, optionIds: string[], freeText?: string) => {
       const next = applyAnswer(engine, questionId, optionIds, freeText);
       setEngine(next);
-      setStage(shouldReveal(next) ? "reveal" : "question");
+      const done = shouldReveal(next);
+      setStage(done ? "reveal" : "question");
+
+      /**
+       * Last answer in: ask for the explanation, with everything we now know.
+       *
+       * The only model call fired after screen 1, because it is the only one that needs the
+       * answers. It gets ~20s of cover behind Neo's generator, and the reveal renders the
+       * fixed rationale until it lands — so nothing waits and nothing is blank.
+       *
+       * The plan goes in as a FACT. `recommend` has already run here, on the same profile the
+       * reveal will use, so the model is told what was chosen and never asked to choose.
+       */
+      if (done && rawText) {
+        const rec = recommend(next.profile, reveal?.mailboxes.length ?? 2);
+        const answers = (next.trail ?? []).map((t) => ({
+          question: t.prompt,
+          answer:
+            t.options
+              .filter((o) => t.pickedOptionIds.includes(o.id))
+              .map((o) => o.label)
+              .join(", ") || (t.freeText ?? ""),
+        }));
+        void fetchRationale({
+          businessText: rawText,
+          answers,
+          mailPlanId: rec.mailPlan.id,
+          mailPlanName: rec.mailPlan.name,
+          sitePlanId: rec.sitePlan?.id ?? null,
+          sitePlanName: rec.sitePlan?.name ?? null,
+          mailboxes: rec.mailboxes,
+        }).then((r) => {
+          if (r.rationale || r.whyNotCheaper) setRationale(r);
+        });
+      }
     },
-    [engine],
+    [engine, rawText, reveal],
   );
 
   const rejectGuess = useCallback(() => {
@@ -265,6 +309,7 @@ export default function App() {
     setSummary(null);
     setNeoSite(null);
     setReasons({});
+    setRationale({ rationale: "", whyNotCheaper: "" });
     setError(null);
   }, []);
 
@@ -340,6 +385,7 @@ export default function App() {
                 businessText={rawText}
                 neoSite={neoSite}
                 reasons={reasons}
+                rationale={rationale}
                 onRestart={restart}
               />
             )}

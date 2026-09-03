@@ -1201,3 +1201,36 @@ this project spent the day removing ("Everything, for teams that live in their i
 `plan-features.json` already holds it exactly: Starter→Standard is signature, branding,
 templates, 50 GB; Standard→Max is Invoice Builder, AI Email Writer, Campaign Mode, 100 GB.
 Derive it there rather than hand-writing a second string.
+
+### One call that sees the whole run
+
+Hari: *"we need to make the ai calls better to involve full context throughout the run until
+reveal screen."* Agreed, with one shape rather than the obvious one.
+
+**Not** a model call per question. Question 4's wording reflecting answers 1-3 would cost ~10s
+on the critical path per question, for wording nobody re-reads, and it would put a model
+between someone and the next tap four more times.
+
+**Instead:** one call at the moment the last question is answered, fed the description, every
+answer as displayed, and the plan `rules.ts` has already chosen. It gets ~20s of free cover
+behind Neo's generator and it is the only place full context changes something a person sees.
+
+It **explains** the plan and never selects one. The plan, mailbox count and cheaper-tier delta
+go in as given facts, never as a question — rule 2 held at the exact point it is most tempting
+to break, since this is the model call closest to the money.
+
+Two guards worth naming:
+
+- **No prices, enforced by regex.** The real price is printed directly above the sentence, so a
+  generated figure that disagrees with it is the worst available failure. Any price- or
+  limit-shaped string is refused outright rather than trimmed. Seven cases tested.
+- **`buildRationale` stays.** This is the only model call in the flow with no recorded fallback
+  of its own — the other three degrade to fixed wording, fixed `because` strings and a recorded
+  site. Deleting those four templates would turn a failed generation into a blank line on the
+  one screen CLAUDE.md says must be perfect. The reveal shows the fixed line until this lands.
+
+`whyNotCheaper` is built only from `CHEAPER_TIER`, which is Pandora's entitlements — "what does
+the cheaper plan lack" is precisely the question a model answers plausibly and wrongly. It has
+no fallback and simply does not render if it fails: saying nothing beats hand-waving.
+
+Snapshot version 5.

@@ -6,6 +6,7 @@ import { generateNeoSite } from "./api/_lib/neoSite.js";
 import { handleProfile } from "./api/_lib/profileService.js";
 import { handleQuestions } from "./api/_lib/questionService.js";
 import { handleReasons } from "./api/_lib/reasonService.js";
+import { handleRationale } from "./api/_lib/rationaleService.js";
 
 /**
  * Mounts /api/domains on the dev server so `npm run dev` behaves like the deployed build.
@@ -88,6 +89,30 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         });
         });
       }
+
+      /* Takes a whole object rather than a bare businessText, so it cannot share the loop
+         above. Same handler the Vercel function uses. */
+      server.middlewares.use("/api/rationale", async (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        if (req.method !== "POST") {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: "method not allowed" }));
+          return;
+        }
+        let raw = "";
+        req.on("data", (c) => (raw += c));
+        req.on("end", async () => {
+          try {
+            const sid = String(req.headers["x-fmn-session"] ?? "none").slice(0, 24);
+            const { status, body } = await handleRationale(JSON.parse(raw || "{}"), sid);
+            res.statusCode = status;
+            res.end(JSON.stringify(body));
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: String(err) }));
+          }
+        });
+      });
 
       server.middlewares.use("/api/domains", async (req, res) => {
         const url = new URL(req.url ?? "", "http://localhost");

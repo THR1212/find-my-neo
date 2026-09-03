@@ -163,6 +163,49 @@ function derivedFallback(businessText: string): ProfileResult {
   };
 }
 
+export interface RationaleResult {
+  /** Replaces buildRationale's line. Empty means keep the fixed one. */
+  rationale: string;
+  /** "Why not the cheaper plan". Empty means show nothing — there is no fixed fallback. */
+  whyNotCheaper: string;
+}
+
+/**
+ * The two sentences under the price, written with the WHOLE run in hand.
+ *
+ * The only call fired after screen 1, because it is the only one that needs the answers. It
+ * explains the plan `rules.ts` already chose — the plan and mailbox count go in as facts, never
+ * as a question (CLAUDE.md rule 2).
+ *
+ * Never rejects, and never blocks: the reveal renders `buildRationale`'s fixed line until and
+ * unless this lands. This is the one model call with no recorded fallback of its own, so the
+ * fixed templates stay.
+ */
+export async function fetchRationale(input: {
+  businessText: string;
+  answers: { question: string; answer: string }[];
+  mailPlanId: string;
+  mailPlanName: string;
+  sitePlanId: string | null;
+  sitePlanName: string | null;
+  mailboxes: number;
+}): Promise<RationaleResult> {
+  const empty = { rationale: "", whyNotCheaper: "" };
+  if (MODE === "replay") return empty;
+  try {
+    const res = await fetch("/api/rationale", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-fmn-session": sessionId() },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    return (await res.json()) as RationaleResult;
+  } catch (err) {
+    reportDegraded("rationale", err instanceof Error ? err.message : String(err));
+    return empty;
+  }
+}
+
 /**
  * Per-feature "why this matters to you" clauses for this business.
  *

@@ -1268,3 +1268,9 @@ a.btn {
 .inferred-list li + li {
   margin-top: 2px;
 }
+
+/* "Why not the cheaper plan" — pre-empts the objection without competing with the price. */
+.plan-cheaper {
+  margin-top: 4px;
+  opacity: 0.85;
+}

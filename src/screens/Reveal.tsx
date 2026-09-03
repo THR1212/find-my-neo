@@ -43,6 +43,7 @@ export default function Reveal({
   businessText,
   neoSite,
   reasons,
+  rationale,
   onRestart,
 }: {
   reveal: RevealContent | null;
@@ -66,6 +67,14 @@ export default function Reveal({
    * hand-written string — see withReason. Which features appear is NOT affected by this.
    */
   reasons?: ReasonMap;
+  /**
+   * The two sentences under the price, written with the whole run in hand.
+   *
+   * Both may be empty, and that is the normal state until the call lands (~15s into a reveal
+   * that is already waiting on Neo's generator). `rationale` falls back to `rec.rationale`,
+   * which rules.ts always computes; `whyNotCheaper` has no fallback and simply does not render.
+   */
+  rationale?: { rationale: string; whyNotCheaper: string };
   onRestart: () => void;
 }) {
   /**
@@ -431,10 +440,20 @@ export default function Reveal({
               </span>
             )}
           </div>
+          {/* The generated line when it has landed, the deterministic one until then. Never
+              a spinner and never a gap: this sentence sits directly under a real price, and an
+              empty slot there reads as a broken page rather than a pending one. */}
           <div className="plan-meta">
-            {rec.rationale} {CYCLE_LABEL[rec.cycle]} · cancel anytime · you finish the site in
-            Neo's builder
+            {rationale?.rationale || rec.rationale} {CYCLE_LABEL[rec.cycle]} · cancel anytime ·
+            you finish the site in Neo's builder
           </div>
+          {/* Pre-empts the obvious objection. Darrel found Cynet, Mailchimp and Rinda all
+              justifying the recommendation rather than just naming it — see
+              docs/competitor-qualification.md. No fixed fallback: if it did not generate, the
+              honest thing is to say nothing rather than hand-wave about a cheaper plan. */}
+          {rationale?.whyNotCheaper && (
+            <div className="plan-meta plan-cheaper">{rationale.whyNotCheaper}</div>
+          )}
           {/* Neo does not sell custom domains yet — the only live options are the free
               .co.site subdomain or connecting one you already own. This recommender is built
               for the service that hasn't shipped. Saying so is stronger than hiding it: it is

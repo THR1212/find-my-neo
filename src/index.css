@@ -1546,28 +1546,15 @@ a.btn {
   overflow: hidden;
 }
 
-.meter-dock-reveal {
-  left: auto;
-  /* Right of the stage, inset from the browser chrome — not the viewport corner. */
-  right: max(40px, calc((100vw - min(1180px, calc(100vw - 40px))) / 2 + 28px));
-  transform: none;
-  top: 18px;
-}
-
 .reveal-split {
   flex: 1;
   min-height: 0;
   display: grid;
   /* Wider left column so Addresses + professional email sit above the plan. */
-  grid-template-columns: minmax(0, 1.38fr) minmax(0, 0.62fr);
-  gap: 16px 32px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 16px 28px;
   align-items: stretch;
   overflow: hidden;
-}
-
-.setup-story {
-  /* Nudge the site builder right so the identity strip has room on the left. */
-  margin-left: 20px;
 }
 
 .reveal-setup,
@@ -1780,15 +1767,173 @@ a.btn {
   gap: 4px;
 }
 
+/* --- Neo's own product films (mail-only reveal) -------------------------- */
+/* Muted looping MP4s straight off Neo's CDN — see src/lib/neoMedia.ts for why these are
+   their assets rather than something we drew. Only shown when someone asked for email
+   only, where the right column would otherwise be empty. */
+
+.setup-story-mail {
+  gap: 8px;
+  overflow: hidden;
+}
+
+.loop-stack {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 8px;
+  overflow: hidden;
+}
+
+.neo-loop {
+  margin: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--neo-bg);
+  border: 1px solid var(--neo-border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.03);
+}
+
+.neo-loop-frame {
+  min-height: 0;
+  height: 100%;
+  border-radius: var(--neo-radius);
+  overflow: hidden;
+  background: var(--neo-bg-page);
+}
+
+.neo-loop-frame video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.neo-loop figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.neo-loop-name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--neo-text);
+}
+
+.neo-loop-caption {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--neo-text-muted);
+}
+
+/* --- Template snapshots under the generated site ------------------------- */
+
+.tpl-shots {
+  flex: 0 0 auto;
+}
+
+.tpl-shots .story-kicker {
+  margin-bottom: 6px;
+}
+
+.tpl-shots-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tpl-shot {
+  margin: 0;
+  border: 1px solid var(--neo-border);
+  border-radius: var(--neo-radius);
+  overflow: hidden;
+  background: var(--neo-bg);
+}
+
+.tpl-shot img {
+  width: 100%;
+  height: 62px;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+.tpl-shot figcaption {
+  padding: 4px 7px 5px;
+  font-size: 10.5px;
+  color: var(--neo-text-muted);
+}
+
+/* --- Question-screen setup tray ------------------------------------------ */
+/* Motion about THEM, not about the product: slots fill as answers land. Deliberately not a
+   product film — see the header of SetupTray.tsx. */
+
+.tray {
+  margin-top: clamp(18px, 3vh, 30px);
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.tray-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tray-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  opacity: 0.5;
+  transition: opacity 0.35s var(--ease-out);
+}
+
+.tray-slot-on {
+  opacity: 1;
+}
+
+.tray-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.tray-value {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.tray-slot:not(.tray-slot-on) .tray-value {
+  color: var(--text-faint);
+}
+
+.tray-progress {
+  margin-top: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--gradient);
+  transform-origin: left center;
+}
+
 @media (max-width: 840px) {
   .reveal-split {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.85fr);
     gap: 10px;
-  }
-
-  .setup-story {
-    margin-left: 0;
   }
 
   .reveal-preview {
@@ -1798,15 +1943,14 @@ a.btn {
   .plan-card {
     margin-top: 8px;
   }
+
+  /* Three stacked films do not fit a phone-height column; show the best-matched one. */
+  .loop-stack .neo-loop:nth-child(n + 3) {
+    display: none;
+  }
 }
 
 @media (max-width: 640px) {
-  .meter-dock-reveal {
-    left: 12px;
-    right: 12px;
-    top: 12px;
-  }
-
   .stage-reveal {
     padding-top: 88px;
   }
@@ -1818,6 +1962,15 @@ a.btn {
 
   .story-strip {
     grid-template-columns: 1fr;
+  }
+
+  .tray-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+  }
+
+  .loop-stack .neo-loop:nth-child(n + 2) {
+    display: none;
   }
 }
 

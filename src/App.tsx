@@ -14,6 +14,7 @@ import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/per
 import type { RevealContent } from "./lib/session";
 
 import NarrowingMeter from "./components/NarrowingMeter";
+import SetupTray from "./components/SetupTray";
 import { playSound, unlockSound } from "./sound";
 import Hook from "./screens/Hook";
 import Describe from "./screens/Describe";
@@ -65,8 +66,16 @@ export default function App() {
     }
     return restoredSite;
   });
-  /** Options tapped on the current question — meter copy updates before Continue. */
-  const [liveOptionIds, setLiveOptionIds] = useState<string[]>([]);
+  /**
+   * Options tapped on the question currently on screen, so the meter can react before
+   * Continue. Keyed by question id rather than cleared in an effect: an effect would reset it
+   * one render AFTER the new question paints, which is a frame of the previous question's
+   * copy on the new screen.
+   */
+  const [livePick, setLivePick] = useState<{ questionId: string | null; ids: string[] }>({
+    questionId: null,
+    ids: [],
+  });
 
   /**
    * Current stage, readable from inside async callbacks.
@@ -220,10 +229,6 @@ export default function App() {
     return () => document.documentElement.classList.remove("is-reveal");
   }, [stage]);
 
-  useEffect(() => {
-    setLiveOptionIds([]);
-  }, [current?.id, stage]);
-
   /**
    * Apply an answer and decide where to go next.
    *
@@ -269,6 +274,8 @@ export default function App() {
 
   const stepNumber = engine.asked.length + 1;
   const screenKey = stage === "question" ? `q-${current?.id ?? "none"}` : stage;
+  const liveOptionIds =
+    stage === "question" && livePick.questionId === current?.id ? livePick.ids : [];
 
   return (
     <>
@@ -281,7 +288,7 @@ export default function App() {
 
       <AnimatePresence>
         <motion.div
-          className={`meter-dock${stage === "reveal" ? " meter-dock-reveal" : ""}`}
+          className="meter-dock"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
@@ -344,12 +351,15 @@ export default function App() {
             )}
 
             {stage === "question" && current && (
-              <AdaptiveQuestion
-                question={current}
-                step={stepNumber}
-                onAnswer={answer}
-                onPicked={setLiveOptionIds}
-              />
+              <>
+                <AdaptiveQuestion
+                  question={current}
+                  step={stepNumber}
+                  onAnswer={answer}
+                  onPicked={(ids) => setLivePick({ questionId: current.id, ids })}
+                />
+                <SetupTray profile={engine.profile} />
+              </>
             )}
 
             {stage === "reveal" && (

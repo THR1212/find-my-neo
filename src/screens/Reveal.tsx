@@ -322,7 +322,12 @@ export default function Reveal({
           </div>
         </section>
 
-        <SetupStory domain={domainName} showSite={showSite} neoSite={neoSite} />
+        <SetupStory
+          domain={domainName}
+          showSite={showSite}
+          neoSite={neoSite}
+          profile={profile}
+        />
       </div>
     </div>
   );

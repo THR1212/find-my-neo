@@ -4,7 +4,7 @@ import { availableFromLookup, lookupDomains, type DomainInfo } from "../lib/doma
 import { pickFeatures, type FeatureSurface } from "../lib/features";
 import { recommend, CYCLE_LABEL } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
-import SetupStory, { IdentityStrip } from "../components/SetupStory";
+import SetupStory from "../components/SetupStory";
 import { block as blockData, type NeoSite } from "../lib/neoSite";
 import type { Profile } from "../lib/engine";
 import { playSetupReady, playSound, unlockSound } from "../sound";
@@ -178,7 +178,6 @@ export default function Reveal({
 
   const liveAvail = domain ? (live[domain.name]?.available ?? domain.available) : null;
   const livePrice = domain ? (live[domain.name]?.priceInr ?? domain.priceInr) : null;
-  const locals = reveal.mailboxes.map((m) => m.address.split("@")[0]).filter(Boolean);
   const domainName = domain?.name ?? `${stem || "yourbusiness"}.com`;
 
   return (
@@ -279,8 +278,6 @@ export default function Reveal({
               </div>
             ))}
           </div>
-
-          <IdentityStrip domain={domainName} locals={locals} />
 
           <div className="plan-card">
             <p className="reveal-label">Recommended plan</p>

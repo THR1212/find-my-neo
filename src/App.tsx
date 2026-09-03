@@ -225,20 +225,44 @@ export default function App() {
            * `resolves` payloads use, so a prefilled signal is indistinguishable from a tapped
            * one and `isResolved` skips its question for free.
            */
-          setEngine((prev) => ({
+          setEngine((prev) => {
+            /**
+             * PREFILL MUST NOT OVERWRITE AN ANSWER THEY ALREADY GAVE.
+             *
+             * `...prefill` last meant the server won. Harmless on a fresh submit, where the
+             * profile is empty — but this same call re-fires on RESUME, and the resume path
+             * runs at `stage === "question"` whenever there is no reveal yet. So someone who
+             * answered three questions and reloaded the tab could have a tap replaced by the
+             * model's reading of their description: tap "Just email", reload, and a prefill of
+             * `surface: "both"` silently put the site back.
+             *
+             * Their answers now win. Prefill fills GAPS only, which is all it was ever for —
+             * `prefilledQuestionIds` exists to skip questions nobody needs to be asked, not to
+             * answer ones already answered.
+             */
+            const gapsOnly = Object.fromEntries(
+              Object.entries(res.prefill ?? {}).filter(([k]) => prev.profile[k] === undefined),
+            );
+            /* Same reason: a question they have ANSWERED must not be relabelled "you already
+               told us", or the guess screen credits the description for their tap. */
+            const stillPrefilled = (res.prefilledQuestionIds ?? []).filter(
+              (id) => !prev.asked.includes(id),
+            );
+            return {
             ...prev,
             profile: {
               ...prev.profile,
               industry: res.profile.industry,
               brandName: res.profile.domainStem,
               ...(res.profile.teamSize ? { teamSize: res.profile.teamSize } : {}),
-              ...(res.prefill ?? {}),
+              ...gapsOnly,
             },
-            prefilled: res.prefilledQuestionIds ?? [],
+            prefilled: stillPrefilled,
             /* Only on a fresh run. Re-seeding a ranking mid-flow would point the engine back
                at ground it has already covered — the ranking was computed before any answer. */
             ...(opts.seedNextQuestion ? { priority: res.questionPriority ?? [] } : {}),
-          }));
+            };
+          });
           setLoading(false);
         })
         .catch((err: unknown) => {

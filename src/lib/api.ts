@@ -305,7 +305,24 @@ export async function fetchQuestionSurface(businessText: string): Promise<Surfac
     });
     if (!res.ok) throw new Error(`${res.status}`);
     const body = (await res.json()) as { surface?: SurfaceMap };
-    return body.surface ?? {};
+    const surface = body.surface ?? {};
+    /**
+     * AN EMPTY SURFACE ON A 200 IS THE FAILURE THAT HID TWICE TODAY.
+     *
+     * questionService returns `{"surface":{}}` for every internal failure — a timeout, a
+     * truncated response, a validation sweep that dropped everything — because an empty
+     * surface is a COMPLETE answer: every question falls back to the fixed bank, which is
+     * what shipped before generation existed. That is the right runtime behaviour and the
+     * wrong reporting behaviour. It cost two rounds of "the flow looks templated" with
+     * nothing in any log, because the only `reportDegraded` here was on the throw path and a
+     * 200 never throws.
+     *
+     * Degrading quietly is rule 4. Degrading INVISIBLY is how you lose a day.
+     */
+    if (Object.keys(surface).length === 0) {
+      reportDegraded("questions-empty", "200 with no reworded questions — every screen will read from the fixed bank");
+    }
+    return surface;
   } catch (err) {
     reportDegraded("questions", err instanceof Error ? err.message : String(err));
     return {};

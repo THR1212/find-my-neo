@@ -2114,3 +2114,44 @@ html:has(.stage-reveal) #root {
   border-color: var(--accent);
   color: #ffffff;
 }
+
+/* Dev-only degradation banner. Loud on purpose — it exists because two silent fallbacks cost
+   most of a day. Bottom-right, so it clears both the reveal CTA (bottom-left) and the meter
+   (top-centre), and it is never rendered unless debugEnabled(). */
+
+.degrade-banner {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 20;
+  max-width: 380px;
+  font-size: 12px;
+  line-height: 1.45;
+  background: #2b1b00;
+  color: #ffd9a0;
+  border: 1px solid #7a4f00;
+  border-radius: 10px;
+  padding: 8px 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+}
+
+.degrade-toggle {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+}
+
+.degrade-list {
+  margin: 6px 0 0;
+  padding-left: 15px;
+  display: grid;
+  gap: 4px;
+}
+
+.degrade-list strong {
+  font-weight: 600;
+}

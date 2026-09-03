@@ -23,6 +23,7 @@ import { fetchNeoSites, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
 
+import DegradeBanner from "./components/DegradeBanner";
 import NarrowingMeter from "./components/NarrowingMeter";
 import Hook from "./screens/Hook";
 import Describe from "./screens/Describe";
@@ -550,6 +551,10 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Dev-only, and the whole point is that it is impossible to miss: every silent fallback
+          on screen as it happens. See the header of DegradeBanner. */}
+      {debug && <DegradeBanner />}
 
       {/* Debug-only. Positioned out of the flow so it cannot disturb a screenshot or a demo. */}
       {debug && stage === "reveal" && (

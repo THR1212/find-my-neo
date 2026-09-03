@@ -104,8 +104,32 @@ export function collectedDegradations(): { what: string; detail?: string; at: nu
   return degradations.slice();
 }
 
+/**
+ * Listeners for the dev-only degradation banner.
+ *
+ * `collectedDegradations()` is pull-only, which is right for the run record — it is read once
+ * at the reveal. The banner needs a push, because the whole point is to notice a degradation
+ * AT the moment it happens rather than after the flow is over.
+ */
+type DegradeListener = (all: { what: string; detail?: string; at: number }[]) => void;
+const listeners = new Set<DegradeListener>();
+
+/** Returns an unsubscribe. Dev banner only — nothing in the flow depends on this. */
+export function onDegraded(fn: DegradeListener): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
 export function reportDegraded(what: string, detail?: string): void {
   degradations.push({ what, ...(detail ? { detail: detail.slice(0, 300) } : {}), at: Date.now() });
+  for (const fn of listeners) {
+    /* A throwing listener must never take down the call that degraded. */
+    try {
+      fn(degradations.slice());
+    } catch {
+      /* ignore */
+    }
+  }
   report({
     message: `degraded: ${what}`,
     source: "degradation",

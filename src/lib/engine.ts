@@ -271,24 +271,33 @@ export function nextQuestion(state: EngineState): Question | null {
 }
 
 /**
- * When to stop asking.
+ * The hard ceiling. Nobody is asked more than this, whatever the engine wants.
  *
- * Ceiling, not a target. Every question on a pre-purchase page is a place to drop off, so we
- * stop as soon as we know enough rather than marching to a fixed count — which is also more
- * faithful to the idea: it stops when it's got you, not when it runs out of script.
+ * Raised from 4 to 12 on 03 Sep, at Hari's call, alongside the six questions that make Max
+ * and Growth reachable — the two decisions are really one, because a 4x price jump cannot be
+ * justified on four answers.
  *
- * Four rather than three: three leaves half the six-question bank unresolved, so the plan,
- * domain and feature picks rest on less than they could, and the narrowing — the whole
- * mechanic — is over in one big jump. Four is the most we can ask before it reads as a form.
- * Keep HOOK_COPY in brand.ts in step with this number.
+ * **It is a ceiling and should almost never bind.** `shouldReveal` stops as soon as no
+ * remaining question could change the recommendation, so a clear-cut business finishes in
+ * three or four and only a genuinely ambiguous one walks further. Prefill removes questions
+ * someone already answered in prose before we start.
+ *
+ * The risk this accepts, stated plainly: docs/competitor-qualification.md puts quiz completion
+ * at **40-65%**, Mailchimp asks 4, Rinda 3, and Microsoft's chooser 7 — so 12 is above
+ * everything observed anywhere. That is why the run record exists. Per-question drop-off is
+ * now measurable in runs.jsonl, and this number should be revisited against that data rather
+ * than against anyone's instinct.
  */
-export const MAX_QUESTIONS = 4;
+export const MAX_QUESTIONS = 12;
 
 /**
- * Early exit. Above this we have enough signal that another question would be asking for
- * the sake of it — the recommendation wouldn't change.
+ * Never reveal before this many, even if nothing discriminates.
+ *
+ * Two is too few: one answer after the free text reads as a guess rather than a diagnosis, and
+ * the whole premise is that we worked it out. Three is the floor at which the flow feels like
+ * it asked.
  */
-const CONFIDENT_ENOUGH = 0.82;
+const MIN_QUESTIONS = 3;
 
 /**
  * Setups still standing. Exposed so the reveal and the run record can report the real
@@ -298,16 +307,38 @@ export function viableSetups(state: EngineState): number {
   return survivors(state.profile).length;
 }
 
+/**
+ * When to stop asking.
+ *
+ * The rule that matters is the middle one: **stop when no remaining question could change the
+ * recommendation.** That is a statement about the outcome, which is what someone actually
+ * cares about, and it replaced a confidence threshold that only measured how much we happened
+ * to have asked. With twelve questions in the bank it is also what keeps the flow short — a
+ * business where three answers settle the plan is not walked through nine more.
+ *
+ * THE CONFIDENCE BACKSTOP WAS REMOVED, and the probe is why. With it, the rule fell through
+ * to `confidence >= 0.82` whenever something still discriminated — so a phone-and-walk-in
+ * business was revealed at five questions **without ever being asked how customers reach
+ * them**, which is the one answer that decides Basic against Plus. It got Plus and a ₹90/month
+ * surcharge because we stopped early on a number that measured how much we had asked rather
+ * than whether the answer could still move.
+ *
+ * A threshold that can silence a question capable of changing the price is not a backstop, it
+ * is a bug. The only stopping rules left are: nothing to ask, nothing worth asking, or the
+ * hard ceiling. The bank holds nine questions, so the worst case is bounded well under
+ * MAX_QUESTIONS anyway.
+ */
 export function shouldReveal(state: EngineState): boolean {
-  /* Covers both "nothing left to ask" and "nothing left worth asking" — nextQuestion returns
-     null when no remaining question could change the recommendation. */
   if (nextQuestion(state) === null) return true;
   if (state.asked.length >= MAX_QUESTIONS) return true;
-  // Never cut it off before two — one answer after the free text feels like it guessed.
-  return (
-    state.asked.length >= 2 &&
-    confidence(state.profile, state.prefilled, state.prosaic) >= CONFIDENT_ENOUGH
+  if (state.asked.length < MIN_QUESTIONS) return false;
+
+  /* Nothing left that would move the plan. Anything still unasked only colours the reveal, so
+     asking it is drop-off we caused for no change in what we recommend. */
+  const unresolved = QUESTIONS.filter(
+    (q) => !isResolved(state.profile, q.signal) && !state.asked.includes(q.id),
   );
+  return !unresolved.some((q) => discrimination(state.profile, q) > 1e-9);
 }
 
 /**

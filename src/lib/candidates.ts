@@ -138,6 +138,80 @@ export const NEEDS: Need[] = [
     minMail: "standard",
     when: (p) => has(p, "customerChannel", "personal_email"),
   },
+
+  /* --- The floors that reach Max and Growth ---------------------------------------------
+   *
+   * Before these, `max` and `growth` sat in plans.json and in the candidate set with no code
+   * path able to return them. Each floor below is a Pandora entitlement, not a judgement:
+   * Invoice Builder, AI Email Writer and Campaign Mode are explicitly disabled below Max, and
+   * Growth is the only tier with unlimited listings.
+   *
+   * Storage leads because docs/data-findings.md §5 measured it: `Storage Banner` is the
+   * dominant paywall trigger in every single industry, 32-52% of conversions. Read receipts
+   * are next at 8-12%. These are the two the data actually supports; the rest are here because
+   * the entitlement is unambiguous.
+   */
+  {
+    id: "room_for_big_files",
+    because: "you send large files often",
+    entitlement: "storage",
+    /* Storage is PER MAILBOX (Neo's own catalogue: "allotted for each mailbox that is
+       created"), so this is about what one person sends, not how many people there are. */
+    minMail: "max",
+    when: (p) => has(p, "attachmentVolume", "heavy"),
+  },
+  {
+    id: "room_for_attachments",
+    because: "you send photos and documents",
+    entitlement: "storage",
+    minMail: "standard",
+    when: (p) => has(p, "attachmentVolume", "docs"),
+  },
+  {
+    /**
+     * One need per Max entitlement, all reading the same multi-select answer.
+     *
+     * Kept as four separate needs rather than one, because the `because` line must name the
+     * thing THEY said — "you send quotes and invoices" is a reason, "you selected an option
+     * that requires Max" is not. Several can bind at once, and the reveal lists each.
+     */
+    id: "bill_from_your_inbox",
+    because: "you send quotes and invoices",
+    entitlement: "invoice_builder",
+    minMail: "max",
+    when: (p) => has(p, "extras", "invoices"),
+  },
+  {
+    id: "reach_everyone_at_once",
+    because: "you message past customers as a group",
+    entitlement: "email_marketing",
+    minMail: "max",
+    when: (p) => has(p, "extras", "campaigns"),
+  },
+  {
+    id: "let_people_book",
+    because: "people book time with you",
+    entitlement: "appointment_booking",
+    minMail: "max",
+    when: (p) => has(p, "extras", "bookings"),
+  },
+  {
+    id: "know_it_was_read",
+    because: "you check whether mail was opened",
+    /* Starter caps read receipts at 50 and Standard is only a 90-day trial; unlimited is Max
+       alone. §5 puts this second only to storage as a paywall trigger. */
+    entitlement: "read_receipts",
+    minMail: "max",
+    when: (p) => has(p, "extras", "receipts"),
+  },
+  {
+    id: "a_real_catalogue",
+    because: "you have hundreds of things to list",
+    /* Plus caps products, services and gallery at 500 each; Growth is unlimited. */
+    entitlement: "site_products",
+    minSite: "growth",
+    when: (p) => !has(p, "surface", "mail") && has(p, "catalogueSize", "hundreds"),
+  },
 ];
 
 export function needsFor(profile: Profile): Need[] {
@@ -244,50 +318,67 @@ export function solve(profile: Profile, mailboxes: number, cycle: string): Solut
 }
 
 /**
- * How much would asking this question narrow the field?
+ * Would asking this question change what we recommend?
  *
- * **Expected reduction in surviving candidates**, as a fraction of what is standing now, with
- * a uniform prior over answers (we have no reason to think one answer likelier than another).
+ * The measure is **how many different recommendations the answers lead to**, normalised:
  *
- *     score = 1 - mean(|survivors after each option|) / |survivors now|
+ *     score = (distinct recommended setups across the options - 1) / (options - 1)
  *
- * 0 means no answer changes anything; 1 would mean any answer settles it completely.
+ * 0 means every answer produces the identical recommendation, so asking is pure drop-off.
+ * 1 means every answer leads somewhere different.
  *
- * Note the count can go UP as well as down, and that is correct rather than a bug: learning
- * someone is reached by phone alone REMOVES the contact-form floor, so more setups reopen and
- * the recommendation gets cheaper. "Narrowing" is the usual direction, not a guarantee — one
- * more reason the on-screen counter was the wrong thing to show.
+ * THIS DEFINITION IS THE THIRD ATTEMPT, and both earlier ones failed in ways worth keeping
+ * on record, because both looked right:
  *
- * THE FIRST VERSION OF THIS WAS WRONG IN AN INSTRUCTIVE WAY. It scored the Gini impurity of
- * the partition, which measures how EVENLY a question splits the field rather than how much
- * it shrinks it. A question that discriminates not at all leaves every option holding the
- * full set — perfectly even — so it scored highest. `import` and `client`, which cannot move
- * a plan, ranked above `surface`, which decides whether there is a site at all. The formula
- * was measuring balance and being read as information. Caught by printing the scores instead
- * of trusting the shape of the maths.
+ *  1. **Gini impurity of the partition.** Measures how EVENLY a question splits the field, not
+ *     how much it shrinks it. A question that discriminates not at all leaves every option
+ *     holding the full set — perfectly even — so it scored highest. `import` and `client`
+ *     outranked `surface`.
+ *  2. **Expected reduction in surviving candidates.** Correct in the common direction and
+ *     blind in the other. Learning someone is reached by phone alone REMOVES the contact-form
+ *     floor, so the candidate set GROWS and expected reduction goes negative, clamped to zero.
+ *     The result: a phone-and-walk-in business was never asked how customers reach them and
+ *     was billed for Plus, because the question that would have saved them ₹90/month scored as
+ *     uninformative. An engine optimising for a smaller set rather than a better answer.
  *
- * Deliberately arithmetic and deliberately here rather than in a prompt: the research is
- * clear that LLMs are inconsistent probabilistic reasoners (arxiv 2605.06915), so belief
- * updates stay in code and the model is left to read prose, which it is good at.
+ * The fix is to score the DECISION, not the set. What matters is whether the recommendation
+ * moves, in whichever direction — which is the value of information for the choice actually
+ * being made. Set size was always a proxy, and a proxy that disagreed with the goal.
+ *
+ * Deliberately arithmetic and deliberately here rather than in a prompt: the literature is
+ * clear that LLMs are inconsistent probabilistic reasoners (arxiv 2605.06915), so this stays
+ * in code and the model is left to read prose, which it is good at.
  */
 export function discrimination(
   profile: Profile,
   question: { id: string; signal: string; options: { resolves: Record<string, unknown> }[] },
 ): number {
-  const before = survivors(profile).length;
-  if (before <= 1 || question.options.length === 0) return 0;
+  const opts = question.options;
+  if (opts.length < 2) return 0;
 
-  let after = 0;
-  for (const opt of question.options) {
+  const cycle = "yearly";
+  const outcomes = new Set<string>();
+
+  for (const opt of opts) {
     /* Apply the option exactly as applyAnswer would, so the simulation cannot drift from what
        happens when someone actually taps it. */
     const hypothetical: Profile = { ...profile };
     for (const [k, v] of Object.entries(opt.resolves)) {
       hypothetical[k] = v as Profile[string];
     }
-    after += survivors(hypothetical).length;
+    /**
+     * THE OUTCOME INCLUDES THE MAILBOX COUNT, and it has to.
+     *
+     * Scoring only the tier pair made `team` worth zero — mailbox count deliberately does not
+     * select a tier — so the engine stopped asking it, and the single largest multiplier on
+     * the bill was left to a default of 2. The recommendation a person receives is "Starter,
+     * two mailboxes, ₹298" and the count is part of it, so it belongs in the outcome.
+     */
+    const mailboxes =
+      Number(hypothetical.mailboxCount) || Number(hypothetical.teamSize) || 2;
+    const best = solve(hypothetical, mailboxes, cycle).candidate;
+    outcomes.add(`${best.mail}/${best.site}/${mailboxes}`);
   }
 
-  const meanAfter = after / question.options.length;
-  return Math.max(0, 1 - meanAfter / before);
+  return (outcomes.size - 1) / (opts.length - 1);
 }

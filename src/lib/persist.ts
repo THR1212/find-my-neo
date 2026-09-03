@@ -32,7 +32,7 @@ const KEY = "findmyneo.session";
  * the snapshot instead of deserialising yesterday's shape into today's fields, which fails
  * silently and looks like an engine bug.
  */
-const VERSION = 5;
+const VERSION = 6;
 /* v2: EngineState gained `surface` (model-written wording) and `trail` (what was shown).
    Both live inside `engine`, so they ride along in the snapshot automatically — but a v1
    snapshot restored into v2 would have neither, and every question would silently revert to
@@ -47,7 +47,11 @@ const VERSION = 5;
    v4 simply has none, which is a legitimate state — but the version bump keeps the rule
    simple rather than making restore reason about which fields are optional.
 
-   v5: added `rationale` (the generated pair under the price). */
+   v5: added `rationale` (the generated pair under the price).
+
+   v6: six new question ids and signals, and MAX_QUESTIONS 4 -> 12. This is exactly the case
+   the header warns about — a v5 snapshot carries `asked` ids against a different bank and a
+   different ceiling, so restoring it would resume a flow that can no longer happen. */
 
 /**
  * RESOLVED 02 Sep — kept because the reasoning still governs the design.

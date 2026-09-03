@@ -51,7 +51,7 @@ export default function Reveal({
   neoSite: NeoSite | null;
   neoSiteAlt?: NeoSite | null;
   reasons?: ReasonMap;
-  rationale?: { rationale: string; whyNotCheaper: string };
+  rationale?: { rationale: string; whyNotCheaper: string; because: string };
   verdict?: {
     mailTier: string;
     siteTier: string;
@@ -270,7 +270,9 @@ export default function Reveal({
                 return (
                   <button
                     key={d.name}
-                    className={`alt${active ? " alt-active" : ""}`}
+                    /* `.alt-cosite` marks the one option that is free rather than priced, so
+                       it reads as a different KIND of choice before anyone reads the word. */
+                    className={`alt${active ? " alt-active" : ""}${d.free ? " alt-cosite" : ""}`}
                     onClick={() => {
                       unlockSound();
                       playSound("select");
@@ -418,25 +420,43 @@ export default function Reveal({
                 ))}
               </ul>
             )}
-            {(rec.needs.length > 0 || verdict?.raised) && (
-              <ul className="plan-needs">
-                {rec.needs.map((n) => (
-                  <li key={n.id}>{n.because}</li>
-                ))}
-                {verdict?.raised &&
-                  verdict.cites.map((c) => (
-                    <li key={c.entitlement} className="need-from-words">
-                      you said “{c.evidence}”
-                    </li>
+            {/**
+              * One line, or the bullets it replaced.
+              *
+              * `because` joins the solver's own reasons into a sentence — same reasons, same
+              * order of importance, one block instead of three. The bulleted fallback is not
+              * a lesser version: it is what shipped before, and it renders whenever the model
+              * is slow, degraded, or in replay. Losing brevity is acceptable; losing the
+              * justification is not.
+              *
+              * The model's accepted citations stay separate either way — "you said ..." is a
+              * quote we verified against their own words, and folding a quote into generated
+              * prose would make it look written rather than found.
+              */}
+            {rationale?.because ? (
+              <p className="plan-because">{rationale.because}</p>
+            ) : (
+              rec.needs.length > 0 && (
+                <ul className="plan-needs">
+                  {rec.needs.map((n) => (
+                    <li key={n.id}>{n.because}</li>
                   ))}
+                </ul>
+              )
+            )}
+            {verdict?.raised && verdict.cites.length > 0 && (
+              <ul className="plan-needs">
+                {verdict.cites.map((c) => (
+                  <li key={c.entitlement} className="need-from-words">
+                    you said “{c.evidence}”
+                  </li>
+                ))}
               </ul>
             )}
             {rationale?.whyNotCheaper && (
               <p className="plan-meta plan-cheaper">{rationale.whyNotCheaper}</p>
             )}
-            <p className="plan-meta">
-              {CYCLE_LABEL[rec.cycle]} · cancel anytime
-            </p>
+            <p className="plan-meta">cancel anytime</p>
             <p className="plan-meta plan-note">
               {!domain
                 ? `Neo's domain purchase is coming, so for now you'll connect a name you own.`

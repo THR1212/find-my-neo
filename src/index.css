@@ -2077,3 +2077,35 @@ html:has(.stage-reveal) #root {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+
+/* The free .co.site option, marked as a different kind of choice (03 Sep).
+   Every other pill is a price; this one is Neo's own namespace, free for the first cycle and
+   the only name on the row Neo can actually sell today. A gradient hairline says "different"
+   before the word FREE is read — and it borrows Neo's own gradient rather than inventing a
+   colour, so it still belongs on their pricing page. */
+
+.alt-cosite {
+  position: relative;
+  border-color: transparent;
+  background:
+    linear-gradient(var(--bg-card, #ffffff), var(--bg-card, #ffffff)) padding-box,
+    var(--neo-gradient, linear-gradient(90deg, #7c5cff, #ff5cc8 55%, #ff8a3d)) border-box;
+  border: 1px solid transparent;
+}
+
+/* Selected still wins: the accent fill is the "this is your choice" signal everywhere else
+   on the screen, and the gradient must not compete with it. */
+.alt-cosite.alt-active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* The one-line justification that replaced the bulleted needs stack (03 Sep). Slightly
+   heavier than plan-meta because it is the sentence carrying the argument, not an aside. */
+
+.plan-because {
+  margin: 2px 0 10px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text);
+}

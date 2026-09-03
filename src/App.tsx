@@ -87,8 +87,12 @@ export default function App() {
    * Empty until the last question is answered, and empty forever if that call fails — the
    * reveal falls back to `buildRationale`, which is why those templates were kept.
    */
-  const [rationale, setRationale] = useState<{ rationale: string; whyNotCheaper: string }>(
-    restored?.rationale ?? { rationale: "", whyNotCheaper: "" },
+  const [rationale, setRationale] = useState<{
+    rationale: string;
+    whyNotCheaper: string;
+    because: string;
+  }>(
+    restored?.rationale ?? { rationale: "", whyNotCheaper: "", because: "" },
   );
   /**
    * The model's verified verdict on the plan — the one place a model can change what someone
@@ -390,7 +394,7 @@ export default function App() {
             mailboxes: finalRec.mailboxes,
           });
         }).then((r) => {
-          if (r && (r.rationale || r.whyNotCheaper)) setRationale(r);
+          if (r && (r.rationale || r.whyNotCheaper || r.because)) setRationale(r);
         });
 
       }
@@ -421,7 +425,7 @@ export default function App() {
     setSummary(null);
     setNeoSite(null);
     setReasons({});
-    setRationale({ rationale: "", whyNotCheaper: "" });
+    setRationale({ rationale: "", whyNotCheaper: "", because: "" });
     setVerdict(null);
     setError(null);
   }, []);

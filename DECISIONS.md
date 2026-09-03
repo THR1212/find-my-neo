@@ -1085,3 +1085,38 @@ business demonstrably needs, rather than **order** forms, which most never touch
 `cancel anytime · you finish the site in Neo's builder` tail, and every section label. The
 `because` strings in `features.ts` are fixed too — generating those, degrading to the fixed
 string, is the obvious next pass and follows the pattern `questionService` already proves.
+
+### Later the same day — Pandora entitlements, and the same bug on the mail side
+
+Hari supplied per-plan feature entitlements verified from the **Pandora backend**. Saved as
+`src/data/plan-features.json`, and it now outranks both other sources: the flock.co config gives
+Neo's verbatim *names* but says nothing about who gets what, and `site-features.json` was read
+off a marketing table.
+
+**It confirms the site finding independently.** Contact form absent on Basic, 1,000/month on
+Plus, unlimited on Growth — same for testimonials, remove-branding, WhatsApp and subscriptions.
+The `chooseSitePlan` rewrite stands on backend data, not on a pricing page.
+
+**And it found the same fault on the mail side, worse.** Four features we carry are **Max-only**,
+and `chooseMailPlan` can only return Starter or Standard:
+
+| feature | Pandora says | we were showing it to |
+|---|---|---|
+| Invoice Builder | **disabled** on Starter and Standard | anyone selling online |
+| AI Email Writer (`Titan AI`) | Max only | social / personal-email users |
+| Campaign Mode (`Email marketing`) | Max only | anyone selling online |
+| Appointment Booking | Max only — **and it is a MAIL entitlement, not a site one** | offline / non-selling users |
+| Signature Designer | Standard and Max, not Starter | personal-email users on Starter |
+
+So a florist who sells online was being offered **Invoice Builder** as a reason to buy **Neo
+Starter**, which explicitly does not have it. `minMailPlan` now gates these the same way
+`minSitePlan` gates the site half, and `appointment_booking` has been moved to `surface: "mail"`
+where it belongs.
+
+**Open, and deliberately not guessed:** Max is now unreachable in `rules.ts` — the same shape as
+`growth` was this morning — so those four features can never legitimately surface. Either Max
+becomes reachable for a defensible case or they are dead weight. Max is roughly 5x Starter per
+mailbox, so that needs an argument, not a feature match.
+
+**Naming:** Pandora's `Titan MCP` is **Neo MCP** for our purposes. It is disabled on every plan,
+so it can never be a reason to buy and must never be rendered.

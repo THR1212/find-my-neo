@@ -1,0 +1,62 @@
+{
+  "_source": "Pandora backend — per-plan feature entitlements for Neo Mail and Neo Sites, supplied by Hari 03 Sep 2026 and verified against the backend rather than a page.",
+
+  "_authority": "THIS FILE OUTRANKS EVERYTHING ELSE WE HAVE. static.flock.co/meta/plan/feature/config/en-US.json gives Neo's verbatim feature NAMES but says nothing about which plan includes what. src/data/site-features.json was read off the marketing pricing table. Where they disagree, this file wins — it is what the backend actually grants.",
+
+  "_naming": "Pandora calls it 'Titan MCP'. For our purposes that is NEO MCP — same capability, Neo's branding. Never render either string: it is disabled on every plan below, so it can never be a reason to buy.",
+
+  "_whyItMatters": "Relevance and entitlement are different questions. features.ts answered only the first until 03 Sep, so it would happily print a feature the recommended plan does not grant. The gating fields in features.ts (minMailPlan / minSitePlan) are derived from this file.",
+
+  "mail": {
+    "_plans": ["starter", "standard", "max"],
+    "_noLite": "There is no Lite. It exists in the pricing sheet and is not sold — removed from plans.json and rules.ts on 03 Sep.",
+
+    "_gatingThatChangedOurCode": {
+      "invoice_builder": "MAX ONLY. Explicitly disabled on Starter and Standard.",
+      "titan_ai": "MAX ONLY (Pandora 'Titan AI'). Absent from Starter and Standard.",
+      "email_marketing": "MAX ONLY (Pandora 'Email marketing').",
+      "appointment_booking": "MAX ONLY — and it is a MAIL entitlement, not a site one. It does not appear in any site plan. We had it filed as a site feature.",
+      "signature_builder": "STANDARD and MAX. Absent from Starter, and on Standard it is restricted for users created before a configured user id.",
+      "read_receipts": "All three, but limited: Starter 50, Standard 90-day trial, Max unlimited.",
+      "advanced_tracking": "All three, limited: Starter 5, Standard 5, Max unlimited.",
+      "ai_summary": "All three, limit 4 on Starter and Standard.",
+      "company_branding": "Standard and Max.",
+      "email_backup": "MAX ONLY.",
+      "email_designer": "MAX ONLY.",
+      "drive_storage": "Standard (1,024) and Max (51,200). Absent from Starter."
+    },
+
+    "_onEveryMailPlan": [
+      "advanced antivirus", "advanced anti-spam", "spam filter control", "mobile apps",
+      "webmail", "calendar", "calendar sharing", "import email and contacts",
+      "forwarding rules", "unlimited mail filters", "catch-all", "email aliases",
+      "imap/pop", "gmail sync", "two-factor authentication", "custom dkim",
+      "vacation responder", "contact groups", "external forwarding", "neo site",
+      "custom domain (15-day trial)", "neo domain (365-day trial)"
+    ],
+
+    "storageGb": { "starter": 15, "standard": 50, "max": 100 },
+    "sendLimitPerDay": { "starter": 500, "standard": 1000, "max": 2000 }
+  },
+
+  "site": {
+    "_plans": ["basic", "plus", "growth"],
+
+    "_confirmsTheMarketingTable": "Every gate in src/data/site-features.json is confirmed by the backend, including the one that changed chooseSitePlan: the contact form is absent on Basic (Plus 1,000/month, Growth unlimited). Same for testimonials, remove-branding, WhatsApp and subscriptions — all Plus and above.",
+
+    "absentOnBasic": [
+      "contact form", "testimonials", "remove Neo branding", "WhatsApp", "subscriptions"
+    ],
+    "onEveryTier": [
+      "site support", "site analytics", "site colors", "site domain", "site video",
+      "site fonts", "site templates", "contact information", "two-factor authentication",
+      "neo paid domain (365-day trial)"
+    ],
+    "storageMb": { "basic": 1000, "plus": 10000, "growth": 50000 },
+    "aiSiteGenerationPerMonth": { "basic": 20, "plus": 500, "growth": "unlimited" },
+    "productsServicesGallery": { "basic": 10, "plus": 500, "growth": "unlimited" },
+    "growthOnly": ["priority site support", "premium fonts", "curated site colors"]
+  },
+
+  "_openQuestion": "rules.ts can only return Starter or Standard for mail, so MAX is unreachable — the same shape of bug that made `growth` unreachable for sites until today. Four features we carry (invoice builder, AI email writer, campaign mode, appointment booking) are Max-only and therefore can never legitimately appear. Either Max becomes reachable for a defensible case, or those four are dead weight. Not decided by guesswork: Max is roughly 5x Starter per mailbox, so it needs a real argument, not a feature match."
+}

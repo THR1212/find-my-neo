@@ -61,6 +61,18 @@ export interface Feature {
    * exists to prevent.
    */
   minSitePlan?: "basic" | "plus" | "growth";
+  /**
+   * Lowest MAIL plan that actually grants this, per `src/data/plan-features.json` (Pandora
+   * backend, and the highest authority we have — it beats both the name config and the
+   * marketing table).
+   *
+   * The mail half had the same fault as the site half, and worse. Four features here are
+   * **Max-only**, and `chooseMailPlan` can only return Starter or Standard — so Invoice
+   * Builder, AI Email Writer, Campaign Mode and Appointment Booking were being offered as
+   * reasons to buy a plan that does not include any of them. Pandora is explicit that Invoice
+   * Builder is *disabled* on Starter and Standard.
+   */
+  minMailPlan?: "starter" | "standard" | "max";
   /** True when this person's profile makes the feature genuinely relevant. */
   matches: (p: Profile) => boolean;
   /** Tie-break when several match. Higher wins. */
@@ -104,6 +116,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "invoice_builder",
+    minMailPlan: "max",
     name: "Invoice Builder",
     surface: "mail",
     because: "quotes and invoices without leaving your inbox",
@@ -112,6 +125,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "titan_ai",
+    minMailPlan: "max",
     name: "AI Email Writer",
     surface: "mail",
     because: "replies to the same three questions stop eating your evenings",
@@ -121,6 +135,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "email_marketing",
+    minMailPlan: "max",
     name: "Campaign Mode",
     surface: "mail",
     because: "tell past customers what's new without doing it one message at a time",
@@ -144,7 +159,21 @@ export const FEATURES: Feature[] = [
     priority: 7,
   },
   {
+    id: "appointment_booking",
+    name: "Appointment Booking",
+    /* MAIL, and Max only. We had this filed as a `site` feature, which it is not — it appears
+       in no site plan at all. Since chooseMailPlan cannot return Max it will never surface
+       today; that is correct behaviour, not dead code, and it is recorded in
+       plan-features.json as an open question about whether Max should be reachable. */
+    surface: "mail",
+    minMailPlan: "max",
+    because: "people pick a slot themselves instead of messaging back and forth",
+    matches: (p) => is(p, "sellsOnline", false) || is(p, "customerChannel", "offline"),
+    priority: 5,
+  },
+  {
     id: "signature_builder",
+    minMailPlan: "standard",
     name: "Signature Designer",
     surface: "mail",
     because: "every mail you send looks like it came from a real business",
@@ -200,14 +229,6 @@ export const FEATURES: Feature[] = [
     surface: "site",
     because: "what you do and what it costs, without retyping it into every message",
     matches: (p) => is(p, "sellsOnline", false) && !is(p, "customerChannel", "offline"),
-    priority: 8,
-  },
-  {
-    id: "appointment_booking",
-    name: "Appointment Booking",
-    surface: "site",
-    because: "people pick a slot themselves instead of messaging back and forth",
-    matches: (p) => is(p, "sellsOnline", false) || is(p, "customerChannel", "offline"),
     priority: 8,
   },
   {
@@ -287,6 +308,7 @@ export const FEATURES: Feature[] = [
  * for whichever matched hardest — the point is to explain the shape of the recommendation.
  */
 const SITE_TIER_RANK: Record<string, number> = { basic: 0, plus: 1, growth: 2 };
+const MAIL_TIER_RANK: Record<string, number> = { starter: 0, standard: 1, max: 2 };
 
 /**
  * Is this feature actually included in the plan being recommended?
@@ -294,10 +316,16 @@ const SITE_TIER_RANK: Record<string, number> = { basic: 0, plus: 1, growth: 2 };
  * `sitePlanId` is what `rules.ts` chose. Passing null (mail-only, or no plan yet) keeps every
  * feature eligible, because there is no site tier to contradict.
  */
-function availableOn(f: Feature, sitePlanId: string | null): boolean {
-  if (!f.minSitePlan) return true;
-  if (!sitePlanId) return false;
-  return (SITE_TIER_RANK[sitePlanId] ?? 0) >= SITE_TIER_RANK[f.minSitePlan];
+function availableOn(f: Feature, sitePlanId: string | null, mailPlanId: string | null): boolean {
+  if (f.minSitePlan) {
+    if (!sitePlanId) return false;
+    if ((SITE_TIER_RANK[sitePlanId] ?? 0) < SITE_TIER_RANK[f.minSitePlan]) return false;
+  }
+  if (f.minMailPlan) {
+    if (!mailPlanId) return false;
+    if ((MAIL_TIER_RANK[mailPlanId] ?? 0) < MAIL_TIER_RANK[f.minMailPlan]) return false;
+  }
+  return true;
 }
 
 export function pickFeatures(
@@ -307,8 +335,13 @@ export function pickFeatures(
   /* The site plan rules.ts settled on. Features the tier does not include are filtered out —
      see `minSitePlan`. Optional so mail-only callers need not pass it. */
   sitePlanId: string | null = null,
+  /* The mail plan rules.ts settled on. Same reason as sitePlanId — four features here are
+     Max-only and must never be named next to a Starter or Standard price. */
+  mailPlanId: string | null = null,
 ): Feature[] {
-  const eligible = FEATURES.filter((f) => f.matches(profile) && availableOn(f, sitePlanId));
+  const eligible = FEATURES.filter(
+    (f) => f.matches(profile) && availableOn(f, sitePlanId, mailPlanId),
+  );
   const picked: Feature[] = [];
 
   for (const surface of surfaces) {

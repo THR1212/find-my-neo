@@ -215,7 +215,7 @@ export default function Reveal({
 
   /* Features are filtered by the tier rules.ts just chose, so we never name something the
      plan printed underneath does not include. Must stay AFTER `recommend`. */
-  const features = pickFeatures(profile, surfaces, 2, rec.sitePlan?.id ?? null);
+  const features = pickFeatures(profile, surfaces, 2, rec.sitePlan?.id ?? null, rec.mailPlan.id);
 
   /**
    * The real handoff URL. Neo's funnel takes plain query params — no encoder, no signing —

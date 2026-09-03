@@ -5,7 +5,6 @@ import {
   applyAnswer,
   confidence,
   nextQuestion,
-  remainingSetups,
   shouldReveal,
   type EngineState,
 } from "./lib/engine";
@@ -99,10 +98,6 @@ export default function App() {
 
   const conf = useMemo(
     () => confidence(engine.profile, engine.prefilled, engine.prosaic),
-    [engine.profile, engine.prefilled, engine.prosaic],
-  );
-  const remaining = useMemo(
-    () => remainingSetups(engine.profile, engine.prefilled, engine.prosaic),
     [engine.profile, engine.prefilled, engine.prosaic],
   );
   /* The model's ranking now lives inside `engine` (and so is persisted and overruled there),
@@ -468,7 +463,17 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
             transition={transition}
           >
-            <NarrowingMeter confidence={conf} remaining={remaining} />
+            {/* Words, not a count. The raw "possible setups" number went on Hari's call on
+                02 Sep — it read as a made-up statistic to anyone outside the team — and Moin's
+                replacement writes a line from the stage and the last answer instead. Merged
+                file-level from moin-version; `copyContext` is optional, so the AI-written
+                variant on his branch can be wired later without changing this. */}
+            <NarrowingMeter
+              confidence={conf}
+              stage={stage}
+              lastQuestionId={engine.asked[engine.asked.length - 1] ?? null}
+              profile={engine.profile}
+            />
           </motion.div>
         )}
       </AnimatePresence>

@@ -235,7 +235,13 @@ export interface QuestionSurface {
   sub?: string;
   placeholder?: string;
   /** Keyed by the EXISTING option id. Unknown ids are dropped server-side. */
-  options?: Record<string, { label?: string; hint?: string }>;
+  /**
+   * `meter` is declared but not yet produced by questionService — it is the per-option line
+   * Moin's words-meter reads to say something specific after an answer. Declared here so his
+   * meterNumbersCopy compiles against master unchanged, and so wiring the generation later is
+   * one server-side change rather than a type change that ripples through both branches.
+   */
+  options?: Record<string, { label?: string; hint?: string; meter?: string }>;
 }
 
 /** Surface overrides by question id, as validated by the server. */

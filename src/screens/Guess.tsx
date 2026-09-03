@@ -1,4 +1,6 @@
 import { motion } from "framer-motion";
+import { LineIn, ScreenIn } from "../components/ScreenIn";
+import ProductWait from "../components/ProductWait";
 
 /**
  * The guess. The first of two moments carrying the pitch — the tool reflects the business
@@ -35,28 +37,30 @@ export default function Guess({
 }) {
   if (error) {
     return (
-      <div>
-        <p className="eyebrow">Something broke</p>
-        <h1>We couldn't read that.</h1>
-        <p className="lede">{error}</p>
-        <button className="btn" onClick={onReject}>
-          Try again
-        </button>
-      </div>
+      <ScreenIn>
+        <LineIn>
+          <p className="eyebrow">Something broke</p>
+        </LineIn>
+        <LineIn>
+          <h1>We couldn't read that.</h1>
+        </LineIn>
+        <LineIn>
+          <p className="lede">{error}</p>
+        </LineIn>
+        <LineIn>
+          <button className="btn" onClick={onReject}>
+            Try again
+          </button>
+        </LineIn>
+      </ScreenIn>
     );
   }
 
   if (loading) {
     return (
-      <div>
-        <p className="eyebrow">Reading that back</p>
-        <h1 style={{ color: "var(--text-faint)" }}>Working it out…</h1>
-        <div className="dots" aria-label="Loading">
-          <i />
-          <i />
-          <i />
-        </div>
-      </div>
+      <ScreenIn>
+        <ProductWait />
+      </ScreenIn>
     );
   }
 
@@ -93,14 +97,16 @@ export default function Guess({
   }
 
   return (
-    <div>
-      <p className="eyebrow">Here's what we think</p>
+    <ScreenIn>
+      <LineIn>
+        <p className="eyebrow">Here's what we think</p>
+      </LineIn>
       <h1>
         You're{" "}
         <motion.span
-          initial={{ opacity: 0, filter: "blur(8px)" }}
-          animate={{ opacity: 1, filter: "blur(0px)" }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           className="guess-highlight"
         >
           {summary}
@@ -131,14 +137,14 @@ export default function Guess({
         </motion.div>
       )}
 
-      <div className="row">
+      <LineIn className="row">
         <button className="btn" onClick={onConfirm} autoFocus>
           That's us
         </button>
         <button className="btn btn-ghost" onClick={onReject}>
           Not quite
         </button>
-      </div>
-    </div>
+      </LineIn>
+    </ScreenIn>
   );
 }

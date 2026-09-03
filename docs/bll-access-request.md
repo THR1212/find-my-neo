@@ -1,14 +1,20 @@
 # Reaching `check-domain-availability` on bll — access request
 
-**Tested:** 03 Sep 2026 · **Host:** `bll.titan.email` · **Caller:** Vercel serverless function,
-public internet · **Project:** Find My Neo (Ignite 2026)
+**Tested:** 03 Sep 2026 · **Hosts:** `bll.titan.email` (prod),
+`flockmail-bll.flock-staging.com` (staging) · **Caller:** Vercel serverless function, public
+internet · **Project:** Find My Neo (Ignite 2026)
 
-We need to ask Titan whether a `.co.site` subdomain is already taken. The login works, the route
-exists, and we found the correct path and parameter ourselves. It still cannot answer from
-outside Titan's network — and one response suggests we are reaching the service *past* its
-gateway rather than through it.
+We need to ask Titan whether a `.co.site` subdomain is already taken. We now have the right host,
+path, method, parameter and auth header — the endpoint validates our input and rejects a
+malformed domain correctly. **It then returns `500 InternalServerError` for every well-formed
+domain.**
 
-**Q1 below is the only real blocker.** Everything else is cheap once it is answered.
+That is the whole ask: one server-side failure, with request IDs, on a request we can no longer
+improve from outside.
+
+> **Read the correction in "The blocker" first if you saw an earlier version of this document.**
+> `"Hosting server not found"` is what an unresolvable partner credential returns — not a
+> downstream outage, as we first assumed.
 
 ---
 
@@ -29,7 +35,7 @@ order, the probe misses roughly **four in five** taken names. It can prove "take
 
 ---
 
-## bll is healthy — this is not a host-wide outage
+## bll is healthy — this was never a host-wide outage
 
 Same host, same client, same minute:
 
@@ -72,77 +78,124 @@ with `x-auth-token: <valid session>`
 Parameter accepted. But **`x-auth-token` is not read as an auth header here**, despite being
 what the Partner Panel docs specify.
 
-**4.** Same request, with `Authorization: Bearer <valid session>`
+**4.** Same request, with `Authorization: Bearer <mail session>`
 ```json
 404  {"code":"NOT_FOUND","desc":"Hosting server not found"}
 ```
-Past the auth gate, now failing **downstream**. This is where we stopped.
+We first read this as a downstream failure. It is not — see the correction below. It means the
+service could not resolve that credential to a partner, because a Partner Panel mail session is
+the wrong credential for this route.
+
+**5.** Staging host, `Authorization: p_54:<partner token>` (raw, no `Bearer`)
+```json
+500  {"code":"InternalServerError","desc":"An internal error"}
+```
+**Auth resolves and the request reaches the handler.** Which then fails — and that is where the
+remaining problem lives.
 
 ---
 
 ## The blocker
 
-### 1. Every domain returns "Hosting server not found" — including ones that certainly exist
+### Corrected 03 Sep, after testing against staging with a partner token
+
+**An earlier version of this document called `"Hosting server not found"` a blanket downstream
+failure. That was wrong, and the correction changes the whole diagnosis.**
+
+It is the response to an `Authorization` value the service cannot resolve to a partner. Prod
+returned it for every domain simply because **we had no partner token at all** — we were sending
+a Partner Panel mail session from `/fa/mail/login`, which is not the credential this route wants.
+
+With a `p_54:`-shaped partner token against staging, the auth resolves and the request reaches
+the handler. The full matrix:
+
+| `Authorization` value | Result |
+|---|---|
+| `p_54:<valid secret>` | `500 InternalServerError` |
+| `p_54:<wrong secret>` | `500 InternalServerError` |
+| `Bearer p_54:<valid secret>` | `404 "Hosting server not found"` |
+| `garbage` | `404 "Hosting server not found"` |
+| token in `x-auth-token` instead | `401 UNAUTHENTICATED` |
+
+So: **the token goes in `Authorization` raw, with no `Bearer` prefix**, and `x-auth-token` is not
+read by this route at all — despite being what the Partner Panel docs specify for its APIs.
+
+### What now fails: the handler 500s on every valid domain
+
+Host `flockmail-bll.flock-staging.com`, `GET`, partner token, singular `domainName`:
 
 ```
-domainName=titan.email             404  Hosting server not found
-domainName=neo.space               404  Hosting server not found
-domainName=co.site                 404  Hosting server not found
-domainName=proofandbutter.co.site  404  Hosting server not found
+domainName=foo.co.site                     500  InternalServerError
+domainName=test.co.site                    500  InternalServerError
+domainName=zzqx7v9nonexistentstem.co.site  500  InternalServerError
+domainName=example.com                     500  InternalServerError
+domainName=foo.cas.site                    500  InternalServerError
+
+domainName=foo         (bare stem)         INVALID_DOMAIN  "Invalid domain name foo"
+domainName=            (empty)             INVALID_DOMAIN  "Invalid domain name"
 ```
 
-`titan.email` and `neo.space` are real. So this is a **blanket downstream failure, not an
-availability answer**, and we are careful never to read it as "free". It reads like the service
-needs to resolve a hosting server per domain and cannot reach whatever it asks.
+**The request shape is now correct.** The endpoint validates the domain format — a bare stem is
+properly rejected as `INVALID_DOMAIN` — and then returns `500` for every well-formed domain,
+whether it plausibly exists (`example.com`) or certainly does not. That is a server-side failure,
+not a request we can fix from here.
 
-### 2. This edge is not validating credentials at all
+`POST` returns `HTTP method not allowed`, so it is `GET`-only.
 
-`Authorization: total-garbage-not-a-token` returns a **byte-for-byte identical** response to a
-real session. So the header's *presence* passes a gate but its *value* is never checked — which
-suggests we are reaching the service **past its gateway** rather than through it.
+### The plural parameter needs a form we have not guessed
 
-That is why we stopped. Nothing this endpoint says on this edge is trustworthy, and we did not
-want to keep probing an internal service that is not enforcing auth just to learn a response
-shape.
+`domainNames` accepts the repeated-parameter form (`?domainNames=a&domainNames=b`) far enough to
+reach the handler and 500. Every other form we tried returns
+`400 BAD_REQUEST "Unknown error in parsing request"`: a single value, a comma-separated list, and
+a JSON array. Worth confirming the intended encoding, since batching would let us check the whole
+reveal in one call.
 
-> **Worth checking independently of our integration:** should this path be publicly reachable
-> at all?
+### Request IDs for tracing
 
----
+```
+0903_084256_2_ldHxnhaZoG   repeated domainNames  -> 500
+0903_084317_2_gG36RlnFAX   domainName=foo.co.site -> 500
+0903_084321_2_XpCjoadC4o   domainName=test.co.site -> 500
+0903_084322_2_yznXQpQ2Np   domainName=zzqx...co.site -> 500
+0903_083024_3_8I4W9letpB   prod, no auth header  -> 401
+```
 
 ## What we need
 
-**Q1 — How should a Vercel serverless function reach this service through its gateway?**
-A different base host, an allowlisted route, or a proxy — whichever it is, the answer is a URL
-and one credential. *This is the only real blocker; path, parameter and login are all solved.*
+**Q1 — Why does the handler return `500` for every valid domain?**
+`flockmail-bll.flock-staging.com`, `GET`, partner token `p_54:…`, `?domainName=foo.co.site`.
+Request IDs above. The domain-format validation works (`INVALID_DOMAIN` on a bare stem), so we
+are past every layer we can influence. *This is now the only blocker.*
 
-**Q2 — What does "Hosting server not found" mean for this endpoint?**
-Is it purely a symptom of calling from outside, or does the endpoint need a second internal
-service it also cannot see from that edge? *Changes whether Q1 alone is sufficient.*
+**Q2 — Is there a production equivalent of the staging host, and a production partner token?**
+We were given `flockmail-bll.flock-staging.com` with a staging token. `bll.titan.email` returns
+`"Hosting server not found"` for the same request, which we now read as "no partner credential" —
+so a prod partner token may be all that is missing there.
 
-**Q3 — Which auth header does it actually read, and does the Partner Panel session authorise it?**
-Docs say `x-auth-token`; this route says "Auth header missing" when only that is set. We
-currently send both, which is a coin flip we would rather not ship. Also: does the session from
-`/fa/mail/login` authorise this route, or is `/partner/token/generate` the correct mint — and
-what does *that* need? (It returns `401 "Auth header missing"` to both an empty POST and a
-Partner Panel session.)
+**Q3 — How is a `p_54:…` partner token minted, and what does it need?**
+`POST /partner/token/generate` returns `401 "Auth header missing"` to both an empty POST and a
+Partner Panel mail session. We currently only have a token that was handed to us directly, which
+is not something we can ship.
 
-**Q4 — What does a successful response look like, and does `domainNames` take a batch?**
-We have never seen a `200`, so we read `available` / `isAvailable` / `taken` / `exists` /
-`registered` defensively. A batch parameter would let us check the whole reveal in one call
-instead of one per stem.
+**Q4 — What encoding does `domainNames` expect, and what does a `200` look like?**
+Repeated parameters reach the handler; single, comma-separated and JSON-array forms all fail
+parsing. We have never seen a success response, so we read `available` / `isAvailable` / `taken`
+/ `exists` / `registered` defensively.
 
-**Q5 — Should this run on a service credential rather than a human login?**
-We currently log in as a Partner Panel user, whose login response shows `is2FAEnabled: false`.
-If 2FA is ever enabled on that account, this integration breaks silently. A cold serverless
-instance logs in on its first request, so expect login traffic proportional to cold starts.
-
----
+**Q5 — Does it count an unpublished order as taken?**
+We were told an unpublished site still exists as an active order. Confirming the endpoint reads
+orders rather than published sites matters, because that is the whole reason we need it: our
+fallback probe only sees published sites and therefore misses about four in five taken names.
 
 ## Already settled — no need to answer these
 
-- ✅ **The login works.** `POST api.titan.email/fa/mail/login` returns `200` with the documented
-  payload, including the required `origin: https://app.titan.email` header.
+- ✅ **The path is confirmed and the request shape is correct** — `GET`, singular `domainName`,
+  a full domain rather than a stem. The endpoint's own `INVALID_DOMAIN` validation proves it is
+  parsing our input.
+- ✅ **The auth header is `Authorization`, carrying the partner token raw.** No `Bearer` prefix
+  (that returns "Hosting server not found") and not `x-auth-token` (that returns `401`).
+- ✅ **`POST api.titan.email/fa/mail/login` works** and returns a session — but that session is
+  *not* the credential this route wants, which is what sent us down the wrong path initially.
 - ✅ **The path is `/internal/neo/check-domain-availability`** — no `v2`.
 - ✅ **The parameter is `domainName`** (or `domainNames`). The API named it in its own 400 body.
 - ✅ **Our side degrades safely.** Any failure falls back to the HTTP probe, and the reveal still

@@ -121,8 +121,20 @@ const TOKEN_URL_DEFAULT = "https://api.titan.email/fa/mail/login";
 const TOKEN_ORIGIN_DEFAULT = "https://app.titan.email";
 /** Identifies this caller in Titan's session records. Ours, so it is attributable to us. */
 const TOKEN_IID_DEFAULT = "server-findmyneo-001";
-/** The header the Partner Panel API expects. Not `Authorization`. */
-const CHECK_AUTH_HEADER_DEFAULT = "x-auth-token";
+/**
+ * `Authorization`, carrying a PARTNER token raw — no `Bearer` prefix.
+ *
+ * Measured 2026-09-03 against staging, and every other combination fails differently, which is
+ * how we know this one is right rather than merely untested:
+ *
+ *   Authorization: p_54:<secret>          -> reaches the handler
+ *   Authorization: Bearer p_54:<secret>   -> 404 "Hosting server not found"
+ *   x-auth-token:  p_54:<secret>          -> 401 UNAUTHENTICATED
+ *
+ * So the `Bearer` prefix breaks it and `x-auth-token` is not read at all, despite being what
+ * the Partner Panel documentation specifies for its APIs. Do not "restore" either.
+ */
+const CHECK_AUTH_HEADER_DEFAULT = "Authorization";
 
 /**
  * Refresh this long before the stated expiry, so a token cannot die mid-request.
@@ -251,12 +263,16 @@ async function partnerToken(forceRefresh = false): Promise<string | null> {
  * batch support worth using later — one call for the whole reveal instead of one per stem).
  *
  * ┌──────────────────────────────────────────────────────────────────────────────────────────┐
- * │ IT STILL CANNOT ANSWER FROM OUTSIDE TITAN'S NETWORK.                                     │
- * │ Every domain returns `NOT_FOUND / "Hosting server not found"` — including `titan.email`   │
- * │ and `neo.space`, which certainly exist. So that is a blanket downstream failure, not an   │
- * │ availability answer, and it must never be read as "free". A garbage `Authorization` value │
- * │ produces the identical response, so this edge is not validating credentials either: we    │
- * │ are reaching the service past its gateway, and nothing it says here is trustworthy.       │
+ * │ `"Hosting server not found"` MEANS BAD CREDENTIAL, NOT BROKEN INFRASTRUCTURE.            │
+ * │ This was misread once and the correction matters. It is the response to an `Authorization`│
+ * │ value the service cannot resolve to a partner — a garbage string, a mail session, or a    │
+ * │ correct partner token wrapped in `Bearer` all produce it. It is NOT a downstream outage,  │
+ * │ and it is NOT an availability answer, so it must never be read as "free".                 │
+ * │                                                                                          │
+ * │ Prod returned it for every domain simply because we had no partner token at all. With a   │
+ * │ `p_54:`-shaped token, staging resolves the partner and reaches the handler — which then   │
+ * │ returns 500 for every VALID domain, while a bare stem correctly returns `INVALID_DOMAIN`. │
+ * │ So the request shape is right and the remaining failure is server-side.                   │
  * └──────────────────────────────────────────────────────────────────────────────────────────┘
  *
  * The ladder in `checkCoSite` degrades all of it to the probe, so the reveal stays correct.
@@ -276,18 +292,11 @@ async function askNeo(stem: string, domain: string): Promise<CoSiteResult | null
     withTimeout(url, {
       headers: {
         Accept: "application/json",
-        /* The session goes in BOTH headers, deliberately, because the two sources of truth
-           disagree and we cannot yet tell which is right in production:
-
-           - Titan's documentation says Partner Panel APIs read `x-auth-token`.
-           - This route, measured 2026-09-03, answers `401 "Auth header missing"` when ONLY
-             `x-auth-token` is set, and gets past that gate when `Authorization` is present.
-
-           Same secret, same host, same TLS connection, so sending both costs nothing and
-           removes a guess. It is not belt-and-braces sloppiness: picking one would be a coin
-           flip, and picking wrong looks identical to "no access" — the failure mode that has
-           already cost time here. Set NEO_COSITE_AUTH_HEADER to pin one once Titan confirms. */
-        ...(token ? { [headerName]: token, Authorization: `Bearer ${token}` } : {}),
+        /* Raw, and one header only. An earlier version sent the token in `x-auth-token` AND
+           as `Authorization: Bearer` to cover both conventions; staging then proved both of
+           those wrong — `Bearer` returns "Hosting server not found" and `x-auth-token` returns
+           401. The dual-header hedge is gone because there is nothing left to hedge. */
+        ...(token ? { [headerName]: token } : {}),
         origin: process.env.NEO_PARTNER_ORIGIN ?? TOKEN_ORIGIN_DEFAULT,
       },
     });
@@ -306,6 +315,10 @@ async function askNeo(stem: string, domain: string): Promise<CoSiteResult | null
     res = await call(token ?? null);
   }
 
+  /* Every non-2xx throws, which the ladder turns into a probe fallback. Spelled out because
+     three of these look like answers and are not: 404 "Hosting server not found" is a
+     credential the service could not resolve, 500 is the handler failing on a valid domain,
+     and INVALID_DOMAIN means we sent something that is not a domain. None of them means free. */
   if (!res.ok) throw new Error(`neo cosite check -> ${res.status}`);
 
   const body = (await res.json()) as Record<string, unknown>;

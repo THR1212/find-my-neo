@@ -1573,6 +1573,10 @@ a.btn {
   min-height: 0;
 }
 
+.stage-reveal:has(.tpl-pair) .screen-wide {
+  width: min(1400px, 100%);
+}
+
 .stage-reveal {
   display: flex;
   flex-direction: column;
@@ -1619,8 +1623,15 @@ a.btn {
   overflow: hidden;
 }
 
+/* Email+site: the visual is two landscape templates. Cap the recommendation column so
+   those two cards get the leftover width instead of sharing the row 50/50. */
+.reveal-split:has(.tpl-pair) {
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+}
+
 .reveal-setup,
 .setup-story {
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -1712,6 +1723,7 @@ a.btn {
 
 .setup-story-site {
   overflow: hidden;
+  justify-content: center;
 }
 
 .setup-story-site > .story-kicker {
@@ -1721,21 +1733,28 @@ a.btn {
 
 .tpl-pair {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
+  align-items: center;
+  overflow: hidden;
 }
 
 .tpl-pane {
   min-width: 0;
+  width: 100%;
+  margin: 0;
   min-height: 0;
-  height: 100%;
+  aspect-ratio: 560 / 357;
+  max-height: 100%;
+  height: auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--neo-bg);
-  border: 1px solid var(--neo-border);
+  background: var(--bg-page);
+  border: 1px solid var(--border);
   border-radius: var(--radius-card);
 }
 
@@ -1751,9 +1770,15 @@ a.btn {
   overflow: hidden;
 }
 
+.tpl-pane-generated .neo-site-chrome,
+.tpl-pane-generated .neo-site-body,
+.tpl-pane-generated .neo-site-foot {
+  display: none;
+}
+
 .tpl-pane-generated .neo-site-hero {
   flex: 1 1 auto;
-  height: auto;
+  height: 100%;
   min-height: 0;
 }
 
@@ -1771,16 +1796,7 @@ a.btn {
 }
 
 .tpl-pane-generated .neo-site-products {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.tpl-pane-generated .neo-product img {
-  aspect-ratio: 4 / 3;
-  min-height: 40px;
-  height: 40px;
+  display: none;
 }
 
 .tpl-pane-generated .neo-site-desc {
@@ -1793,14 +1809,19 @@ a.btn {
 .tpl-pane-shot img {
   flex: 1 1 auto;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 0;
-  object-fit: cover;
+  height: 100%;
+  object-fit: contain;
   object-position: top center;
   display: block;
 }
 
+.tpl-pane-caption,
 .tpl-pane-shot figcaption {
   flex: 0 0 auto;
+  margin: 0;
   padding: 8px 10px 9px;
   font-size: 11px;
   color: var(--neo-text-muted);
@@ -1946,7 +1967,8 @@ a.btn {
 }
 
 @media (max-width: 840px) {
-  .reveal-split {
+  .reveal-split,
+  .reveal-split:has(.tpl-pair) {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
     gap: 10px;
@@ -1954,10 +1976,6 @@ a.btn {
 
   .tpl-pair {
     gap: 8px;
-  }
-
-  .tpl-pane-generated .neo-site-products {
-    display: none;
   }
 
   .plan-card {

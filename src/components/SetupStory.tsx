@@ -51,6 +51,7 @@ export default function SetupStory({
       <div className="tpl-pair">
         <div className="tpl-pane tpl-pane-generated">
           {neoSite ? <NeoSitePreview site={neoSite} delay={0} /> : <NeoSiteGenerating />}
+          <p className="tpl-pane-caption">Generated for you</p>
         </div>
         <NeoTemplateShots seed={domain} />
       </div>

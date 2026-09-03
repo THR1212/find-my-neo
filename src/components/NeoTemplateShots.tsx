@@ -12,14 +12,14 @@ export default function NeoTemplateShots({ seed }: { seed: string }) {
   if (!shot) return null;
 
   return (
-    <motion.figure
+    <motion.div
       className="tpl-pane tpl-pane-shot"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.12, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
     >
       <img src={shot.src} alt={`${shot.label} template`} />
-      <figcaption>{shot.label} look Neo can apply</figcaption>
-    </motion.figure>
+      <p className="tpl-pane-caption">{shot.label} look Neo can apply</p>
+    </motion.div>
   );
 }

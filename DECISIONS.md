@@ -1752,3 +1752,25 @@ authoritative results with `determinacy_rate: 1`. So the availability badge rend
 the registrable TLDs. Nothing was changed on our side — it was an upstream outage, and the code
 degraded correctly throughout, which is the useful part. Worth re-checking before the demo
 rather than assuming either state.
+
+---
+
+### 2026-09-03 · Reveal films follow the mail plan; site path is two big templates
+
+Two last-page problems, same screen.
+
+**Films were not entitled.** `clipsFor` ranked Invoice Builder / Bookings / Email Designer by
+profile and always showed three, including on Starter. Darrel's Pandora sheet says those three
+are Max-only, and Signature Designer is Standard+. A Starter price next to an Invoice Builder
+loop is the same contradiction `minMailPlan` already fixed on the feature bullets. The films
+now take `mailPlanId` and drop anything the plan does not grant. Mail apps stay on every tier.
+Unknown plan is treated as Starter, not as "show everything".
+
+**The other looks were not viewable.** Email+site stacked the generated site above a 96px
+thumbnail strip. The strip was clipped by the locked viewport, so "other looks Neo can apply"
+could not actually be looked at. That row is gone. The site builder pane is now two equal
+templates side by side: the generated site, and one other look from the reel, both filling the
+column.
+
+**Reverse if:** Neo ships Starter-tier films for Invoice/Bookings, or the reveal is allowed to
+scroll.

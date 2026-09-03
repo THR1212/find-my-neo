@@ -22,6 +22,10 @@
  * see the header of features.ts. Do not invent a Neo product that is not in that file.
  */
 
+export type MailPlanId = "starter" | "standard" | "max";
+
+const MAIL_TIER: Record<MailPlanId, number> = { starter: 0, standard: 1, max: 2 };
+
 export interface NeoClip {
   id: string;
   /** Neo's product name, verbatim. */
@@ -29,6 +33,11 @@ export interface NeoClip {
   /** Why this person specifically is being shown it. */
   caption: string;
   src: string;
+  /**
+   * Lowest mail plan that actually grants this, from `src/data/plan-features.json`.
+   * Absent means every mail plan includes it (Starter, Standard and Max).
+   */
+  minMailPlan?: MailPlanId;
 }
 
 const VIDEOS = "/neo/videos";
@@ -44,24 +53,28 @@ export const MAIL_CLIPS: NeoClip[] = [
     name: "Invoice Builder",
     caption: "Build the invoice and send it without leaving the inbox",
     src: `${VIDEOS}/invoice.mp4`,
+    minMailPlan: "max",
   },
   {
     id: "bookings",
     name: "Neo Bookings",
     caption: "Customers pick a slot themselves instead of trading messages",
     src: `${VIDEOS}/bookings.mp4`,
+    minMailPlan: "max",
   },
   {
     id: "signature",
     name: "Signature Designer",
     caption: "Every reply signs off with your name and your domain",
     src: `${VIDEOS}/signature.mp4`,
+    minMailPlan: "standard",
   },
   {
     id: "email_designer",
     name: "Email Designer",
     caption: "Send something that looks designed, without a designer",
     src: `${VIDEOS}/designer.mp4`,
+    minMailPlan: "max",
   },
   {
     id: "fast_apps",
@@ -72,14 +85,20 @@ export const MAIL_CLIPS: NeoClip[] = [
 ];
 
 /**
- * Which loops to show, most relevant first.
+ * Which loops to show, most relevant first — but only features this mail plan actually grants.
  *
- * Deterministic and profile-driven, exactly like pickFeatures — someone who takes payments
- * gets Invoice Builder first; someone who only takes enquiries gets Bookings. Nothing here
- * is model-written.
+ * Ranking is profile-driven, exactly like pickFeatures: someone who takes payments gets
+ * Invoice Builder first, if Max includes it. Entitlement comes from Darrel's Pandora sheet
+ * (`plan-features.json`) and is the hard filter. A Starter recommendation must never loop
+ * Invoice Builder, Bookings or Email Designer — those are Max-only. Signature Designer is
+ * Standard and Max. Mail apps ship on every plan.
+ *
+ * If the plan is unknown, only the every-plan clips render: showing a Max film next to a
+ * Starter price is worse than a quieter pane.
  */
 export function clipsFor(
   profile: Record<string, unknown>,
+  mailPlanId: string | null,
   limit = 3,
 ): NeoClip[] {
   const value = (key: string) => {
@@ -87,6 +106,7 @@ export function clipsFor(
     return Array.isArray(v) ? v : [v];
   };
   const has = (key: string, v: unknown) => value(key).includes(v);
+  const tier = mailPlanId && mailPlanId in MAIL_TIER ? MAIL_TIER[mailPlanId as MailPlanId] : 0;
 
   const score = (clip: NeoClip): number => {
     switch (clip.id) {
@@ -105,7 +125,13 @@ export function clipsFor(
     }
   };
 
-  return [...MAIL_CLIPS].sort((a, b) => score(b) - score(a)).slice(0, limit);
+  return [...MAIL_CLIPS]
+    .filter((clip) => {
+      if (!clip.minMailPlan) return true;
+      return tier >= MAIL_TIER[clip.minMailPlan];
+    })
+    .sort((a, b) => score(b) - score(a))
+    .slice(0, limit);
 }
 
 export interface NeoTemplateShot {

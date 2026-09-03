@@ -404,6 +404,8 @@ export default function Reveal({
           showSite={showSite}
           neoSite={neoSite}
           profile={profile}
+          mailPlanId={rec.mailPlan.id}
+          mailPlanName={rec.mailPlan.name}
         />
       </div>
     </div>

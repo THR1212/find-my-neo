@@ -143,9 +143,10 @@ Everything that decides money.
 | domain availability, price | `api/_lib/domainService.ts` | DomScan |
 | site copy and images | `api/_lib/neoSite.ts` | **Neo's own generator** |
 
-Feature *names* are Neo's verbatim `heading` strings — 12 of our 13 mail names are byte-identical
-to their config. Only the `because` half of each line is ours, and it is **still hand-written**
-(see "What is still fixed", below).
+Feature *names* are Neo's own. Of the 13 features whose ids exist in Neo's config, **12 are
+byte-identical** to its `heading` field (the exception is `neo_domain`, whose heading is
+templated with a sample customer's domain). The other 7 come from Neo's site pricing table and
+are recorded in `src/data/site-features.json`. Only the `because` half of each line is ours.
 
 ---
 

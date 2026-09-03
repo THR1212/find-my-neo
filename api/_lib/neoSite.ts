@@ -78,10 +78,14 @@ export interface NeoSite {
 
 /** Step 1 — classify the business. */
 async function classify(industryKey: string, description: string) {
+  const payload: Record<string, string> = { bd: description };
+  /* A wrong ik (we used to send ecommerce_retail for every business) biases Neo's
+     classifier toward a shop template — cinema descriptions came back as the bakery. */
+  if (industryKey) payload.ik = industryKey;
   const out = await post("/neo/generate/unauth", {
     crid: crid("bi"),
     t: "bi",
-    p: JSON.stringify({ ik: industryKey, bd: description }),
+    p: JSON.stringify(payload),
   });
   return JSON.parse(out.v) as {
     industryKey: string;

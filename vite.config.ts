@@ -37,24 +37,50 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
 
       // Neo's own site generator. Same handler the Vercel function uses.
       server.middlewares.use("/api/neo-site", async (req, res) => {
-        const u = new URL(req.url ?? "", "http://localhost");
         res.setHeader("Content-Type", "application/json");
-        const bd = (u.searchParams.get("bd") ?? "").slice(0, 2000);
-        if (!bd.trim()) {
-          res.statusCode = 400;
-          res.end(JSON.stringify({ site: null, error: "missing `bd`" }));
+        res.setHeader("Cache-Control", "private, no-store");
+
+        const finish = async (bn: string, bd: string, ik: string) => {
+          if (!bd.trim()) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ site: null, error: "missing `bd`" }));
+            return;
+          }
+          try {
+            const site = await generateNeoSite(bn, bd, ik);
+            res.end(JSON.stringify({ site }));
+          } catch (err) {
+            res.end(JSON.stringify({ site: null, error: String(err) }));
+          }
+        };
+
+        if (req.method === "POST") {
+          let raw = "";
+          req.on("data", (c) => (raw += c));
+          req.on("end", () => {
+            void (async () => {
+              try {
+                const body = JSON.parse(raw || "{}") as { bn?: unknown; bd?: unknown; ik?: unknown };
+                await finish(
+                  String(body.bn ?? "").slice(0, 55),
+                  String(body.bd ?? "").slice(0, 2000),
+                  String(body.ik ?? "").slice(0, 80),
+                );
+              } catch (err) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ site: null, error: String(err) }));
+              }
+            })();
+          });
           return;
         }
-        try {
-          const site = await generateNeoSite(
-            (u.searchParams.get("bn") ?? "").slice(0, 55),
-            bd,
-            u.searchParams.get("ik") ?? "ecommerce_retail",
-          );
-          res.end(JSON.stringify({ site }));
-        } catch (err) {
-          res.end(JSON.stringify({ site: null, error: String(err) }));
-        }
+
+        const u = new URL(req.url ?? "", "http://localhost");
+        await finish(
+          (u.searchParams.get("bn") ?? "").slice(0, 55),
+          (u.searchParams.get("bd") ?? "").slice(0, 2000),
+          (u.searchParams.get("ik") ?? "").slice(0, 80),
+        );
       });
 
       /* The two model steps. Same handlers the Vercel functions use. Separate routes so the

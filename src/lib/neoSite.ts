@@ -33,6 +33,12 @@ export interface NeoSite {
 
 const FIXTURE: NeoSite = { ...(fixture as unknown as NeoSite), source: "fixture" };
 
+/** The recorded fallback is Proof & Butter. Only show it when that is what they typed. */
+export function fixtureFitsDescription(description: string): boolean {
+  const t = description.toLowerCase();
+  return /proof\s*&?\s*butter|sourdough|celebration cake|bakery in bandra/.test(t);
+}
+
 /**
  * Generation takes real time on Neo's side — measured at 22–38s, and their own UI shows a
  * 12-step loader for up to 24s.
@@ -45,31 +51,44 @@ const FIXTURE: NeoSite = { ...(fixture as unknown as NeoSite), source: "fixture"
  */
 const TIMEOUT_MS = 90000;
 
+function fallbackSite(description: string): NeoSite | null {
+  return fixtureFitsDescription(description) ? FIXTURE : null;
+}
+
 export async function fetchNeoSite(
   businessName: string,
   description: string,
-  industryKey = "ecommerce_retail",
-): Promise<NeoSite> {
+  industryKey = "",
+): Promise<NeoSite | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const qs = new URLSearchParams({ bn: businessName, bd: description, ik: industryKey });
-    const res = await fetch(`/api/neo-site?${qs}`, { signal: controller.signal });
+    const res = await fetch("/api/neo-site", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({
+        bn: businessName,
+        bd: description,
+        ...(industryKey ? { ik: industryKey } : {}),
+      }),
+      signal: controller.signal,
+    });
     if (!res.ok) {
       reportDegraded("neo-site http", String(res.status));
-      return FIXTURE;
+      return fallbackSite(description);
     }
     const body = (await res.json()) as { site: NeoSite | null; error?: string };
     if (!body.site) {
       reportDegraded("neo-site empty", body.error);
-      return FIXTURE;
+      return fallbackSite(description);
     }
     return { ...body.site, source: "live" };
   } catch (err) {
-    /* Includes the 45s timeout. Worth knowing: if this fires for everyone, Neo's generator is
-       down or has changed, and every visitor is silently seeing the bakery. */
+    /* Includes the timeout. Worth knowing: if this fires for everyone, Neo's generator is
+       down or has changed. Do not paint the bakery over a cinema. */
     reportDegraded("neo-site unreachable", err instanceof Error ? err.message : String(err));
-    return FIXTURE;
+    return fallbackSite(description);
   } finally {
     clearTimeout(timer);
   }

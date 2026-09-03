@@ -9,7 +9,7 @@ import {
   type EngineState,
 } from "./lib/engine";
 import { buildProfile, fetchQuestionSurface } from "./lib/api";
-import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
+import { fetchNeoSite, fixtureFitsDescription, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
 
@@ -57,7 +57,14 @@ export default function App() {
    * their generator is genuinely slow (their own UI shows a 12-step loader for up to 24s).
    * Starting it any later and the reveal would sit waiting on it.
    */
-  const [neoSite, setNeoSite] = useState<NeoSite | null>(restored?.neoSite ?? null);
+  const [neoSite, setNeoSite] = useState<NeoSite | null>(() => {
+    const restoredSite = restored?.neoSite ?? null;
+    if (!restoredSite) return null;
+    if (restoredSite.source === "fixture" && !fixtureFitsDescription(restored?.rawText ?? "")) {
+      return null;
+    }
+    return restoredSite;
+  });
   /** Options tapped on the current question — meter copy updates before Continue. */
   const [liveOptionIds, setLiveOptionIds] = useState<string[]>([]);
 
@@ -69,6 +76,7 @@ export default function App() {
    */
   const stageRef = useRef<Stage>(stage);
   stageRef.current = stage;
+  const siteSeq = useRef(0);
 
   const conf = useMemo(() => confidence(engine.profile), [engine.profile]);
   const current = useMemo(
@@ -89,8 +97,21 @@ export default function App() {
    */
   const kickOff = useCallback(
     (text: string, opts: { profile: boolean; site: boolean; seedNextQuestion: boolean }) => {
-      /* fetchNeoSite never rejects; it falls back to a recorded real response. */
-      if (opts.site) fetchNeoSite("", text).then(setNeoSite);
+      if (opts.site) {
+        setNeoSite(null);
+        const gen = ++siteSeq.current;
+        const bn = text
+          .replace(/[^a-zA-Z0-9\s]/g, " ")
+          .trim()
+          .split(/\s+/)
+          .slice(0, 4)
+          .join(" ")
+          .slice(0, 55);
+        void fetchNeoSite(bn, text, "").then((site) => {
+          if (siteSeq.current !== gen) return;
+          if (site) setNeoSite(site);
+        });
+      }
 
       /* Question wording, in parallel and deliberately not awaited. It only has to land
          before the FIRST question screen, which is a guess-screen read away, so it never
@@ -175,8 +196,11 @@ export default function App() {
       return;
     }
 
+    const siteOk =
+      restored.neoSite != null &&
+      (restored.neoSite.source !== "fixture" || fixtureFitsDescription(restored.rawText));
     const needProfile = restored.reveal === null;
-    const needSite = restored.neoSite === null;
+    const needSite = !siteOk;
     if (!needProfile && !needSite) return;
 
     kickOff(restored.rawText, {

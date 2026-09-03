@@ -75,7 +75,10 @@ you're not. See "Changing the demo answer" below.
 | `src/lib/rules.ts` | Turns a profile into a plan + price. The model never does this. |
 | `src/lib/session.ts` | The shapes everything agrees on. |
 | `src/lib/persist.ts` | Saves your place to `sessionStorage`, so a refresh doesn't lose the run. |
-| `src/lib/handoff.ts` | Builds the link into Neo's purchase flow. Wired to the reveal's CTA. |
+| `src/lib/handoff.ts` | Builds the link into Neo's purchase flow. Kept; Claim now opens in-app checkout. |
+| `src/lib/checkout.ts` | Claim payload + plan totals from `plans.json`. Never a model price. |
+| `src/screens/Checkout.tsx` | Neo-looking checkout. Domain and mailboxes come from the reveal. |
+| `src/screens/Success.tsx` | After Pay: DNS setup screen, email-only or email+site. |
 | **Talking to the outside world** | |
 | `api/_lib/neoSite.ts` | Calls **Neo's real site generator**. Three chained calls. |
 | `api/_lib/domainService.ts` | Domain availability + price via DomScan. **Holds an API key — server only.** |
@@ -139,7 +142,7 @@ what decides each one. This table is the same thing in text, with the actual fun
 | 7 | *(loop)* | `engine.shouldReveal` | - | Repeats 6 until confident or `MAX_QUESTIONS` (4) |
 | 8 | `Reveal.tsx` | `domains.lookupDomains` | `GET /api/domains` -> `domainService.lookupDomains()` -> DomScan | Availability plus USD list price, converted to INR |
 | 9 | `Reveal.tsx` | `features.pickFeatures` and `rules.recommend` | nothing leaves the browser | The plan, the price, the "worth knowing" lines |
-| 10 | `Reveal.tsx` | `handoff.buildHandoffUrl` | `join.neo.space` - an `<a>` a person clicks | - |
+| 10 | `Reveal.tsx` | `onClaim` → `Checkout.tsx` | In-app Neo checkout, then Success after Pay | - |
 
 Throughout, `errorLog.ts` posts crashes **and silent degradations** to `/api/log`.
 

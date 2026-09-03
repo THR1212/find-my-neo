@@ -31,6 +31,9 @@ import Describe from "./screens/Describe";
 import Guess from "./screens/Guess";
 import AdaptiveQuestion from "./screens/AdaptiveQuestion";
 import Reveal from "./screens/Reveal";
+import Checkout from "./screens/Checkout";
+import Success from "./screens/Success";
+import type { CheckoutOrder } from "./lib/checkout";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 const meterTransition = { duration: 0.2, ease: EASE };
@@ -144,6 +147,10 @@ export default function App() {
    * recommendation stands unchanged.
    */
   const [verdict, setVerdict] = useState<PlanVerdict | null>(restored?.verdict ?? null);
+  const [checkoutOrder, setCheckoutOrder] = useState<CheckoutOrder | null>(
+    restored?.checkoutOrder ?? null,
+  );
+  const [paying, setPaying] = useState(false);
   /**
    * Options tapped on the question currently on screen, so the meter can react before
    * Continue. Keyed by question id rather than cleared in an effect: an effect would reset it
@@ -232,7 +239,14 @@ export default function App() {
            * question under them mid-read. Better to lose the generated wording for a fast
            * mover than to change the words they are in the middle of.
            */
-          if (stageRef.current === "question" || stageRef.current === "reveal") return;
+          if (
+            stageRef.current === "question" ||
+            stageRef.current === "reveal" ||
+            stageRef.current === "checkout" ||
+            stageRef.current === "success"
+          ) {
+            return;
+          }
           setEngine((prev) => ({ ...prev, surface }));
         });
       }
@@ -313,7 +327,13 @@ export default function App() {
     /* Only stages that actually consume the results. Parked on Describe the user is about to
        rewrite the description, so firing a profile and a Neo generation for the text they are
        replacing is pure waste — and Neo's generator is the one call worth not wasting. */
-    if (restored.stage !== "guess" && restored.stage !== "question" && restored.stage !== "reveal") {
+    if (
+      restored.stage !== "guess" &&
+      restored.stage !== "question" &&
+      restored.stage !== "reveal" &&
+      restored.stage !== "checkout" &&
+      restored.stage !== "success"
+    ) {
       return;
     }
 
@@ -373,13 +393,31 @@ export default function App() {
 
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
-    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict });
-  }, [stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict]);
+    saveSnapshot({
+      stage,
+      engine,
+      rawText,
+      reveal,
+      summary,
+      neoSite,
+      neoSiteAlt,
+      reasons,
+      rationale,
+      verdict,
+      checkoutOrder,
+    });
+  }, [stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict, checkoutOrder]);
+
+  const funnel = stage === "checkout" || stage === "success";
 
   useEffect(() => {
     document.documentElement.classList.toggle("is-reveal", stage === "reveal");
-    return () => document.documentElement.classList.remove("is-reveal");
-  }, [stage]);
+    document.documentElement.classList.toggle("is-funnel", funnel);
+    return () => {
+      document.documentElement.classList.remove("is-reveal");
+      document.documentElement.classList.remove("is-funnel");
+    };
+  }, [stage, funnel]);
 
   /**
    * Apply an answer and decide where to go next.
@@ -487,6 +525,8 @@ export default function App() {
     setReasons({});
     setRationale({ rationale: "", whyNotCheaper: "" });
     setVerdict(null);
+    setCheckoutOrder(null);
+    setPaying(false);
     setError(null);
   }, []);
 
@@ -543,6 +583,7 @@ export default function App() {
       <div className="grain" aria-hidden="true" />
 
       <AnimatePresence>
+        {!funnel && (
         <motion.div
           className="meter-dock"
           initial={{ opacity: 0, y: -10 }}
@@ -564,6 +605,7 @@ export default function App() {
             }}
           />
         </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Debug-only. Positioned out of the flow so it cannot disturb a screenshot or a demo. */}
@@ -573,11 +615,11 @@ export default function App() {
         </button>
       )}
 
-      <main className={`stage${stage === "reveal" ? " stage-reveal" : ""}`}>
+      <main className={`stage${stage === "reveal" ? " stage-reveal" : ""}${funnel ? " stage-funnel" : ""}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={screenKey}
-            className={`screen${stage === "reveal" ? " screen-wide" : ""}${stage === "guess" && loading ? " screen-wait" : ""}`}
+            className={`screen${stage === "reveal" ? " screen-wide" : ""}${funnel ? " screen-funnel" : ""}${stage === "guess" && loading ? " screen-wait" : ""}`}
             variants={screenVariants}
             initial="enter"
             animate="center"
@@ -641,6 +683,34 @@ export default function App() {
                 reasons={reasons}
                 rationale={rationale}
                 verdict={verdict}
+                onRestart={restart}
+                onClaim={(order) => {
+                  setCheckoutOrder(order);
+                  setStage("checkout");
+                }}
+              />
+            )}
+
+            {stage === "checkout" && (
+              <Checkout
+                order={checkoutOrder}
+                paying={paying}
+                onBack={() => setStage("reveal")}
+                onPay={() => {
+                  if (paying) return;
+                  setPaying(true);
+                  window.setTimeout(() => {
+                    setPaying(false);
+                    setStage("success");
+                  }, 900);
+                }}
+              />
+            )}
+
+            {stage === "success" && (
+              <Success
+                order={checkoutOrder}
+                onBack={() => setStage("checkout")}
                 onRestart={restart}
               />
             )}

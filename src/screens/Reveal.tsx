@@ -9,9 +9,9 @@ import {
 } from "../lib/domains";
 import { pickFeatures, withReason, type FeatureSurface, type ReasonMap } from "../lib/features";
 import { recommend, CYCLE_LABEL, domainFirstCycleInr } from "../lib/rules";
-import { buildHandoffUrl } from "../lib/handoff";
+import { buildCheckoutOrder, type CheckoutOrder } from "../lib/checkout";
 import SetupStory from "../components/SetupStory";
-import { block as blockData, type NeoSite } from "../lib/neoSite";
+import type { NeoSite } from "../lib/neoSite";
 import type { Profile } from "../lib/engine";
 import { playSetupReady, playSound, unlockSound } from "../sound";
 
@@ -36,6 +36,7 @@ export default function Reveal({
   rationale,
   verdict,
   onRestart,
+  onClaim,
 }: {
   reveal: RevealContent | null;
   loading: boolean;
@@ -55,6 +56,7 @@ export default function Reveal({
     cites: { entitlement: string; evidence: string }[];
   } | null;
   onRestart: () => void;
+  onClaim: (order: CheckoutOrder) => void;
 }) {
   const [chosenName, setChosenName] = useState<string | null>(null);
   const [extraDomains, setExtraDomains] = useState<DomainOption[]>([]);
@@ -217,20 +219,6 @@ export default function Reveal({
     rec.sitePlan?.id ?? null,
     rec.mailPlan.id,
   ).map((f) => withReason(f, reasons));
-
-  const neoName =
-    neoSite && typeof (blockData(neoSite, "header") as { title?: unknown })?.title === "string"
-      ? ((blockData(neoSite, "header") as { title: string }).title)
-      : null;
-
-  const handoffUrl = buildHandoffUrl({
-    profile,
-    businessName:
-      neoName ?? (profile.brandName as string) ?? domain?.name.split(".")[0] ?? "your business",
-    businessDescription: businessText ?? "",
-    neoIndustryKey: neoSite?.industryKey,
-    neoTemplateKey: chosenTemplate,
-  });
 
   const liveAvail = domain ? (live[domain.name]?.available ?? domain.available) : null;
   const livePrice = domain ? (live[domain.name]?.priceInr ?? domain.priceInr) : null;
@@ -402,20 +390,25 @@ export default function Reveal({
           </div>
 
           <div className="row reveal-cta">
-            <a
+            <button
               className="btn"
-              href={handoffUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              type="button"
               autoFocus
               onClick={() => {
                 unlockSound();
                 playSound("cta");
-                void navigator.clipboard?.writeText(domainName).catch(() => {});
+                onClaim(
+                  buildCheckoutOrder({
+                    domain: domainName,
+                    revealMailboxes: reveal.mailboxes,
+                    rec,
+                    hasSite: showSite,
+                  }),
+                );
               }}
             >
               Claim it and start building
-            </a>
+            </button>
             <button className="btn btn-ghost" onClick={onRestart}>
               Start over
             </button>

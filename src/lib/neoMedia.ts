@@ -85,7 +85,7 @@ export const MAIL_CLIPS: NeoClip[] = [
     name: "Signature Designer",
     caption: "Every reply signs off with your name and your domain",
     src: `${VIDEOS}/signature.mp4`,
-    minMailPlan: "standard",
+    minMailPlan: "max",
   },
   {
     id: "email_designer",

@@ -237,7 +237,10 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "signature_builder",
-    minMailPlan: "standard",
+    /* MAX, not standard. Confirmed by Hari 03 Sep; plan-features.json still says "STANDARD and
+       MAX" and is stale on this one. At standard it was offered as a reason to buy a plan that
+       does not include it — the exact failure minMailPlan exists to prevent. */
+    minMailPlan: "max",
     name: "Signature Designer",
     surface: "mail",
     because: "every mail you send looks like it came from a real business",

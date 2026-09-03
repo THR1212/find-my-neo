@@ -15,14 +15,14 @@
       "titan_ai": "MAX ONLY (Pandora 'Titan AI'). Absent from Starter and Standard.",
       "email_marketing": "MAX ONLY (Pandora 'Email marketing').",
       "appointment_booking": "MAX ONLY — and it is a MAIL entitlement, not a site one. It does not appear in any site plan. We had it filed as a site feature.",
-      "signature_builder": "STANDARD and MAX. Absent from Starter, and on Standard it is restricted for users created before a configured user id.",
+      "signature_builder": "MAX ONLY. Corrected 03 Sep by Hari. This file said 'STANDARD and MAX' and was stale; the published pricing table had it right. It is the one place Pandora has been wrong so far, which is why the tables are kept as a cross-check rather than deleted.",
       "read_receipts": "All three, but limited: Starter 50, Standard 90-day trial, Max unlimited.",
       "advanced_tracking": "All three, limited: Starter 5, Standard 5, Max unlimited.",
       "ai_summary": "All three, limit 4 on Starter and Standard.",
       "company_branding": "Standard and Max.",
       "email_backup": "MAX ONLY.",
       "email_designer": "MAX ONLY.",
-      "drive_storage": "Standard (1,024) and Max (51,200). Absent from Starter."
+      "drive_storage": "Standard (1,024) and Max (51,200). Absent from Starter. Confirmed 03 Sep by Hari — here the PUBLISHED table is the stale one: it shows Drive as Max-only. Both agree it is absent from Starter, which is what makes it a real gate at the Standard line."
     },
     "_onEveryMailPlan": [
       "advanced antivirus",

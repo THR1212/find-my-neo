@@ -135,7 +135,17 @@ export const NEEDS: Need[] = [
        business" is exactly the move off a personal Gmail. */
     id: "look_established",
     because: "you're moving off a personal address",
-    entitlement: "signature_builder",
+    /**
+     * `company_branding`, not `signature_builder`. Hari confirmed 03 Sep that Signature
+     * Designer is MAX ONLY — the pricing page was right and plan-features.json's "STANDARD and
+     * MAX" is stale. Citing it for a STANDARD floor was therefore naming a feature they would
+     * not get.
+     *
+     * Branding is the entitlement both sources agree sits exactly here: absent from Starter,
+     * present on Standard and Max. It is also the better reason — someone leaving a personal
+     * address wants mail that looks like it came from a business, which is what branding is.
+     */
+    entitlement: "company_branding",
     minMail: "standard",
     when: (p) => has(p, "customerChannel", "personal_email"),
   },

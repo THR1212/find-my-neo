@@ -518,8 +518,7 @@ h1 {
   position: relative;
   flex: 0 1 auto;
   width: 100%;
-  /* Sized to the 16:10 mail-apps and site-builder films plus the caption under them.
-     object-fit: contain keeps the UI readable instead of cropping a 5:4 invoice loop. */
+  /* Sized to the 16:10 mail-apps and site-builder films plus the caption under them. */
   aspect-ratio: 16 / 10.7;
   max-height: min(56vh, 540px);
   min-height: 240px;
@@ -2042,9 +2041,8 @@ a.btn {
 }
 
 .neo-loop-hero .neo-loop-frame video {
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
-  background: #0c1222;
 }
 
 .neo-loop-hero figcaption {

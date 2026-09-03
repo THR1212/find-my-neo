@@ -44,9 +44,11 @@ total**, with `Website_Launch.mp4` at 30 MB and `ED.mp4` at 18 MB. They used to 
 640px / CRF 30 for a ~150 px thumbnail on the mail-only reveal. The wait screen now shows the
 same films in an ~880 px hero card, so that encode looked like a stretched GIF.
 
-Re-encoded at the display size: never upscale (`min(1280, iw)`), CRF 22, 30 fps. The folder is
-about **6.7 MB**. Audio is stripped because these autoplay muted. `+faststart` moves the index
-to the front so playback can begin before the file is complete.
+Re-encoded at the display size: never upscale (`min(1280, iw)`), 30 fps. Mail-reveal
+thumbs use CRF 22. The three wait-reel films (`apps`, `site`, `invoice`) use CRF 18 so
+inbox and invoice type stay readable in the ~880 px hero card. The folder is about **8.7 MB**.
+Audio is stripped because these autoplay muted. `+faststart` moves the index to the front so
+playback can begin before the file is complete.
 
 ```bash
 # Video: up to 1280px wide, no audio, 30fps
@@ -55,6 +57,9 @@ ffmpeg -y -i "$SRC" -an \
   -c:v libx264 -profile:v high -pix_fmt yuv420p \
   -crf 22 -preset medium -movflags +faststart \
   "public/neo/videos/$NAME.mp4"
+
+# Wait-reel films (apps, site, invoice): same command with -crf 18
+```
 
 # Template shots: 560px wide
 ffmpeg -y -i "$SRC" -vf "scale=560:-1:flags=lanczos" -quality 72 \

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import NeoProductLoop from "./NeoProductLoop";
 import { WAIT_CLIPS } from "../lib/neoMedia";
@@ -22,10 +22,17 @@ const BEAT_MS = 3200;
 export default function ProductWait() {
   const reduceMotion = useReducedMotion();
   const [i, setI] = useState(0);
+  const origin = useRef<number | null>(null);
 
   useEffect(() => {
     if (reduceMotion) return;
-    const t = setInterval(() => setI((n) => (n + 1) % WAIT_CLIPS.length), BEAT_MS);
+    if (origin.current == null) origin.current = Date.now();
+    const t = setInterval(() => {
+      const started = origin.current;
+      if (started == null) return;
+      const n = Math.floor((Date.now() - started) / BEAT_MS) % WAIT_CLIPS.length;
+      setI((cur) => (cur === n ? cur : n));
+    }, 200);
     return () => clearInterval(t);
   }, [reduceMotion]);
 

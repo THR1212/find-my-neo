@@ -29,7 +29,6 @@ export default function Reveal({
   surface,
   mailboxCount: answeredMailboxes,
   profile,
-  businessText,
   neoSite,
   neoSiteAlt = null,
   reasons,
@@ -44,7 +43,6 @@ export default function Reveal({
   surface: string | null;
   mailboxCount: number | null;
   profile: Profile;
-  businessText: string;
   neoSite: NeoSite | null;
   neoSiteAlt?: NeoSite | null;
   reasons?: ReasonMap;

@@ -13,6 +13,24 @@ import { installErrorLogging } from './lib/errorLog'
    blank page to them. Installed before render so it catches errors during first paint. */
 installErrorLogging()
 
+/* Claim used to be an <a> into join.neo.space. If a cached bundle still paints that
+   link, this stops the browser leaving Find My Neo. */
+document.addEventListener(
+  "click",
+  (e) => {
+    const t = e.target
+    if (!(t instanceof Element)) return
+    const a = t.closest("a")
+    if (!a) return
+    const href = `${a.getAttribute("href") ?? ""} ${a.href}`
+    if (/join(-staging)?\.neo\.space/i.test(href)) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  },
+  true,
+)
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

@@ -138,8 +138,8 @@ export default function App() {
    * Empty until the last question is answered, and empty forever if that call fails — the
    * reveal falls back to `buildRationale`, which is why those templates were kept.
    */
-  const [rationale, setRationale] = useState<{ rationale: string; whyNotCheaper: string }>(
-    restored?.rationale ?? { rationale: "", whyNotCheaper: "" },
+  const [rationale, setRationale] = useState<{ rationale: string; whyNotCheaper: string; because: string }>(
+    restored?.rationale ?? { rationale: "", whyNotCheaper: "", because: "" },
   );
   /**
    * The model's verified verdict on the plan — the one place a model can change what someone
@@ -491,7 +491,13 @@ export default function App() {
             mailboxes: finalRec.mailboxes,
           });
         }).then((r) => {
-          if (r && (r.rationale || r.whyNotCheaper)) setRationale(r);
+          if (r && (r.rationale || r.whyNotCheaper)) {
+            setRationale({
+              rationale: r.rationale ?? "",
+              whyNotCheaper: r.whyNotCheaper ?? "",
+              because: r.because ?? "",
+            });
+          }
         });
       }
     },
@@ -523,7 +529,7 @@ export default function App() {
     setNeoSite(null);
     setNeoSiteAlt(null);
     setReasons({});
-    setRationale({ rationale: "", whyNotCheaper: "" });
+    setRationale({ rationale: "", whyNotCheaper: "", because: "" });
     setVerdict(null);
     setCheckoutOrder(null);
     setPaying(false);
@@ -702,7 +708,6 @@ export default function App() {
                   Number(engine.profile.mailboxCount ?? engine.profile.teamSize ?? 0) || null
                 }
                 profile={engine.profile}
-                businessText={rawText}
                 neoSite={neoSite}
                 neoSiteAlt={neoSiteAlt}
                 reasons={reasons}

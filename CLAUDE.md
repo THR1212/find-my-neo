@@ -68,11 +68,15 @@ Budget prompt-iteration time on the guess screen and the reveal only.
 1. Hook — on the pricing page, opens a full-screen overlay
 2. Free text — "What's your business?" (the only real input, and what justifies an LLM)
 3. The guess — profile reflected back, confirm or correct
-4. **Adaptive questions** — the model returns `questionPriority` (all six ids, ranked for this
+4. **Adaptive questions** — the model returns `questionPriority` (all eight ids, ranked for this
    business) and `prefill` (signals the free text already answered). `engine.ts` consumes the
    ranking head-first for the WHOLE flow and re-checks every id against what is unresolved.
-   Stops when confident, or at 4. Different businesses genuinely get different paths — this was
-   only aspirational until 03 Sep; see DECISIONS.
+   Stops when nothing left to ask could change the recommendation. `MAX_QUESTIONS = 12` is a
+   ceiling that should never bind — the bank holds **eight** questions and a clear-cut business
+   finishes in five. Different businesses genuinely get different paths, and the ranking is
+   arithmetic: `discrimination()` scores what each question would actually narrow, and the
+   model's ordering only breaks ties. **It used to be an override**, which made the scoring
+   dead code in production; see DECISIONS 03 Sep.
    **Never prefill `mailboxCount`** — free text offers headcount, which is not an address count.
    Questions are **multi-select where the world is** (`question.multi`) and most carry a
    **free-text box**. Free text alone resolves the signal — someone who types instead of
@@ -165,19 +169,24 @@ Full detail and sources in `TECHNICAL.md`.
 
 ## CURRENT STATE
 
-_Last updated: 02 Sep 2026 (hackathon day 1). Repositioned 27 Aug after walking Neo's live
+_Last updated: 03 Sep 2026 (hackathon day 2). Repositioned 27 Aug after walking Neo's live
 builder — read `docs/neo-product-facts.md` before claiming anything about what Neo does._
 
 **Working, live, and verified in production**
-- Full adaptive flow: hook → free text → guess → up to 4 engine-chosen questions → reveal.
+- Full adaptive flow: hook → free text → guess → engine-chosen questions (typically 5, ceiling 12) → reveal.
   Verified in a real browser (clipboard paste, 1440×820 laptop, 390×844 mobile).
-- **Adaptive engine** — `src/lib/questions.ts` (6-question bank) + `src/lib/engine.ts`
-  (next question, confidence, narrowing counter, confidence-based early stop).
+- **Adaptive engine** — `src/lib/questions.ts` (**8**-question bank; `client` was measured out
+  on 03 Sep — four options, one plan outcome, and it changed nothing the reveal showed) +
+  `src/lib/engine.ts`
+  (next question, discrimination scoring, stop-when-nothing-narrows). **The confidence
+  backstop was removed 03 Sep** — it silenced a question that could still change the price,
+  and a threshold that can do that is a bug, not a backstop. `confidence()` survives only to
+  drive the meter ring.
   **Weights are now data-derived** (Darrel, 02 Sep): `mailboxCount` leads at 0.3 because it
   multiplies price; the old import-first order was retired as a selection effect. Do not
   re-tune weights by feel — `docs/data-findings.md` §1c and §8 are the reason they are what
   they are.
-- **Generated question wording** — the model rewrites all six questions for the business
+- **Generated question wording** — the model rewrites all eight questions for the business
   someone typed: prompt, sub-line, placeholder, option labels and hints. Three layers, and
   only the middle one is generated:
   signals + weights fixed · surface text generated · option ids + `resolves` fixed.
@@ -228,8 +237,14 @@ builder — read `docs/neo-product-facts.md` before claiming anything about what
   degrades to a derived profile rather than erroring.
   **Production needs the env vars set on Vercel** (`LLM_MODE`, `LLM_MODEL`, `LLM_API_KEY`) or
   it will silently serve degraded profiles.
-- **Design chooser** — Neo returns three variants; we call once and show one. This is probably
-  the best remaining demo beat.
+- ~~Design chooser~~ — **done 03 Sep.** `generateNeoSites` classifies once for Neo's own
+  `templateKey`, then generates that one AND a deliberately different one in parallel
+  (`Promise.allSettled`, duplicate keys dropped), so the pair costs one call's wall-clock. Both
+  render side by side on the reveal and are **pickable**; the choice rides to Neo as
+  `templateKey`. That param was previously refused on purpose — sending a DERIVED key would
+  make us complicit in the taxonomy bug we are pointing at — and a person choosing between two
+  of Neo's own outputs is not a guess. Neo picks the template randomly client-side
+  (`docs/neo-product-facts.md`); this is the answer to that.
 
 - Sound cues — must ship muted-by-default with a visible toggle.
 - ~~Python `analysis/` folder for the persona/retention numbers~~ — **done 02 Sep.**

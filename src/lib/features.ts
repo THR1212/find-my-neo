@@ -109,6 +109,30 @@ export const FEATURES: Feature[] = [
   },
   {
     /**
+     * THE FLOOR. Always true, lowest priority, and that combination is the point.
+     *
+     * A plain mail-only Starter run — mostly messages, phone customers, one address, nothing
+     * done last month — matched exactly ONE feature and the reveal showed a single bullet.
+     * Not because we had nothing true to say: Neo's own comparison table (src/data/
+     * mail-features.json, read from their pricing page) lists eighteen things Starter
+     * includes. We just modelled almost none of them, because the bank grew around what
+     * DIFFERENTIATES tiers rather than what a plan contains.
+     *
+     * "Android and iOS apps" is Neo's verbatim row, it is on all three plans, and it is true
+     * of everyone — so it can never be wrong, and the commonness ranking added this morning
+     * keeps it out of the way of anything more specific. It surfaces only when there is
+     * genuinely nothing more particular to say, which is exactly when a reveal needs a floor.
+     */
+    id: "mobile_apps",
+    name: "Android and iOS apps",
+    surface: "mail",
+    because: "the same inbox on your phone and your laptop, without forwarding anything",
+    matches: () => true,
+    /* Below every other mail feature. It is a backstop, not a selling point. */
+    priority: 2,
+  },
+  {
+    /**
      * THE #1 CONVERSION DRIVER, and it had no bullet at all until 03 Sep.
      *
      * docs/data-findings.md §5 measures real paywall clicks: `Storage Banner` is the dominant

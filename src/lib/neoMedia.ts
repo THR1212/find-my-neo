@@ -96,7 +96,7 @@ export const MAIL_CLIPS: NeoClip[] = [
   },
   {
     id: "fast_apps",
-  featureId: "multi_device_support",
+  featureId: "mobile_apps",
     name: "Neo Mail apps",
     caption: "The same inbox on your phone and your desktop",
     src: `${VIDEOS}/apps.mp4`,
@@ -199,6 +199,7 @@ export function clipsFor(
  * has to be written down rather than derived.
  */
 export const FEATURE_ART: Record<string, string> = {
+  mobile_apps: `${FEATURES_DIR}/mobile_apps.png`,
   storage: `${FEATURES_DIR}/storage.png`,
   import_email_contacts: `${FEATURES_DIR}/one_click_import.gif`,
   multi_device_support: `${FEATURES_DIR}/multi_account.gif`,

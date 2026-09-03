@@ -1,0 +1,480 @@
+{
+  "_source": "neo.space/pricing-and-plan, full Starter/Standard/Max comparison, read 2026-09-03",
+  "_note": "THE CUSTOMER-FACING TABLE. plan-features.json is Pandora, the backend entitlements, and CLAUDE.md calls that the higher authority. It is — for what the product DOES. This file is what the customer can check, and where the two disagree we must not print the Pandora answer: a promise Neo's own pricing page contradicts is the one kind of error a judge can catch live. Four disagreements found on 03 Sep, listed in _conflictsWithPandora.",
+  "_conflictsWithPandora": {
+    "signature_builder": "pricing page: MAX ONLY. plan-features.json: 'STANDARD and MAX'. Our `look_established` need forces STANDARD citing this.",
+    "drive_storage": "pricing page: Drive is MAX ONLY. plan-features.json: 'Standard (1,024) and Max (51,200). Absent from Starter.'",
+    "ai_summary": "pricing page: MAX ONLY. plan-features.json: 'All three, limit 4 on Starter and Standard.'",
+    "advanced_tracking": "pricing page: MAX ONLY. plan-features.json: 'All three, limited: Starter 5, Standard 5, Max unlimited.'"
+  },
+  "rows": [
+    {
+      "feature": "Business Email",
+      "starter": "AI Site Builder",
+      "standard": "Features",
+      "max": "Pricing"
+    },
+    {
+      "feature": "Explore",
+      "starter": "Blogs",
+      "standard": "Videos",
+      "max": "FAQs"
+    },
+    {
+      "feature": "Need more than 50 mailboxes?",
+      "starter": "Starter\nSave 25% on 1st year\n₹149\n₹199\n/mailbox/mo, billed yearly\nGet Starter",
+      "standard": "Popular\nStandard\nSave 25% on 1st year\n₹299\n₹399\n/mailbox/mo, billed yearly\nGet Standard",
+      "max": "Best Value\nMax\nSave 25% on 1st year\n₹599\n₹799\n/mailbox/mo, billed yearly\nGet Max"
+    },
+    {
+      "feature": "Popular",
+      "starter": "Standard",
+      "standard": "Save 25% on 1st year\n₹299\n₹399\n/mailbox/mo, billed yearly",
+      "max": "Get 50% extra off with OFF50"
+    },
+    {
+      "feature": "Best Value",
+      "starter": "Max",
+      "standard": "Save 25% on 1st year\n₹599\n₹799\n/mailbox/mo, billed yearly",
+      "max": "Get 50% extra off with OFF50"
+    },
+    {
+      "feature": "Mailbox Storage",
+      "starter": "15 GB",
+      "standard": "50 GB",
+      "max": "100 GB"
+    },
+    {
+      "feature": "Platforms & Apps",
+      "starter": "Rich webmail",
+      "standard": "Android and iOS apps",
+      "max": "Inbuilt Calendar"
+    },
+    {
+      "feature": "Rich webmail",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Android and iOS apps",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Inbuilt Calendar",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Third-party mail app (POP/IMAP)",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Campaign Mode",
+      "starter": "no",
+      "standard": "no",
+      "max": "yes"
+    },
+    {
+      "feature": "Appointment Booking",
+      "starter": "no",
+      "standard": "no",
+      "max": "yes"
+    },
+    {
+      "feature": "Signature Designer",
+      "starter": "no",
+      "standard": "no",
+      "max": "yes"
+    },
+    {
+      "feature": "Drive",
+      "starter": "no",
+      "standard": "no",
+      "max": "yes"
+    },
+    {
+      "feature": "File Transfer",
+      "starter": "no",
+      "standard": "no",
+      "max": "yes"
+    },
+    {
+      "feature": "Email Designer",
+      "starter": "no",
+      "standard": "no",
+      "max": "yes"
+    },
+    {
+      "feature": "Invoice Builder",
+      "starter": "no",
+      "standard": "no",
+      "max": "yes"
+    },
+    {
+      "feature": "AI Email Writer",
+      "starter": "no",
+      "standard": "no",
+      "max": "yes"
+    },
+    {
+      "feature": "AI Summary",
+      "starter": "no",
+      "standard": "no",
+      "max": "yes"
+    },
+    {
+      "feature": "Advanced Tracking",
+      "starter": "no",
+      "standard": "no",
+      "max": "yes"
+    },
+    {
+      "feature": "Email Backup",
+      "starter": "no",
+      "standard": "no",
+      "max": "yes"
+    },
+    {
+      "feature": "Branding",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Grammar & Spell Check",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Advanced Mail Features",
+      "starter": "Mailbox & limits\nMulti-account Support\nAdd Gmail account\nCatch-all account\nEmail Aliases\nSend email from Alias\nMultiple external forwarders\n1 Forwarder\n\n3 Forwarders\n\n3 Forwarders\n\nMail sending Limits\n\n500 per day\n\n1000 per day\n\n1000 per day",
+      "standard": "Privacy & Security\nTwo-Factor Authentication\nAnti-virus protection inbound / outbound\nAdvanced Anti-spam\nCustom DKIM",
+      "max": "Others\nEmail Rules\nConditional Forwarding of Emails\n\nAuto-reply\nShareable Calendar\nOne-click import of existing emails & contacts"
+    },
+    {
+      "feature": "Priority Inbox",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Read Receipts",
+      "starter": "50 Read Receipts",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Email Templates",
+      "starter": "1 Email Template",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Email Labels",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Contact Groups",
+      "starter": "1 Contact Group",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Send Later",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Undo Send",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Follow-up Reminders",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "HTML in Composer",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Block Sender",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Allow Senders",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Turbo Search",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Multi-account Support",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Add Gmail account",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Catch-all account",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Email Aliases",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Send email from Alias",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Multiple external forwarders",
+      "starter": "1 Forwarder",
+      "standard": "3 Forwarders",
+      "max": "3 Forwarders"
+    },
+    {
+      "feature": "Mail sending Limits",
+      "starter": "500 per day",
+      "standard": "1000 per day",
+      "max": "1000 per day"
+    },
+    {
+      "feature": "Privacy & Security",
+      "starter": "Two-Factor Authentication",
+      "standard": "Anti-virus protection inbound / outbound",
+      "max": "Advanced Anti-spam"
+    },
+    {
+      "feature": "Two-Factor Authentication",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Anti-virus protection inbound / outbound",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Advanced Anti-spam",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Custom DKIM",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Email Rules",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Conditional Forwarding of Emails",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Auto-reply",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Shareable Calendar",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "One-click import of existing emails & contacts",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Website Storage",
+      "starter": "1 GB",
+      "standard": "10 GB",
+      "max": "50 GB"
+    },
+    {
+      "feature": "Custom Domain",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "AI website generation",
+      "starter": "20 times",
+      "standard": "500 times",
+      "max": "Unlimited - Latest AI model"
+    },
+    {
+      "feature": "AI copy assist",
+      "starter": "50 times",
+      "standard": "500 times",
+      "max": "Unlimited - Latest AI model"
+    },
+    {
+      "feature": "Templates",
+      "starter": "All",
+      "standard": "All",
+      "max": "All"
+    },
+    {
+      "feature": "Font themes",
+      "starter": "Standard Fonts",
+      "standard": "Standard Fonts",
+      "max": "Premium Fonts"
+    },
+    {
+      "feature": "Color themes",
+      "starter": "Yes",
+      "standard": "Yes",
+      "max": "Curated for Template"
+    },
+    {
+      "feature": "Stock images",
+      "starter": "50",
+      "standard": "Unlimited",
+      "max": "High quality images"
+    },
+    {
+      "feature": "Image gallery",
+      "starter": "10 images",
+      "standard": "500 images",
+      "max": "Unlimited"
+    },
+    {
+      "feature": "List your products",
+      "starter": "10 products",
+      "standard": "500 products",
+      "max": "Unlimited"
+    },
+    {
+      "feature": "List your services",
+      "starter": "10 services",
+      "standard": "500 services",
+      "max": "Unlimited"
+    },
+    {
+      "feature": "YouTube video",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Testimonials",
+      "starter": "no",
+      "standard": "6",
+      "max": "Unlimited"
+    },
+    {
+      "feature": "Visitor analytics",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Contact Forms",
+      "starter": "no",
+      "standard": "1000",
+      "max": "Unlimited"
+    },
+    {
+      "feature": "Email Subscription",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "WhatsApp",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Business contact info",
+      "starter": "yes",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Remove Neo Branding",
+      "starter": "no",
+      "standard": "yes",
+      "max": "yes"
+    },
+    {
+      "feature": "Support",
+      "starter": "Support 24x7",
+      "standard": "Support 24x7",
+      "max": "Priority Chat support 24x7"
+    },
+    {
+      "feature": "Neo Growth Suite",
+      "starter": "Email Campaigns",
+      "standard": "Neo Bookings",
+      "max": "Signature Designer"
+    },
+    {
+      "feature": "Your email address *",
+      "starter": "Email address or website address you want to report as abusive *",
+      "standard": "A short description of why you think the email address or website is abusive(In case of abusive email content, please share the original email with full headers. An email header is a code snippet that contains information about the original sender, recipient, email's route to get to the inbox, and various authentication details.)",
+      "max": "-"
+    },
+    {
+      "feature": "Expires in 28m:32s",
+      "starter": "Your exclusive discount will be automatically applied at checkout.",
+      "standard": "We've also emailed you the discount code.",
+      "max": "Continue"
+    },
+    {
+      "feature": "starterstandardmax",
+      "starter": "Campaign Mode",
+      "standard": "Send professional-looking personalized emails to multiple people at once and track how many open your emails.",
+      "max": "Customize with the HTML editorSave campaigns as templatesTrack engagement for your campaign"
+    }
+  ]
+}

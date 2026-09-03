@@ -163,24 +163,19 @@ export const QUESTIONS: Question[] = [
       { id: "site", label: "I already have a website", resolves: { customerChannel: "site" } },
     ],
   },
-  {
-    id: "client",
-    signal: "currentClient",
-    prompt: "What do you use for mail right now?",
-    sub: "Pick all that apply.",
-    /* Was 0.2. `current_email_app` is filled on the same 2,484 orders as the import field
-       and carries the same selection effect, and it feeds no plan or price decision — only
-       two feature bullets. Asked late now, if at all. */
-    weight: 0.15,
-    multi: true,
-    freeText: { placeholder: "Something else? Zoho, Proton, your host's webmail…" },
-    options: [
-      { id: "gmail", label: "Gmail", resolves: { currentClient: "gmail" } },
-      { id: "outlook", label: "Outlook", resolves: { currentClient: "outlook" } },
-      { id: "apple", label: "Apple Mail", resolves: { currentClient: "apple" } },
-      { id: "none", label: "Nothing set up yet", resolves: { currentClient: "none" } },
-    ],
-  },
+  /* THERE IS NO `client` QUESTION, and it was measured out rather than argued out.
+   *
+   * "What do you use for mail right now?" had four options and ONE plan outcome, which was
+   * already known. What settled it: across all 16 import x client combinations the reveal
+   * produced two distinct bullet pairs, and BOTH differences came from `import`. Changing the
+   * client answer changed nothing anyone saw or paid — `gmail_sync` and `imap_pop` are ranked
+   * below `multi_device_support` and never reach the one mail slot the reveal has.
+   *
+   * So it cost a screen and bought nothing. `currentClient` survives as a signal because the
+   * description often states it outright ("we still run everything off one shared Gmail") and
+   * profileService can prefill it for free — which is the right way to learn something that
+   * does not justify asking.
+   */
   {
     id: "team",
     signal: "mailboxCount",
@@ -240,7 +235,13 @@ export interface QuestionSurface {
   sub?: string;
   placeholder?: string;
   /** Keyed by the EXISTING option id. Unknown ids are dropped server-side. */
-  options?: Record<string, { label?: string; hint?: string }>;
+  /**
+   * `meter` is declared but not yet produced by questionService — it is the per-option line
+   * Moin's words-meter reads to say something specific after an answer. Declared here so his
+   * meterNumbersCopy compiles against master unchanged, and so wiring the generation later is
+   * one server-side change rather than a type change that ripples through both branches.
+   */
+  options?: Record<string, { label?: string; hint?: string; meter?: string }>;
 }
 
 /** Surface overrides by question id, as validated by the server. */
@@ -341,13 +342,36 @@ QUESTIONS.push(
      */
     id: "extras",
     signal: "extras",
-    prompt: "Do you do any of these today?",
-    sub: "Pick any that apply. Asking what you already do, not what sounds useful.",
+    /**
+     * "REGULAR PART OF YOUR WORK", NOT "DO YOU DO THIS TODAY".
+     *
+     * Run hmcrd0yw is the argument. Someone whose own description said "no website or mailbox"
+     * was asked what they do *today* — they cannot be doing any of it today, so the options
+     * read as a menu and they ticked two. One tick is Rs418 -> Rs868. Every answer that
+     * question could get from them was aspirational.
+     *
+     * "Today" was also wrong for a subtler set of people: someone who emails two invoices a
+     * year truthfully answers yes, and gets charged for Invoice Builder they will open twice.
+     * The entitlement is worth its price to someone who quotes jobs weekly and is not worth it
+     * to someone who quotes twice. Regularity is what separates them, and it is a fair thing
+     * to ask — unlike wanting, which everybody does.
+     *
+     * The options are unchanged in MEANING, which is what `resolves` and the rewrite contract
+     * both depend on. What changed is that they now describe the work rather than the mail
+     * feature: someone who quotes jobs recognises themselves whether or not they email a PDF.
+     */
+    prompt: "Which of these are a regular part of your work?",
+    sub: "Only what you actually do often. Leave the rest — you can add it any time.",
     weight: 0.2,
     multi: true,
     freeText: { placeholder: "Something else you do a lot of?" },
     options: [
-      { id: "invoices", label: "Send quotes or invoices", resolves: { extras: "invoices" } },
+      {
+        id: "invoices",
+        label: "Quoting and invoicing jobs",
+        hint: "Regularly, not once a year",
+        resolves: { extras: "invoices" },
+      },
       {
         id: "campaigns",
         label: "Message past customers as a group",

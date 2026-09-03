@@ -26,13 +26,12 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const src = readFileSync(join(here, "source.js"), "utf8");
 
-const token = process.env.VERCEL_SHARE_TOKEN;
-if (!token) {
-  console.error("VERCEL_SHARE_TOKEN is not set.");
-  console.error("Get it from the ?_vercel_share=... on a protected deployment link, then:");
-  console.error("  VERCEL_SHARE_TOKEN=xxxx node tools/bookmarklet/build.mjs");
-  process.exit(1);
-}
+/* The deployment is PUBLIC, so no share token is needed — Hari confirmed 03 Sep. Set
+   VERCEL_SHARE_TOKEN only if Deployment Protection is ever turned back on; without it the
+   bookmarklet just opens the plain URL. Either way the token never lives in tracked source:
+   it was a literal in source.js until 03 Sep, which put it in the repo whatever .gitignore
+   said about the generated file. */
+const token = process.env.VERCEL_SHARE_TOKEN ?? "";
 
 const min = src
   // Block comments. Safe here: the source contains no regex literals or division that could
@@ -53,6 +52,7 @@ if (withToken === min) {
   console.error("__SHARE_TOKEN__ placeholder not found in source.js — nothing was substituted.");
   process.exit(1);
 }
+console.log(token ? "share token embedded" : "no share token (public deployment)");
 
 const url = "javascript:" + encodeURIComponent(withToken);
 

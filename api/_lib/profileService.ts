@@ -65,7 +65,6 @@ const QUESTION_IDS = [
   "import",
   "surface",
   "channel",
-  "client",
   "team",
   "sells",
   /* The three that reach Max and Growth. Omitting them here does not merely lose a feature —
@@ -118,12 +117,19 @@ const PREFILL_VALUES = {
   currentClient: ["gmail", "outlook", "apple", "none"],
 } as const;
 
-/** Which question resolves each prefillable signal — used to skip it. */
+/**
+ * Which question a prefilled signal lets us SKIP.
+ *
+ * `currentClient` is deliberately absent: the `client` question was removed once measurement
+ * showed it changed neither the plan nor the reveal, so reading "one shared Gmail" out of the
+ * description skips nothing. The signal is still extracted — features.ts reads it — but it
+ * must not consume one of the MAX_PREFILL slots, which exist to save SCREENS. Spending one on
+ * a question that no longer exists would crowd out a prefill that saves a real one.
+ */
 const SIGNAL_TO_QUESTION: Record<string, string> = {
   importIntent: "import",
   surface: "surface",
   customerChannel: "channel",
-  currentClient: "client",
   sellsOnline: "sells",
 };
 
@@ -153,9 +159,9 @@ const TLDS = ["com", "in", "co", "co.site"] as const;
 /**
  * The `.co.site` note is ours, never the model's.
  *
- * It states a price ("free"), and CLAUDE.md rule 2 is that the LLM never decides price. It is
+ * It states a price ("free"), and CLAUDE.md rule 2 is that the model never decides one. It is
  * also a fixed product fact rather than something to phrase per business, so there is nothing
- * for a model to add. `domainNotes` from the model covers the three registrable TLDs only.
+ * for a model to add. `domainNotes` covers the three registrable TLDs only.
  */
 const COSITE_NOTE = "Free for your first billing cycle — Neo's own, and live today";
 
@@ -426,7 +432,7 @@ function validatePrefill(raw: Prefill | undefined): {
     /* Cap reached, but the model DID extract this. Record it: dropped-by-cap and
        never-mentioned are the same silence otherwise, and only one of them is a design
        choice. The question stays askable, so the fact is deferred, not lost. */
-    if (skip.length >= MAX_PREFILL) {
+    if (SIGNAL_TO_QUESTION[signal] && skip.length >= MAX_PREFILL) {
       dropped.push(`${signal}: over MAX_PREFILL, asking instead`);
       continue;
     }
@@ -455,7 +461,8 @@ function validatePrefill(raw: Prefill | undefined): {
       }
       profile[signal] = String(value);
     }
-    skip.push(SIGNAL_TO_QUESTION[signal]);
+    const q = SIGNAL_TO_QUESTION[signal];
+    if (q) skip.push(q);
   }
 
   return { profile, skip, dropped };
@@ -586,6 +593,8 @@ export async function handleProfile(
           name: `${stem}.${tld}`,
           available: null,
           priceInr: null,
+          /* Free-ness is a product fact, not a lookup result, so it is set on the first paint
+             rather than waiting for a check that can never return "free" anyway. */
           ...(tld === "co.site" ? { free: true } : {}),
           note: tld === "co.site" ? COSITE_NOTE : (profile.domainNotes?.[i] ?? undefined),
           recommended: i === 0,

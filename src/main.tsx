@@ -1,5 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+/* Neo's design tokens. index.css referenced --neo-* in a comment only and never loaded
+   this file, so every var(--neo-...) fell back to nothing. The wait-screen styles merged
+   from moin-version on 03 Sep are the first rules that actually use them. */
+import './styles/neo-tokens.css'
 import './index.css'
 import App from './App.tsx'
 import ErrorBoundary from './components/ErrorBoundary'

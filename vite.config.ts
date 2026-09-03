@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 
 import { handleDomainLookup } from "./api/_lib/domainService.js";
-import { generateNeoSite } from "./api/_lib/neoSite.js";
+import { generateNeoSites } from "./api/_lib/neoSite.js";
 import { handleProfile } from "./api/_lib/profileService.js";
 import { handleQuestions } from "./api/_lib/questionService.js";
 import { handleReasons } from "./api/_lib/reasonService.js";
@@ -25,7 +25,27 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
       // loadEnv doesn't populate process.env, and the services read from there.
       if (env.DOMSCAN_API_KEY) process.env.DOMSCAN_API_KEY = env.DOMSCAN_API_KEY;
       // Same for the model seam. These stay inside the dev server — never the client bundle.
-      for (const k of ["LLM_MODE", "LLM_MODEL", "LLM_API_KEY", "LLM_BASE_URL"]) {
+      for (const k of [
+        "LLM_MODE",
+        "LLM_MODEL",
+        "LLM_API_KEY",
+        "LLM_BASE_URL",
+        /* .co.site availability. All optional: with none of these set, cositeService falls
+           through to its HTTP probe, which can only ever answer "taken" or "unknown" — never
+           "free" — and the reveal renders no badge. Unconfigured is a deployment state, not
+           a broken one. */
+        "NEO_COSITE_CHECK_URL",
+        "NEO_COSITE_CHECK_TOKEN",
+        "NEO_COSITE_AUTH_HEADER",
+        "NEO_COSITE_TOKEN_URL",
+        "NEO_PARTNER_EMAIL",
+        "NEO_PARTNER_PASSWORD",
+        "NEO_PARTNER_ORIGIN",
+        "NEO_PARTNER_IID",
+        "NEO_PARTNER_SESSION",
+        "NEO_PARTNER_PANEL_URL",
+        "NEO_PARTNER_PANEL_UA",
+      ]) {
         if (env[k]) process.env[k] = env[k];
       }
 
@@ -82,26 +102,55 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         });
       });
 
-      // Neo's own site generator. Same handler the Vercel function uses.
+      /* Neo's own site generator, same handler the Vercel function uses.
+         POST as well as GET, from moin-version: the client now sends a JSON body and
+         wants BOTH template variants back. Left as GET only, prod would work and
+         localhost would quietly fall back to the fixture. */
       server.middlewares.use("/api/neo-site", async (req, res) => {
-        const u = new URL(req.url ?? "", "http://localhost");
         res.setHeader("Content-Type", "application/json");
-        const bd = (u.searchParams.get("bd") ?? "").slice(0, 2000);
-        if (!bd.trim()) {
-          res.statusCode = 400;
-          res.end(JSON.stringify({ site: null, error: "missing `bd`" }));
+        res.setHeader("Cache-Control", "private, no-store");
+
+        const finish = async (bn: string, bd: string, ik: string) => {
+          if (!bd.trim()) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ site: null, error: "missing `bd`" }));
+            return;
+          }
+          try {
+            const sites = await generateNeoSites(bn, bd, ik, 2);
+            res.end(JSON.stringify({ site: sites[0] ?? null, sites }));
+          } catch (err) {
+            res.end(JSON.stringify({ site: null, error: String(err) }));
+          }
+        };
+
+        if (req.method === "POST") {
+          let raw = "";
+          req.on("data", (c) => (raw += c));
+          req.on("end", () => {
+            void (async () => {
+              try {
+                const body = JSON.parse(raw || "{}") as { bn?: unknown; bd?: unknown; ik?: unknown };
+                await finish(
+                  String(body.bn ?? "").slice(0, 55),
+                  String(body.bd ?? "").slice(0, 2000),
+                  String(body.ik ?? "").slice(0, 80),
+                );
+              } catch (err) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ site: null, error: String(err) }));
+              }
+            })();
+          });
           return;
         }
-        try {
-          const site = await generateNeoSite(
-            (u.searchParams.get("bn") ?? "").slice(0, 55),
-            bd,
-            u.searchParams.get("ik") ?? "ecommerce_retail",
-          );
-          res.end(JSON.stringify({ site }));
-        } catch (err) {
-          res.end(JSON.stringify({ site: null, error: String(err) }));
-        }
+
+        const u = new URL(req.url ?? "", "http://localhost");
+        await finish(
+          (u.searchParams.get("bn") ?? "").slice(0, 55),
+          (u.searchParams.get("bd") ?? "").slice(0, 2000),
+          (u.searchParams.get("ik") ?? "").slice(0, 80),
+        );
       });
 
       /* The two model steps. Same handlers the Vercel functions use. Separate routes so the
@@ -187,6 +236,11 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         const { status, body } = await handleDomainLookup(
           url.searchParams.get("name"),
           url.searchParams.get("tlds"),
+          /* `manual` MUST be forwarded, and it was not until 03 Sep. api/domains.ts passes it;
+             this mount dropped it, so the Partner Panel rung was unreachable on localhost and
+             every .co.site check answered `available: null` — while production, with the same
+             credentials, answered properly. A dev/prod signature drift that presents as "the
+             feature doesn't work locally", which is the least useful way to find out. */
           url.searchParams.get("manual"),
         );
         res.statusCode = status;

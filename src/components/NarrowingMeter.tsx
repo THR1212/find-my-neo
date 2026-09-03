@@ -1,41 +1,25 @@
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { useEffect } from "react";
-
-/**
- * The narrowing indicator: a ring that fills and a count that collapses.
- *
- * This is the gamification. Akinator works because you watch it close in on you — without a
- * visible narrowing signal this is a form with nice transitions. The count is the real
- * number of distinct business_industry strings in Neo's persona data (5,318), so the
- * data-quality finding is *inside* the experience rather than sitting on a slide.
- *
- * The number animates by spring rather than stepping, because a value that visibly tumbles
- * from 5,318 to 340 is doing the persuading here.
- */
+import { motion, useReducedMotion } from "framer-motion";
+import {
+  wordsMeterCopy,
+  type MeterCopyContext,
+  type MeterProfile,
+  type MeterStage,
+} from "./meterNumbersCopy";
 
 const SIZE = 54;
 const STROKE = 3;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export default function NarrowingMeter({
+function MeterRing({
   confidence,
-  remaining,
+  reduceMotion,
 }: {
-  /** 0–1 */
   confidence: number;
-  remaining: number;
+  reduceMotion: boolean | null;
 }) {
-  const count = useMotionValue(remaining);
-  const spring = useSpring(count, { stiffness: 55, damping: 18 });
-  const rounded = useTransform(spring, (v) => Math.round(v).toLocaleString("en-IN"));
-
-  useEffect(() => {
-    count.set(remaining);
-  }, [remaining, count]);
-
   return (
-    <div className="meter">
+    <div className="meter-ring">
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true">
         <circle
           cx={SIZE / 2}
@@ -53,20 +37,47 @@ export default function NarrowingMeter({
           stroke="var(--meter-fill)"
           strokeWidth={STROKE}
           strokeLinecap="round"
-          strokeDasharray={CIRCUMFERENCE}
-          /* Rotate so the ring starts at 12 o'clock rather than 3. */
           transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
+          strokeDasharray={CIRCUMFERENCE}
           initial={false}
           animate={{ strokeDashoffset: CIRCUMFERENCE * (1 - confidence) }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: reduceMotion ? 0 : 0.55, ease: [0.16, 1, 0.3, 1] }}
         />
       </svg>
+    </div>
+  );
+}
 
-      <div className="meter-readout">
-        <motion.span className="meter-count">{rounded}</motion.span>
-        <span className="meter-label">
-          possible setups{remaining <= 12 ? " left" : ""}
-        </span>
+export default function NarrowingMeter({
+  confidence,
+  stage = "guess",
+  lastQuestionId = null,
+  profile = {},
+  copyContext,
+}: {
+  confidence: number;
+  stage?: MeterStage;
+  lastQuestionId?: string | null;
+  profile?: MeterProfile;
+  copyContext?: MeterCopyContext;
+}) {
+  const reduceMotion = useReducedMotion();
+  const words = wordsMeterCopy(stage, lastQuestionId, profile, copyContext);
+
+  return (
+    <div className="meter meter--words">
+      <MeterRing confidence={confidence} reduceMotion={reduceMotion} />
+      <div className="meter-readout" aria-live="polite" aria-atomic="true">
+        <motion.span
+          key={words.title}
+          className="meter-headline"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {words.title}
+        </motion.span>
+        <span className="meter-label">{words.sub}</span>
       </div>
     </div>
   );

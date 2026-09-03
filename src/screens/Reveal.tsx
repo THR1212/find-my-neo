@@ -1,5 +1,4 @@
-import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DomainOption, RevealContent } from "../lib/session";
 import {
   availableFromLookup,
@@ -11,33 +10,21 @@ import {
 import { pickFeatures, withReason, type FeatureSurface, type ReasonMap } from "../lib/features";
 import { recommend, CYCLE_LABEL, domainFirstCycleInr } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
-import NeoSitePreview from "../components/NeoSitePreview";
-import NeoSiteGenerating from "../components/NeoSiteGenerating";
+import SetupStory from "../components/SetupStory";
 import { block as blockData, type NeoSite } from "../lib/neoSite";
 import type { Profile } from "../lib/engine";
+import { playSetupReady, playSound, unlockSound } from "../sound";
 
 /**
- * THE screen. Everything else exists to set it up.
- *
- * Line-by-line materialisation: domain, then mailboxes, then the drafted site, then the plan
- * quietly underneath. Each block lands on its own beat so it reads as the tool *working*
- * rather than a page that loaded.
- *
- * Rules that hold here:
- *  - Domain alternates are selectable and each carries its OWN price — TLDs are not priced
- *    alike, and picking the domain is the first real decision in the purchase.
- *  - Plan and price are shown quietly, last, and are never chosen by the model.
- *  - The CTA is a REAL link into Neo's funnel, carrying `bn`/`bd` as query params (their
- *    handoff needs no encoder). Always an <a> a person clicks, never a scripted redirect.
+ * Locked-viewport reveal. Squarespace Blueprint / Wix ADI / Linear-settings pattern:
+ * the page does not scroll; left is the recommendation, right is a live preview pane.
+ * Taken domains never appear — availableFromLookup drops them (Darrel, 3 Sep).
+ * `.co.site` is the fourth recommended name — Neo's own namespace, and the one thing the
+ * domain step can actually sell today. Its availability comes from cositeService, which
+ * answers `null` (unknown) unless NEO_COSITE_CHECK_URL is wired, and null renders NO
+ * badge. The admin-session lookup that could answer properly lives in tools/, not here:
+ * a public function behind it is an enumeration oracle. Darrel's call, 03 Sep.
  */
-
-const BEAT = 0.55;
-const ease = [0.16, 1, 0.3, 1] as const;
-
-const block = {
-  hidden: { opacity: 0, y: 16, filter: "blur(6px)" },
-  show: { opacity: 1, y: 0, filter: "blur(0px)" },
-};
 
 export default function Reveal({
   reveal,
@@ -48,6 +35,7 @@ export default function Reveal({
   profile,
   businessText,
   neoSite,
+  neoSiteAlt = null,
   reasons,
   rationale,
   verdict,
@@ -57,35 +45,13 @@ export default function Reveal({
   loading: boolean;
   error: string | null;
   surface: string | null;
-  /**
-   * Mailboxes the user actually asked for. Was `teamSize`, which stopped being the right
-   * number once the question started asking for addresses rather than headcount — see
-   * `mailboxCount` in questions.ts. App.tsx falls back to the model's headcount read when
-   * the mailbox question never got asked.
-   */
   mailboxCount: number | null;
   profile: Profile;
-  /** The user's original free text — handed to Neo's builder verbatim as `bd`. */
   businessText: string;
-  /** Neo's real generated site. Null while it's still generating. */
   neoSite: NeoSite | null;
-  /**
-   * Model-written `because` clauses by feature id. Empty means every line uses its
-   * hand-written string — see withReason. Which features appear is NOT affected by this.
-   */
+  neoSiteAlt?: NeoSite | null;
   reasons?: ReasonMap;
-  /**
-   * The two sentences under the price, written with the whole run in hand.
-   *
-   * Both may be empty, and that is the normal state until the call lands (~15s into a reveal
-   * that is already waiting on Neo's generator). `rationale` falls back to `rec.rationale`,
-   * which rules.ts always computes; `whyNotCheaper` has no fallback and simply does not render.
-   */
-  rationale?: { rationale: string; whyNotCheaper: string };
-  /**
-   * The model's verified verdict, when it raised a tier on something the fixed questions could
-   * not capture. Null in the ordinary case, which is most of the time and is correct.
-   */
+  rationale?: { rationale: string; whyNotCheaper: string; because: string };
   verdict?: {
     mailTier: string;
     siteTier: string;
@@ -94,33 +60,14 @@ export default function Reveal({
   } | null;
   onRestart: () => void;
 }) {
-  /**
-   * Selected by name, not index. The suggestion list shrinks when DomScan marks a name taken
-   * and can grow when a free TLD from the same batch fills the gap — an index would point at
-   * the wrong row after that reshuffle.
-   */
   const [chosenName, setChosenName] = useState<string | null>(null);
-  /**
-   * Domains the person checked themselves, appended after our suggestions.
-   *
-   * Our suggestions are built from one stem the model chose. That is a guess about their name,
-   * and when it is wrong — or when every TLD is taken — the flow previously had no answer
-   * except "start over". This is the escape hatch, and it uses the same live DomScan lookup,
-   * so a name they type is verified exactly as strictly as one we suggested. Only names
-   * DomScan says are free are added: a taken one is an error, not a recommendation.
-   */
   const [extraDomains, setExtraDomains] = useState<DomainOption[]>([]);
   const [ownInput, setOwnInput] = useState("");
   const [ownChecking, setOwnChecking] = useState(false);
   const [ownError, setOwnError] = useState<string | null>(null);
-  /**
-   * Live availability + indicative pricing, keyed by domain name. Starts empty and fills in:
-   * the fixture is the optimistic first paint and the real answer corrects it.
-   * Deliberately non-blocking — the reveal must never wait on a third-party service.
-   */
   const [live, setLive] = useState<Record<string, DomainInfo>>({});
+  const revealCuePlayed = useRef(false);
 
-  /** Stem drives the lookup, so switching the selected domain doesn't refetch. */
   const stem = reveal?.domains[0]?.name.split(".")[0] ?? "";
   useEffect(() => {
     setChosenName(null);
@@ -134,6 +81,13 @@ export default function Reveal({
       cancelled = true;
     };
   }, [stem]);
+
+  useEffect(() => {
+    if (error) return;
+    if (revealCuePlayed.current) return;
+    revealCuePlayed.current = true;
+    playSetupReady();
+  }, [error]);
 
   if (error) {
     return (
@@ -162,56 +116,35 @@ export default function Reveal({
     );
   }
 
-  // Mail-only hides the site block. Anything else (including an unanswered surface
-  // question) shows it — the drafted site is too much of the payoff to hide by default.
   const showSite = surface !== "mail";
-  /* Taken names are dropped once DomScan answers; free TLDs from the same batch fill the
-     gaps. Suggestions first, then anything they checked themselves. Selection is by name so
-     that reshuffle cannot leave a taken domain on the hero. */
   const notesByName = Object.fromEntries(reveal.domains.map((d) => [d.name, d.note]));
   const extraNames = new Set(extraDomains.map((d) => d.name));
-  const suggested: DomainOption[] = availableFromLookup(
+  const lookedUp = availableFromLookup(
     reveal.domains.map((d) => d.name),
     Object.values(live).filter((r) => r.domain.startsWith(`${stem}.`) && !extraNames.has(r.domain)),
-  ).map((row, i) => ({
-    name: row.domain,
-    available: row.available,
-    priceInr: row.priceInr,
-    /* Carry `free` through, or the .co.site row arrives on screen priced like a custom
-       domain — which is to say priced at nothing at all, since its priceInr is null. */
-    free: row.free,
-    note: notesByName[row.domain],
-    recommended: i === 0,
-  }));
-  const allDomains = [...suggested, ...extraDomains];
+  );
+  const suggested: DomainOption[] = (
+    lookedUp.length > 0
+      ? lookedUp.map((row, i) => ({
+          name: row.domain,
+          available: row.available,
+          free: row.free,
+          priceInr: row.priceInr,
+            note: notesByName[row.domain],
+          recommended: i === 0,
+        }))
+      : reveal.domains
+  );
+  const coSiteTaken = live[`${stem}.${COSITE_SUFFIX}`]?.available === false;
+  const allDomains = [...suggested, ...extraDomains.filter((d) => !suggested.some((s) => s.name === d.name))];
   const domain = allDomains.find((d) => d.name === chosenName) ?? allDomains[0];
 
-  /**
-   * The `.co.site` name is already in use.
-   *
-   * Say so, rather than letting it disappear. `availableFromLookup` drops taken names from
-   * the recommendations and that is right — a taken name is not an option — but silence is
-   * the wrong treatment for THIS one. A taken `.com` is one of two hundred million and not
-   * news. A taken `.co.site` means the stem is gone inside Neo, on the exact screen the CTA
-   * is about to hand off to, so the person finds out in thirty seconds either way. Better
-   * from us, next to the input that lets them do something about it.
-   *
-   * Only ever true when the check is confident: `available` is `false` here, and the
-   * fallback probe answers `null` unless it actually found a published site.
-   */
-  const coSiteTaken = live[`${stem}.${COSITE_SUFFIX}`]?.available === false;
-
-  /**
-   * Check a domain the person typed.
-   *
-   * Explicit button, never on keystroke: each check costs DomScan credits (1 status + 1 price)
-   * and debouncing a metered call is a slower way to spend the same money.
-   */
   async function checkOwnDomain() {
     const raw = ownInput.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
     if (!raw) return;
+    unlockSound();
+    playSound("select");
     const dot = raw.indexOf(".");
-    /* No dot means they typed a name, not a domain — assume the TLD everyone assumes. */
     const stemPart = (dot === -1 ? raw : raw.slice(0, dot)).replace(/[^a-z0-9-]/g, "");
     const tldPart = dot === -1 ? "com" : raw.slice(dot + 1).replace(/[^a-z0-9.]/g, "");
     if (!stemPart || !tldPart) {
@@ -230,9 +163,12 @@ export default function Reveal({
 
     setOwnChecking(true);
     setOwnError(null);
-    /* `manual: true` — the person typed this and pressed Check. For a `.co.site` name that
-       opts into Titan's Partner Panel lookup, the only source that can say FREE rather than
-       just "not published". The reveal's own batch lookup deliberately does not. */
+    /* `manual: true`, and without it the whole Partner Panel rung is dead code.
+       `allowPanel` in cositeService, the `manual` param in handleDomainLookup, its forwarding
+       from api/domains.ts and from the dev-server mount all exist — and this, the only caller
+       that should set it, did not. The panel is the one source that can say a typed .co.site
+       name is FREE; the probe can only ever say taken. So without this the input answers
+       "Couldn't confirm that one's free" for every name and never adds one. */
     const rows = await lookupDomains(stemPart, [tldPart], undefined, true);
     setOwnChecking(false);
 
@@ -242,12 +178,13 @@ export default function Reveal({
       return;
     }
     setLive((prev) => ({ ...prev, [row.domain]: row }));
-    /* Only free names join the recommendation. A taken result is an answer, not an option. */
     if (row.available !== true) {
       setOwnError(
         row.available === false
           ? isCoSite(row.domain)
-            ? "That one's already in use on Neo."
+            ? /* Same phrasing as the suggested-row note below: a .co.site name is taken ON NEO,
+                 which is a different fact from a .com being registered by a stranger. */
+              "That one's already in use on Neo."
             : "That one's taken."
           : "Couldn't confirm that one's free.",
       );
@@ -259,6 +196,8 @@ export default function Reveal({
         name: row.domain,
         available: true,
         priceInr: row.priceInr,
+        /* Carry `free` through or a typed .co.site name renders priced like a custom domain —
+           which is to say priced at nothing, since its priceInr is null. */
         free: row.free,
         note: "Your own idea",
       },
@@ -266,44 +205,26 @@ export default function Reveal({
     setChosenName(row.domain);
     setOwnInput("");
   }
+
   const mailboxCount = Math.max(reveal.mailboxes.length, answeredMailboxes ?? 0);
-
-  /**
-   * Why this plan, for this person. Deterministic — see features.ts. The model never picks
-   * these, because inventing a Neo feature in front of the Neo product team is the worst
-   * failure available to this demo.
-   */
   const surfaces: FeatureSurface[] = showSite ? ["mail", "site"] : ["mail"];
-
-  /** Plan choice + price. Deterministic — see rules.ts. */
-  /* The verdict can only ever RAISE, and `recommend` re-checks that rather than trusting it. */
   const rec = recommend(
     profile,
     mailboxCount,
     verdict?.raised ? { mail: verdict.mailTier, site: verdict.siteTier } : null,
   );
 
-  /* Features are filtered by the tier rules.ts just chose, so we never name something the
-     plan printed underneath does not include. Must stay AFTER `recommend`. */
+  /* First-cycle price for a .co.site name — 0 today, but derived, so a two-year cycle
+     stops it saying "Free" without anyone remembering to. */
+  const firstCycle = domainFirstCycleInr(rec.cycle);
   const features = pickFeatures(
     profile,
     surfaces,
     2,
     rec.sitePlan?.id ?? null,
     rec.mailPlan.id,
-    /* Overlay the generated reason AFTER selection and entitlement filtering, so a generation
-       can change why we say a feature matters but never which feature is shown. */
   ).map((f) => withReason(f, reasons));
 
-  /**
-   * The real handoff URL. Neo's funnel takes plain query params — no encoder, no signing —
-   * so we drop someone in with `bn` and `bd` already filled.
-   *
-   * `bn` prefers the business name NEO ITSELF extracted from the description (the header block
-   * of their generated site, e.g. "Proof & Butter Bakery"). That beats our domain slug — Neo's
-   * builder wants a readable name, and handing back the one their own model produced means the
-   * name they see next is the name they just saw. Slug is the fallback if generation hasn't
-   * landed. 55 char cap enforced in handoff.ts, matching their field limit. */
   const neoName =
     neoSite && typeof (blockData(neoSite, "header") as { title?: unknown })?.title === "string"
       ? ((blockData(neoSite, "header") as { title: string }).title)
@@ -314,295 +235,319 @@ export default function Reveal({
     businessName:
       neoName ?? (profile.brandName as string) ?? domain?.name.split(".")[0] ?? "your business",
     businessDescription: businessText ?? "",
-    /* Neo's own classifier beat ours to it — this is the key their builder actually uses. */
     neoIndustryKey: neoSite?.industryKey,
   });
 
+  const liveAvail = domain ? (live[domain.name]?.available ?? domain.available) : null;
+  const livePrice = domain ? (live[domain.name]?.priceInr ?? domain.priceInr) : null;
+  const domainName = domain?.name ?? `${stem || "yourbusiness"}.com`;
+
   return (
-    <motion.div
-      initial="hidden"
-      animate="show"
-      transition={{ staggerChildren: BEAT, delayChildren: 0.15 }}
-    >
-      <motion.p variants={block} transition={{ duration: 0.6, ease }} className="eyebrow">
-        Your setup
-      </motion.p>
+    <div className="reveal-page">
+      <div className="reveal-split">
+        <section className="reveal-setup">
+          <div className="reveal-setup-main">
+          <p className="eyebrow">Your setup</p>
 
-      {/* 1. The domain. The most convincing thing on the screen. Taken names never appear
-             here — availableFromLookup drops them, and a name they typed only joins the list
-             when DomScan says it is free. */}
-      <motion.div variants={block} transition={{ duration: 0.7, ease }}>
-        {domain ? (
-          <div className="domain">
-            <span className="domain-name">{domain.name}</span>
-            {/* The live answer wins over the fixture. A null/absent result (network failure,
-                no key, unsupported TLD) shows NO badge — silence beats a wrong "Available"
-                in front of people who can check in one keystroke. */}
-            {(live[domain.name]?.available ?? domain.available) === true && (
-              <span className="badge">Available</span>
-            )}
-            {/* Two different price claims, and the difference is the whole point.
-
-                REGISTRABLE names are labelled "approx" — a third-party registrar's USD list
-                price converted at a fixed rate, not Neo's, and not a name Neo sells today.
-
-                `.co.site` is the opposite: Neo's own namespace, Neo's own price, and free for
-                the first billing cycle. The old comment here said DO NOT claim free "until
-                someone verifies who that discount applies to" — that verification happened
-                (docs/neo-product-facts.md, funnel walked 28 Aug: the 100% domain discount IS
-                the .co.site subdomain), so the claim is now made for .co.site alone and still
-                withheld from every custom TLD. `domainFirstCycleInr` reads the figure from
-                plans.json per cycle rather than asserting zero — see rules.ts. */}
-            {domain.free ? (
-              <span className="domain-price domain-free">
-                {domainFirstCycleInr(rec.cycle) === 0
-                  ? "Free"
-                  : `₹${domainFirstCycleInr(rec.cycle)!.toLocaleString("en-IN")}/mo`}
-                <span className="price-caveat">first billing cycle</span>
-              </span>
-            ) : (
-              (live[domain.name]?.priceInr ?? domain.priceInr) !== null && (
-                <span className="domain-price">
-                  ~₹{(live[domain.name]?.priceInr ?? domain.priceInr)!.toLocaleString("en-IN")}/yr
-                  <span className="price-caveat">approx</span>
+          <div className="reveal-domain">
+          <p className="reveal-label">Recommended domain</p>
+          {domain ? (
+            <div className="domain">
+              <span className="domain-name">{domain.name}</span>
+              {liveAvail === true && <span className="badge">Available</span>}
+              {liveAvail === false && <span className="badge badge-taken">Taken</span>}
+              {domain.free ? (
+                <span className="domain-price domain-free">
+                  {firstCycle === 0
+                    ? "Free"
+                    : firstCycle != null
+                      ? `₹${firstCycle.toLocaleString("en-IN")}/mo`
+                      : "Free"}
+                  <span className="price-caveat">first billing cycle</span>
                 </span>
+              ) : (
+                livePrice !== null && (
+                  <span className="domain-price">
+                    ~₹{livePrice.toLocaleString("en-IN")}/yr
+                    <span className="price-caveat">approx</span>
+                  </span>
+                )
+              )}
+            </div>
+          ) : (
+            <p className="domain-note">Every name we tried is taken. Check one of yours below.</p>
+          )}
+
+          {allDomains.length > 0 && (
+            <div className="alts" role="group" aria-label="Choose a domain">
+              {allDomains.map((d) => {
+                const active = d.name === (domain?.name ?? chosenName);
+                const price = live[d.name]?.priceInr ?? d.priceInr;
+                const taken = (live[d.name]?.available ?? d.available) === false;
+                return (
+                  <button
+                    key={d.name}
+                    /* `.alt-cosite` marks the one option that is free rather than priced, so
+                       it reads as a different KIND of choice before anyone reads the word. */
+                    className={`alt${active ? " alt-active" : ""}${d.free ? " alt-cosite" : ""}`}
+                    onClick={() => {
+                      unlockSound();
+                      playSound("select");
+                      setChosenName(d.name);
+                    }}
+                    title={d.note}
+                    aria-pressed={active}
+                  >
+                    <span className="alt-name">{d.name}</span>
+                    {d.free ? (
+                      <span className="alt-price alt-free">
+                        {firstCycle === 0
+                          ? "Free"
+                          : firstCycle != null
+                            ? `₹${firstCycle.toLocaleString("en-IN")}`
+                            : "Free"}
+                      </span>
+                    ) : (
+                      price !== null && (
+                        <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
+                      )
+                    )}
+                    {taken && <span className="alt-taken">taken</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+
+          {coSiteTaken && (
+            <p className="domain-note domain-note-taken">
+              <strong>
+                {stem}.{COSITE_SUFFIX}
+              </strong>{" "}
+              is already in use on Neo — the free subdomain needs a different name.
+            </p>
+          )}
+
+          {/* THERE IS NO DOMAIN-HANDOFF NOTE. It read "We'll copy <name> for you — Neo's
+              domain purchase is coming, so for now you'll connect it under 'use a domain I
+              own'." Removed at Hari's call, 03 Sep, and it is worth saying why it went rather
+              than moving again: it explains OUR limitation at the moment someone is deciding,
+              on the one screen that has to be perfect. The .co.site variant was no better —
+              "free for your first billing cycle, claim it on the next screen" is a promise
+              about a screen they have not reached.
+              The handoff itself still carries `bn` and `bd`, so nothing about the flow
+              changes; only the apology for it is gone. */}
+          <details className="own-domain">
+            <summary className="own-label">Had a different name in mind?</summary>
+            <div className="own-row">
+              <input
+                id="own-domain-input"
+                className="own-input"
+                value={ownInput}
+                placeholder="thistleandtwine.co.uk"
+                spellCheck={false}
+                autoComplete="off"
+                onChange={(e) => {
+                  setOwnInput(e.target.value);
+                  setOwnError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void checkOwnDomain();
+                  }
+                }}
+              />
+              <button
+                className="btn btn-ghost own-check"
+                onClick={() => void checkOwnDomain()}
+                disabled={ownChecking || !ownInput.trim()}
+              >
+                {ownChecking ? "Checking…" : "Check"}
+              </button>
+            </div>
+            {ownError && <p className="own-error">{ownError}</p>}
+          </details>
+          </div>
+
+          <div className="reveal-block reveal-block-tight">
+            <p className="reveal-label">Your mailboxes</p>
+            {/**
+              * SLICED TO WHAT THEY ASKED FOR. Run cz3npnaz: they answered "Just one", the plan
+              * priced one, and the screen showed three — hello@, tickets@ and support@ — so
+              * the page contradicted both the answer and the price directly above it.
+              *
+              * The model suggests names from the description before any question is asked, so
+              * `suggestedMailboxes` never knew the count; it was being rendered whole. `rec`
+              * is the authority because it is what we charge for.
+              *
+              * Deliberately no padding when the model returns FEWER than the count. Showing
+              * three real suggestions against a price for five is a gap; inventing a
+              * `mailbox4@` to close it would be us writing their addresses for them.
+              */}
+            {reveal.mailboxes.slice(0, rec.mailboxes).map((m) => (
+              <div key={m.address} className="mailbox">
+                <span className="mailbox-address">
+                  {m.address.split("@")[0]}
+                  <span className="mailbox-domain">@{domainName}</span>
+                </span>
+                <span className="mailbox-label">{m.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="plan-card">
+            <p className="reveal-label">Recommended plan</p>
+            <div className="plan-name">
+              {rec.mailPlan.name}
+              {rec.sitePlan ? ` + ${rec.sitePlan.name} site` : ""}
+              {rec.monthlyInr !== null && (
+                <span className="plan-price"> ₹{rec.monthlyInr.toLocaleString("en-IN")}/mo</span>
+              )}
+            </div>
+            {/**
+              * ONLY when `because` is absent, and this was a real bug on 03 Sep.
+              *
+              * `because` was added to replace this block and the needs bullets, and the
+              * bullets were duly swapped — but this line was left in, so the card carried two
+              * generated sentences about the same decision. Live, for a ticket reseller:
+              *
+              *   plan-why  "...a solo ticket reseller moving customers from social messages
+              *              and personal email."
+              *   because   "...email and a website move you beyond social messages and
+              *              personal email."
+              *
+              * Same clause, twice, on the screen we were shortening. `because` wins because it
+              * is built from the solver's own needs and can be checked against them; this one
+              * is free-form and cannot. It stays as the fallback, which is what it was.
+              */}
+            {!rationale?.because && (
+              <p className="plan-why">{rationale?.rationale || rec.rationale}</p>
+            )}
+
+            {/**
+             * What the total is made of.
+             *
+             * The single figure above hides the one thing that most often explains it: mail is
+             * priced PER MAILBOX, so "three to five addresses" quietly multiplies the tier.
+             * The needs list cannot say this, because the multiplication is not a need — it is
+             * arithmetic, and until now it was arithmetic nobody was shown.
+             */}
+            {rec.monthlyInr !== null && (
+              <table className="plan-breakdown">
+                <tbody>
+                  {rec.lines.map((l) => (
+                    <tr key={l.label}>
+                      <th scope="row">{l.label}</th>
+                      <td className="bd-qty">
+                        {l.qty > 1 && l.each !== null
+                          ? `${l.qty} × ₹${l.each.toLocaleString("en-IN")}`
+                          : ""}
+                      </td>
+                      <td className="bd-total">
+                        {l.totalInr !== null ? `₹${l.totalInr.toLocaleString("en-IN")}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th scope="row">Total</th>
+                    <td className="bd-qty">{CYCLE_LABEL[rec.cycle]} · cancel anytime</td>
+                    <td className="bd-total">
+                      ₹{rec.monthlyInr.toLocaleString("en-IN")}/mo
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+
+            {/* Features WITH their reason. Moin's version joined the names with " · ", which
+                drops the personalisation — "Invoice Builder" alone is a catalogue entry;
+                "Invoice Builder — you can make repair quotes from the inbox" is why we picked
+                this plan for them. The reason is what makes the screen a justification. */}
+            {features.length > 0 && (
+              <ul className="plan-features">
+                {features.map((f) => (
+                  <li key={f.id}>
+                    <span className="feature-name">{f.name}</span>
+                    <span className="feature-because"> — {f.because}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {/**
+              * One line, or the bullets it replaced.
+              *
+              * `because` joins the solver's own reasons into a sentence — same reasons, same
+              * order of importance, one block instead of three. The bulleted fallback is not
+              * a lesser version: it is what shipped before, and it renders whenever the model
+              * is slow, degraded, or in replay. Losing brevity is acceptable; losing the
+              * justification is not.
+              *
+              * The model's accepted citations stay separate either way — "you said ..." is a
+              * quote we verified against their own words, and folding a quote into generated
+              * prose would make it look written rather than found.
+              */}
+            {rationale?.because ? (
+              <p className="plan-because">{rationale.because}</p>
+            ) : (
+              rec.needs.length > 0 && (
+                <ul className="plan-needs">
+                  {rec.needs.map((n) => (
+                    <li key={n.id}>{n.because}</li>
+                  ))}
+                </ul>
               )
             )}
-          </div>
-        ) : (
-          <p className="domain-note">
-            Every name we tried is taken. Check one of yours below.
-          </p>
-        )}
-
-        {/* Alternates that remain are buyable (or still unchecked). Each is priced separately:
-            a .in is not a .com is not a .co, and flattening that is what loses trust at
-            checkout. */}
-        {allDomains.length > 1 && (
-          <div className="alts" role="group" aria-label="Choose a domain">
-            {allDomains.map((d) => {
-              const active = d.name === (domain?.name ?? chosenName);
-              const price = live[d.name]?.priceInr ?? d.priceInr;
-              return (
-                <button
-                  key={d.name}
-                  className={`alt${active ? " alt-active" : ""}`}
-                  onClick={() => setChosenName(d.name)}
-                  title={d.note}
-                  aria-pressed={active}
-                >
-                  <span className="alt-name">{d.name}</span>
-                  {d.free ? (
-                    <span className="alt-price alt-free">
-                      {domainFirstCycleInr(rec.cycle) === 0
-                        ? "Free"
-                        : `₹${domainFirstCycleInr(rec.cycle)!.toLocaleString("en-IN")}`}
-                    </span>
-                  ) : (
-                    price !== null && (
-                      <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
-                    )
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        {coSiteTaken && (
-          <p className="domain-note domain-note-taken">
-            <strong>{stem}.{COSITE_SUFFIX}</strong> is already in use on Neo — the free
-            subdomain needs a different name.
-          </p>
-        )}
-
-        {/* The escape hatch. Our three come from one stem the model guessed; when that guess
-            is wrong, or every TLD is taken, this is the only way forward that is not "start
-            over". Same live lookup, so a name they type is verified as strictly as ours. */}
-        <div className="own-domain">
-          <label className="own-label" htmlFor="own-domain-input">
-            Had a different name in mind?
-          </label>
-          <div className="own-row">
-            <input
-              id="own-domain-input"
-              className="own-input"
-              value={ownInput}
-              placeholder="thistleandtwine.co.uk"
-              spellCheck={false}
-              autoComplete="off"
-              onChange={(e) => {
-                setOwnInput(e.target.value);
-                setOwnError(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  void checkOwnDomain();
-                }
-              }}
-            />
-            <button
-              className="btn btn-ghost own-check"
-              onClick={() => void checkOwnDomain()}
-              disabled={ownChecking || !ownInput.trim()}
-            >
-              {ownChecking ? "Checking…" : "Check"}
-            </button>
-          </div>
-          {ownError && <p className="own-error">{ownError}</p>}
-        </div>
-
-        {domain?.note && <p className="domain-note">{domain.note}</p>}
-      </motion.div>
-
-      {/* 2. Mailboxes. Each is a small argument for why this is worth paying for. */}
-      <motion.div variants={block} transition={{ duration: 0.7, ease }} className="reveal-block">
-        <p className="reveal-label">Your mailboxes</p>
-        {reveal.mailboxes.map((m, i) => (
-          <motion.div
-            key={m.address}
-            className="mailbox"
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: BEAT * 2 + 0.18 * i, duration: 0.5, ease }}
-          >
-            <span className="mailbox-address">
-              {m.address.split("@")[0]}
-              <span className="mailbox-domain">@{domain?.name ?? "yourdomain"}</span>
-            </span>
-            <span className="mailbox-label">{m.label}</span>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {/* 3. The site — GENERATED BY NEO, not drafted by us. This is the repositioning made
-             literal: we call their real generator and show its actual output. If it hasn't
-             answered yet we show nothing rather than our own placeholder copy, because the
-             whole point is that the words are theirs. */}
-      {showSite && (
-        <motion.div variants={block} transition={{ duration: 0.7, ease }} className="reveal-block">
-          <p className="reveal-label">Your site, generated by Neo</p>
-          {/* Neo's generator takes 22–38s measured. Showing their own loader copy while we
-              wait beats an empty gap, and beats inventing placeholder copy — the whole point
-              is that the words on this card are theirs. */}
-          {neoSite ? <NeoSitePreview site={neoSite} delay={BEAT * 3} /> : <NeoSiteGenerating />}
-        </motion.div>
-      )}
-
-      {/* 3b. Why this shape, for this person. One real Neo feature per surface, each tied
-             to something they actually told us. Generic benefit copy is what we're beating. */}
-      {features.length > 0 && (
-        <motion.div variants={block} transition={{ duration: 0.7, ease }} className="reveal-block">
-          <p className="reveal-label">Worth knowing</p>
-          {features.map((f, i) => (
-            <motion.div
-              key={f.id}
-              className="feature"
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: BEAT * 3 + 0.16 * i, duration: 0.5, ease }}
-            >
-              <span className="feature-name">{f.name}</span>
-              <span className="feature-because">— {f.because}</span>
-            </motion.div>
-          ))}
-        </motion.div>
-      )}
-
-      {/* 4. Plan and price, quietly, last. Chosen by rules.ts, priced from Neo's own sheet —
-             the model is never asked and never sees a number. */}
-      <motion.div variants={block} transition={{ duration: 0.7, ease }} className="plan-line">
-        <div>
-          <div className="plan-name">
-            {rec.mailPlan.name}
-            {rec.sitePlan ? ` + ${rec.sitePlan.name} site` : ""}
-            {rec.monthlyInr !== null && (
-              <span className="plan-price">
-                {" "}
-                ₹{rec.monthlyInr.toLocaleString("en-IN")}/mo
-              </span>
-            )}
-          </div>
-          {/* The generated line when it has landed, the deterministic one until then. Never
-              a spinner and never a gap: this sentence sits directly under a real price, and an
-              empty slot there reads as a broken page rather than a pending one. */}
-          <div className="plan-meta">
-            {rationale?.rationale || rec.rationale} {CYCLE_LABEL[rec.cycle]} · cancel anytime ·
-            you finish the site in Neo's builder
-          </div>
-          {/* Pre-empts the obvious objection. Darrel found Cynet, Mailchimp and Rinda all
-              justifying the recommendation rather than just naming it — see
-              docs/competitor-qualification.md. No fixed fallback: if it did not generate, the
-              honest thing is to say nothing rather than hand-wave about a cheaper plan. */}
-          {/* Why this shape, derived rather than written. Each line is a need the answers
-              established, and each need's floor traces to a Pandora entitlement — so this is
-              the recommendation showing its working, not copy. Empty when the baseline was
-              enough, which is worth its own sentence: "Starter is genuinely all you need" is
-              a trust-building thing to be able to say. */}
-          {(rec.needs.length > 0 || verdict?.raised) && (
-            <ul className="plan-needs">
-              {rec.needs.map((n) => (
-                <li key={n.id}>{n.because}</li>
-              ))}
-              {/* What the model found in their own words that no option asked about. Quoted
-                  back, because the quote is the evidence — and the server only accepted it
-                  after finding those words in what this person actually wrote. */}
-              {verdict?.raised &&
-                verdict.cites.map((c) => (
+            {verdict?.raised && verdict.cites.length > 0 && (
+              <ul className="plan-needs">
+                {verdict.cites.map((c) => (
                   <li key={c.entitlement} className="need-from-words">
                     you said “{c.evidence}”
                   </li>
                 ))}
-            </ul>
-          )}
-          {rationale?.whyNotCheaper && (
-            <div className="plan-meta plan-cheaper">{rationale.whyNotCheaper}</div>
-          )}
-          {/* Neo does not sell custom domains yet. The line has to branch, because the two
-              cases are genuinely different and one sentence covering both would be wrong in
-              whichever direction it leaned:
+              </ul>
+            )}
+            {rationale?.whyNotCheaper && (
+              <p className="plan-meta plan-cheaper">{rationale.whyNotCheaper}</p>
+            )}
 
-              - a `.co.site` name IS live today, claimable in one click at the other end. No
-                caveat belongs on it, and attaching one would talk a person out of the only
-                option that actually works.
-              - a custom TLD is the service that hasn't shipped. Saying so is stronger than
-                hiding it — it is the reason the project exists — and the honest next step is
-                "use a domain I own". */}
-          <div className="plan-meta plan-note">
-            {!domain
-              ? `Neo's domain purchase is coming, so for now you'll connect a name you own.`
-              : isCoSite(domain.name)
-                ? `We'll copy ${domain.name} for you — it's Neo's own, free for your first billing cycle, and you can claim it on the next screen.`
-                : `We'll copy ${domain.name} for you — Neo's domain purchase is coming, so for now you'll connect it under "use a domain I own".`}
           </div>
-        </div>
-        <div className="row" style={{ marginTop: 0 }}>
-          {/* A real link into Neo's funnel, carrying the business name and description their
-              builder already consumes. An <a>, not a scripted redirect — CLAUDE.md rule 5:
-              the handoff is always a thing a person clicks.
-              target=_blank so the demo doesn't navigate away from the reveal mid-pitch. */}
-          <a
-            className="btn"
-            href={handoffUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            autoFocus
-            onClick={() => {
-              /* Copy the chosen domain on the way out. Neo's domain step has no param that
-                 prefills its search box (tested: none of domain/domainName/q/search/sld/
-                 searchTerm work), and "Use a domain I own" is a button opening a modal, so it
-                 isn't deep-linkable either. Copying is the only thing that saves the retype.
-                 Best-effort: clipboard can be denied, and the handoff must still happen. */
-              if (domain) void navigator.clipboard?.writeText(domain.name).catch(() => {});
-            }}
-          >
-            Claim it and start building
-          </a>
-          <button className="btn btn-ghost" onClick={onRestart}>
-            Start over
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
+          </div>
+
+          <div className="row reveal-cta">
+            <a
+              className="btn"
+              href={handoffUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              autoFocus
+              onClick={() => {
+                unlockSound();
+                playSound("cta");
+                void navigator.clipboard?.writeText(domainName).catch(() => {});
+              }}
+            >
+              Claim it and start building
+            </a>
+            <button className="btn btn-ghost" onClick={onRestart}>
+              Start over
+            </button>
+          </div>
+        </section>
+
+        <SetupStory
+          domain={domainName}
+          showSite={showSite}
+          neoSite={neoSite}
+          neoSiteAlt={neoSiteAlt}
+          profile={profile}
+          mailPlanId={rec.mailPlan.id}
+          mailPlanName={rec.mailPlan.name}
+        />
+      </div>
+    </div>
   );
 }

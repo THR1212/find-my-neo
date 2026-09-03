@@ -396,17 +396,6 @@ h1 {
   text-align: right;
 }
 
-.plan-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-}
-
 .plan-meta {
   font-size: 13px;
   color: var(--text-faint);
@@ -490,13 +479,6 @@ h1 {
   display: flex;
   flex-direction: column;
   line-height: 1.15;
-}
-
-.meter-count {
-  font-size: 17px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
 }
 
 .meter-label {
@@ -843,16 +825,6 @@ h1 {
   .domain-name {
     font-size: clamp(23px, 7vw, 30px);
     overflow-wrap: anywhere;
-  }
-
-  .plan-line {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 16px;
-  }
-
-  .plan-line .row {
-    width: 100%;
   }
 
   .progress {
@@ -1274,10 +1246,16 @@ a.btn {
 }
 
 /* ?debug=1 only — out of the layout flow so it cannot disturb a demo or a screenshot. */
+/* TOP left, not bottom left, and the move is the point.
+   It sat at bottom:16px under a comment promising it "cannot disturb a screenshot or a
+   demo" — true until the split reveal pinned its CTA to the same corner, after which this
+   rendered directly on top of "Claim it and start building", the primary action on the one
+   screen that has to be perfect. A fixed-position debug control does not stay out of the way
+   on its own; it stays out of the way of the layout it was written against. */
 .debug-save {
   position: fixed;
   left: 16px;
-  bottom: 16px;
+  top: 16px;
   z-index: 6;
   font-size: 12px;
   padding: 6px 10px;
@@ -1306,4 +1284,820 @@ a.btn {
 /* A need the model found in someone's own words rather than in an option they picked. */
 .need-from-words {
   font-style: italic;
+}
+
+
+/* ===== Loading + question motion, merged from moin-version on 03 Sep =====
+   File-level cherry-pick, not a branch merge: the animation components are self-
+   contained, while his Reveal.tsx and questionService.ts changes overlap work that
+   landed on master today and need his review, not an auto-merge. */
+
+/* --- Wait: product reel while the profile generates ---------------------- */
+/* The guess used to hold on three dots for the ~10s profile call. That gap is
+   now a short loop of Neo's own films and two template shots — same assets the
+   reveal already shows, so the wait is about the product rather than a spinner. */
+
+.product-wait {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.product-wait h1 {
+  font-size: clamp(22px, 3.2vw + 8px, 34px);
+  margin: 0 0 8px;
+}
+
+.product-wait .lede {
+  margin-bottom: 18px;
+}
+
+.product-wait-stage {
+  position: relative;
+  flex: 0 1 auto;
+  width: 100%;
+  /* Sized to the 16:10 mail-apps and site-builder films plus the caption under them. */
+  aspect-ratio: 16 / 10.7;
+  max-height: min(56vh, 540px);
+  min-height: 240px;
+  height: auto;
+}
+
+.product-wait-beat {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s var(--ease-out);
+}
+
+.product-wait-beat.on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.product-wait-beat .neo-loop-hero {
+  flex: 1;
+  min-height: 0;
+}
+
+.product-wait-pips {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.product-wait-pips li {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.product-wait-pips li.on {
+  background: var(--accent);
+}
+
+.neo-loop {
+  margin: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--neo-bg);
+  border: 1px solid var(--neo-border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.03);
+}
+
+.neo-loop-frame {
+  min-height: 0;
+  height: 100%;
+  border-radius: var(--neo-radius);
+  overflow: hidden;
+  background: var(--neo-bg-page);
+}
+
+.neo-loop-frame video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.neo-loop figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.neo-loop-kicker {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.neo-loop-name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--neo-text);
+}
+
+.neo-loop-caption {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--neo-text-muted);
+}
+
+.neo-loop-hero {
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.neo-loop-hero .neo-loop-frame {
+  min-height: 0;
+  height: 100%;
+}
+
+.neo-loop-hero .neo-loop-frame video {
+  object-fit: cover;
+  object-position: center;
+}
+
+.neo-loop-hero figcaption {
+  padding: 12px 14px 14px;
+}
+
+.neo-loop-hero .neo-loop-name {
+  font-size: 15px;
+}
+
+.neo-loop-hero .neo-loop-caption {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* --- Question-screen setup tray ------------------------------------------ */
+/* Motion about THEM, not about the product: slots fill as answers land. Deliberately not a
+   product film — see the header of SetupTray.tsx. */
+
+.tray {
+  margin-top: clamp(18px, 3vh, 30px);
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.tray-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tray-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  opacity: 0.5;
+  transition: opacity 0.35s var(--ease-out);
+}
+
+.tray-slot-on {
+  opacity: 1;
+}
+
+.tray-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.tray-value {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.tray-slot:not(.tray-slot-on) .tray-value {
+  color: var(--text-faint);
+}
+
+.tray-progress {
+  margin-top: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--gradient);
+  transform-origin: left center;
+}
+
+@media (max-width: 840px) {
+  .product-wait-stage {
+      max-height: min(42vh, 340px);
+      min-height: 180px;
+    }
+
+  /* Three stacked films do not fit a phone-height column; show the best-matched one. */
+    .loop-stack .neo-loop:nth-child(n + 3) {
+      display: none;
+    }
+}
+
+@media (max-width: 640px) {
+  .tray-row {
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 14px;
+    }
+
+  .loop-stack .neo-loop:nth-child(n + 2) {
+      display: none;
+    }
+}
+
+
+/* Words meter, merged from moin-version: replaces the raw "possible setups" count
+   with copy that reads to a layperson. The number was Hari's call to drop on 02 Sep. */
+
+.meter-ring {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.meter-headline {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  display: inline-block;
+  max-width: 16em;
+}
+
+.meter--words .meter-label {
+  letter-spacing: 0.06em;
+  max-width: 16em;
+  text-transform: none;
+}
+
+
+/* ===== Split reveal, merged from moin-version on 03 Sep =====
+   His layout: setup on the left, Neo's own output on the right — two generated site
+   templates when they asked for a site, product films for the plan's own features when
+   they did not. The viewport lock (html:has(.stage-reveal)) is what makes it one screen.
+   Everything .co.site is stripped; the rest is his. */
+
+html:has(.stage-reveal),
+html:has(.stage-reveal) body,
+html:has(.stage-reveal) #root {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.product-wait-beat .neo-loop-hero {
+  flex: 1;
+  min-height: 0;
+}
+
+.alt-active .alt-price,
+.alt-active .alt-taken {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.badge-taken {
+  color: var(--text-faint);
+  background: var(--bg-page);
+  border-color: var(--border);
+}
+
+.alt-taken {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.screen-wide {
+  width: min(1320px, 100%);
+  height: 100%;
+  min-height: 0;
+}
+
+.stage-reveal:has(.tpl-pair) .screen-wide {
+  width: min(1320px, 100%);
+}
+
+.stage-reveal {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  /* Centres the capped-width reveal. `.stage` centres with `justify-items`, which is a GRID
+     property and does nothing here — this container is flex. Without this the reveal sat hard
+     against the left edge of a wide monitor with a few hundred px of dead space to its right,
+     which read as a broken layout rather than a margin. */
+  align-items: center;
+  /* Clears the centred meter above the content. */
+  padding: 96px 20px 12px;
+  overflow: hidden;
+}
+
+.stage-reveal .screen {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  /* `stretch` would be overridden by the width cap anyway, and the combination is what
+     produced the left-aligned result above. */
+  align-self: center;
+}
+
+.reveal-page {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.reveal-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  /* Even split. The left column lost the addresses/professional-email cards (they repeated
+     the mailbox list directly above them), so it no longer needs the extra width — and the
+     right column is the visual, which is the half worth giving space to. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px 32px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.reveal-setup,
+.setup-story {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The column is short now that the identity cards are gone, so the question is where its
+   spare height goes. `margin-top: auto` on the plan pooled all of it into one void above the
+   CTA. `space-between` was worse: it pushed four blocks to the far corners and the column read
+   as four unrelated things floating in a field.
+   Grouping them and centring the group puts the same space into one balanced margin above and
+   below, which reads as breathing room rather than a hole.
+   `safe center` because a centred flex column with overflow clips its own top when the content
+   does grow past the viewport — the overflow lands above the scroll origin and is unreachable.
+   Same reason `.stage` uses it. */
+.reveal-setup {
+  overflow: hidden;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.reveal-setup-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+  gap: clamp(12px, 1.8vh, 20px);
+}
+
+.reveal-domain {
+  flex: 0 0 auto;
+}
+
+/* The column gap owns the vertical rhythm now — per-block margins on top of it double the
+   spacing and reintroduce the gaps this layout just removed. */
+.reveal-setup-main > * {
+  flex: 0 0 auto;
+}
+
+.reveal-setup .eyebrow {
+  margin: 0;
+}
+
+.reveal-block-tight {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.reveal-setup .domain-name {
+  font-size: clamp(18px, 1.6vw + 12px, 26px);
+}
+
+.reveal-setup .mailbox {
+  padding: 5px 0;
+}
+
+.reveal-setup .mailbox-address {
+  font-size: 14px;
+}
+
+.plan-card {
+  flex: 0 0 auto;
+  padding: 12px 14px 12px;
+  background: var(--neo-bg-blue-alt);
+  border: 1px solid var(--neo-border-blue);
+  border-radius: var(--radius-card);
+}
+
+.plan-why {
+  margin: 4px 0 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--neo-text);
+}
+
+.reveal-cta {
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding-top: 4px;
+}
+
+/* Fills the right column. The two template panes stretch with it so they stay fully
+   viewable instead of sitting in a 96px strip under the generated card. */
+.setup-story {
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.setup-story-site {
+  overflow: hidden;
+  justify-content: center;
+}
+
+.setup-story-site > .story-kicker {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.tpl-pair {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  overflow: hidden;
+}
+
+.tpl-pane {
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  min-height: 0;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.tpl-pane .neo-site,
+.tpl-pane .neo-gen {
+  flex: 0 0 auto;
+  min-height: 0;
+  height: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tpl-pane .neo-site-chrome,
+.tpl-pane .neo-site-foot {
+  flex: 0 0 auto;
+}
+
+.tpl-pane .neo-site-hero {
+  flex: 0 0 auto;
+  aspect-ratio: 16 / 9;
+  max-height: none;
+  min-height: 0;
+}
+
+.tpl-pane .neo-site-body {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 14px 12px;
+}
+
+.tpl-pane .neo-site-heading {
+  font-size: clamp(14px, 1vw + 11px, 17px);
+}
+
+.tpl-pane .neo-site-cta {
+  margin-top: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.tpl-pane .neo-site-products {
+  margin-top: 12px;
+  margin-bottom: 0;
+  gap: 6px;
+}
+
+.tpl-pane .neo-product img {
+  aspect-ratio: 4 / 3;
+}
+
+.story-kicker {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--neo-text-muted);
+}
+
+/* --- Neo's own product films (mail-only reveal) -------------------------- */
+/* Muted looping MP4s straight off Neo's CDN — see src/lib/neoMedia.ts for why these are
+   their assets rather than something we drew. Only shown when someone asked for email
+   only, where the right column would otherwise be empty. */
+
+.setup-story-mail {
+  gap: 6px;
+  overflow: hidden;
+}
+
+.setup-story-mail > .story-kicker {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.loop-stack {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 8px;
+  overflow: hidden;
+}
+
+.neo-loop-hero {
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.neo-loop-hero .neo-loop-frame {
+  min-height: 0;
+  height: 100%;
+}
+
+.neo-loop-hero .neo-loop-frame video {
+  object-fit: cover;
+  object-position: center;
+}
+
+.neo-loop-hero figcaption {
+  padding: 12px 14px 14px;
+}
+
+.neo-loop-hero .neo-loop-name {
+  font-size: 15px;
+}
+
+.neo-loop-hero .neo-loop-caption {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+@media (max-width: 840px) {
+  .reveal-split,
+    .reveal-split:has(.tpl-pair) {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+    }
+
+  .tpl-pair {
+      gap: 8px;
+    }
+
+  .plan-card {
+      margin-top: 8px;
+    }
+
+  /* Three stacked films do not fit a phone-height column; show the best-matched one. */
+    .loop-stack .neo-loop:nth-child(n + 3) {
+      display: none;
+    }
+}
+
+@media (max-width: 640px) {
+  .stage-reveal {
+      padding-top: 88px;
+    }
+
+  .reveal-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+  .loop-stack .neo-loop:nth-child(n + 2) {
+      display: none;
+    }
+}
+
+/* Price breakdown + feature reasons in the plan card (03 Sep).
+   The single monthly figure hid the mailbox multiplication, which is usually the reason the
+   number is large. Three columns: what, how it multiplies, what it comes to. */
+
+.plan-breakdown {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-breakdown th,
+.plan-breakdown td {
+  padding: 4px 0;
+  text-align: left;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+.plan-breakdown .bd-qty {
+  text-align: right;
+  padding-right: 12px;
+  color: var(--text-faint);
+}
+
+.plan-breakdown .bd-total {
+  text-align: right;
+  width: 1%;
+  white-space: nowrap;
+}
+
+.plan-breakdown tfoot th,
+.plan-breakdown tfoot td {
+  border-top: 1px solid var(--border);
+  padding-top: 7px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.plan-breakdown tfoot .bd-qty {
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.plan-features {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+  font-size: 13px;
+}
+
+.plan-features .feature-name {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.plan-features .feature-because {
+  color: var(--text-dim);
+}
+
+
+/* .co.site badges, from darrel-version. "Free" is not a price of zero: free-then-renews
+   at an unpublished figure is a different claim, so it gets its own treatment. */
+
+/* `.co.site` is free for the first billing cycle, and it is the only price on this screen
+   that is Neo's own rather than a converted third-party estimate. So it gets the affirmative
+   treatment the "~\u20b9980/yr approx" figures deliberately do not: the same green as the
+   Available badge, heavier, and a touch larger than the name it sits beside is small.
+   The caveat underneath keeps it honest — "Free" alone would read as free forever. */
+.domain-free {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ok);
+  letter-spacing: -0.01em;
+}
+
+/* Stacked, not inline: "first billing cycle" is four words, and trailing it after "Free" on
+   one line pushes the row into a wrap on narrow screens right where the eye lands. */
+.domain-free .price-caveat {
+  display: block;
+  margin-left: 0;
+  margin-top: 1px;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+/* Not an error — the name is gone, which is ordinary. Slightly darker than a plain note so
+   it is not missed, but deliberately not red: nothing has failed and nobody did anything
+   wrong. --warn would overstate it. */
+.domain-note-taken {
+  margin-top: 12px;
+  color: var(--text-dim);
+}
+
+.domain-note-taken strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* On the filled pill the green fails contrast against --accent, so the selected free option
+   goes white like every other selected value. It has already done its job by then. */
+.alt-active .alt-free {
+  color: #ffffff;
+}
+
+/* Same green in the pill, so the free option is findable in the row without reading it. */
+.alt-free {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ok);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* The free .co.site option, marked as a different kind of choice (03 Sep).
+   Every other pill is a price; this one is Neo's own namespace, free for the first cycle and
+   the only name on the row Neo can actually sell today. A gradient hairline says "different"
+   before the word FREE is read — and it borrows Neo's own gradient rather than inventing a
+   colour, so it still belongs on their pricing page. */
+
+.alt-cosite {
+  position: relative;
+  border-color: transparent;
+  background:
+    linear-gradient(var(--bg-card, #ffffff), var(--bg-card, #ffffff)) padding-box,
+    var(--neo-gradient, linear-gradient(90deg, #7c5cff, #ff5cc8 55%, #ff8a3d)) border-box;
+  border: 1px solid transparent;
+}
+
+/* Selected still wins: the accent fill is the "this is your choice" signal everywhere else
+   on the screen, and the gradient must not compete with it. */
+.alt-cosite.alt-active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* The one-line justification that replaced the bulleted needs stack (03 Sep). Slightly
+   heavier than plan-meta because it is the sentence carrying the argument, not an aside. */
+
+.plan-because {
+  margin: 2px 0 10px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* Two rules the markup has always referenced and no branch ever defined (found 03 Sep by
+   diffing className usage against the stylesheet). Neither was visibly broken, which is why
+   they survived: both inherited something close enough to look deliberate. */
+
+/* Wrapper for NeoSiteGenerating's shimmer. Its six children are all styled; only the box
+   holding them was missing, so the skeleton sat flush against the card edge instead of
+   matching the finished preview it is standing in for. */
+.neo-gen-skeleton {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--bg-raised);
+}
+
+/* The domain inside an alternate pill. `.alt` is an inline-flex with a baseline gap, so this
+   was inheriting the parent's size and colour and happened to look right — but nothing said
+   so, and `.alt-price` beside it IS explicit. Stating it makes the pair symmetrical and stops
+   a future change to `.alt` silently moving the name. */
+.alt-name {
+  font-size: inherit;
+  color: inherit;
 }

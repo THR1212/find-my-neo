@@ -34,6 +34,7 @@
  */
 
 import { has, type Profile } from "./profile";
+import { QUESTIONS } from "./questions";
 
 export type FeatureSurface = "mail" | "site";
 
@@ -342,6 +343,66 @@ function availableOn(f: Feature, sitePlanId: string | null, mailPlanId: string |
 }
 
 /**
+ * How often each feature matches, across the profiles our own questions can produce.
+ *
+ * THE PROBLEM THIS SOLVES. The reveal shows one feature per surface, chosen by `priority` —
+ * and priority turned out to track how GENERIC a feature is. `import_email_contacts` is
+ * priority 10 and matches 100% of profiles; `site_contact_forms` is 10 and matches 75%.
+ * So the top of each surface was occupied by whatever applies to everyone, and a measured
+ * sweep of 96 profiles produced 12 distinct bullet pairs, with 11 of the 20 features unable
+ * to appear under ANY combination.
+ *
+ * A bullet that is true of nearly every business is not telling this one anything. So a
+ * feature's rank is now its priority minus how common it is: priority still says what matters
+ * more, commonness says how much of that is news.
+ *
+ * The reference set is built FROM `QUESTIONS`, not hand-written, so it cannot describe a
+ * world the flow no longer produces — the `client` question's removal changes these rates
+ * without anyone remembering to update a fixture.
+ */
+const SAMPLE = 512;
+
+function referenceProfiles(): Profile[] {
+  const out: Profile[] = [];
+  for (let i = 0; i < SAMPLE; i++) {
+    const p: Profile = {};
+    /* A different stride per question, so the sample sweeps combinations evenly instead of
+       marching every question through its options in lockstep. */
+    QUESTIONS.forEach((q, qi) => {
+      const opt = q.options[(i * (qi * 2 + 1)) % q.options.length];
+      for (const [k, v] of Object.entries(opt.resolves)) {
+        p[k] = q.multi ? [String(v)] : (v as never);
+      }
+    });
+    out.push(p);
+  }
+  return out;
+}
+
+/* Computed once, on first use. `discrimination` in candidates.ts calls pickFeatures many
+   times per tap, so this must never be per-call work. */
+let commonnessCache: Map<string, number> | null = null;
+function commonness(id: string): number {
+  if (!commonnessCache) {
+    const grid = referenceProfiles();
+    commonnessCache = new Map(
+      FEATURES.map((f) => [f.id, grid.filter((p) => f.matches(p)).length / grid.length]),
+    );
+  }
+  return commonnessCache.get(id) ?? 0;
+}
+
+/**
+ * How far commonness may pull a feature down the order.
+ *
+ * At 6, a feature matching everyone loses six points of priority — enough to move
+ * `import_email_contacts` (10, matches all) below `invoice_builder` (8, matches half), which
+ * is the reordering the whole change is for. Priority still decides between two features of
+ * similar reach.
+ */
+const COMMONNESS_WEIGHT = 6;
+
+/**
  * Feature ids the `extras` question lets someone ask for BY NAME.
  *
  * A tick here is not an inference we drew from their description — it is the person telling us
@@ -378,8 +439,8 @@ function askedForByName(f: Feature, p: Profile): boolean {
  * imports this file and the cycle is what put `Profile` in its own module.
  */
 const rank = (f: Feature, p: Profile) => {
-  if (!askedForByName(f, p)) return f.priority;
-  return f.priority + 100 + (f.minMailPlan || f.minSitePlan ? 50 : 0);
+  if (askedForByName(f, p)) return f.priority + 100 + (f.minMailPlan || f.minSitePlan ? 50 : 0);
+  return f.priority - COMMONNESS_WEIGHT * commonness(f.id);
 };
 
 export function pickFeatures(
@@ -412,11 +473,20 @@ export function pickFeatures(
     if (best) picked.push(best);
   }
 
-  // One surface in play and room left — add its runner-up rather than padding with the other
-  // surface, which they explicitly didn't ask for.
-  if (picked.length < limit && surfaces.length === 1) {
+  /**
+   * Fill any remaining slots from whichever surface has the better remaining feature.
+   *
+   * THIS USED TO BE `surfaces.length === 1` ONLY, which made `limit` inert for everyone
+   * getting both mail and a site — the common case. Two surfaces filled two slots and the
+   * branch never ran, so raising the limit to 3 or 4 changed nothing at all. Measured over 96
+   * profiles: 13 distinct bullet sets at limit 2, and exactly 13 at limit 4.
+   *
+   * One per surface still comes first, above — someone getting both should hear about both
+   * before they hear a second thing about either.
+   */
+  if (picked.length < limit) {
     const more = eligible
-      .filter((f) => f.surface === surfaces[0] && !picked.includes(f))
+      .filter((f) => surfaces.includes(f.surface) && !picked.includes(f))
       .sort((a, b) => rank(b, profile) - rank(a, profile));
     picked.push(...more.slice(0, limit - picked.length));
   }

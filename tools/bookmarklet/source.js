@@ -39,7 +39,7 @@
   /* Substituted by build.mjs from VERCEL_SHARE_TOKEN. Never commit a real token here:
      this file is tracked, so hardcoding one puts it in the repo whatever .gitignore says. */
   var TOKEN = "__SHARE_TOKEN__";
-  var URL_WITH_TOKEN = APP + "?_vercel_share=" + TOKEN;
+  var URL_WITH_TOKEN = TOKEN ? APP + "?_vercel_share=" + TOKEN : APP;
   /* TRUE because Vercel Deployment Protection is currently OFF (verified 31 Aug: the page
      serves a direct 200 with no X-Frame-Options and no frame-ancestors).
      If protection is ever turned back on, SET THIS BACK TO FALSE — the frame will be blocked

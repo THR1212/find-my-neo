@@ -78,10 +78,13 @@ export interface NeoSite {
 
 /** Step 1 — classify the business. */
 async function classify(industryKey: string, description: string) {
+  /* ik is required. The captured working value is `ecommerce_retail` (not
+     `ecommerce_and_retail`). Copy still comes from the description. */
+  const ik = industryKey || "ecommerce_retail";
   const out = await post("/neo/generate/unauth", {
     crid: crid("bi"),
     t: "bi",
-    p: JSON.stringify({ ik: industryKey, bd: description }),
+    p: JSON.stringify({ ik, bd: description }),
   });
   return JSON.parse(out.v) as {
     industryKey: string;
@@ -175,19 +178,73 @@ async function resolveImages(
 /**
  * The whole pipeline. Throws only if steps 1–2 fail; image failure degrades quietly.
  * Callers are expected to catch and fall back to the fixture.
+ *
+ * Two templates, not one. The email+site reveal shows a pair of generator snapshots for
+ * THIS business. That is one classify plus two content passes (different template keys),
+ * still tagged `neotest` — not a retry storm, and not Neo's marketing reel of other shops.
  */
 export async function generateNeoSite(
   businessName: string,
   description: string,
   industryKey: string,
 ): Promise<NeoSite> {
-  const classified = await classify(industryKey, description);
-  const site = await generateContent(
-    classified.businessName || businessName,
-    description,
-    classified.templateKey,
-    classified.industryKey,
-  );
+  const sites = await generateNeoSites(businessName, description, industryKey, 1);
+  return sites[0];
+}
+
+/**
+ * Templates Neo's generator has actually returned for small-business descriptions.
+ * `property` is omitted on purpose — it is the mismatch that turned a bakery into
+ * "Real Estate" (docs/neo-product-facts.md).
+ */
+const OTHER_TEMPLATES = [
+  "speciality_retail",
+  "offline_services",
+  "fashion_store",
+  "creator",
+  "bio_site",
+  "logistics",
+];
+
+async function generateOne(
+  businessName: string,
+  description: string,
+  templateKey: string,
+  industryKey: string,
+): Promise<NeoSite> {
+  const site = await generateContent(businessName, description, templateKey, industryKey);
   const images = await resolveImages(collectPrompts(site.blocks), site.industryKey);
   return { ...site, images, source: "live" };
+}
+
+export async function generateNeoSites(
+  businessName: string,
+  description: string,
+  industryKey: string,
+  count = 2,
+): Promise<NeoSite[]> {
+  const classified = await classify(industryKey, description);
+  const name = classified.businessName || businessName;
+  const ik = classified.industryKey;
+  const firstKey = classified.templateKey;
+  const keys = [firstKey];
+  if (count > 1) {
+    const alt = OTHER_TEMPLATES.find((k) => k !== firstKey) ?? "speciality_retail";
+    keys.push(alt);
+  }
+
+  const settled = await Promise.allSettled(
+    keys.map((key) => generateOne(name, description, key, ik)),
+  );
+  const sites: NeoSite[] = [];
+  for (const result of settled) {
+    if (result.status !== "fulfilled") continue;
+    if (sites.some((s) => s.templateKey === result.value.templateKey)) continue;
+    sites.push(result.value);
+  }
+  if (!sites.length) {
+    const err = settled.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+    throw err?.reason instanceof Error ? err.reason : new Error("neo site generation failed");
+  }
+  return sites;
 }

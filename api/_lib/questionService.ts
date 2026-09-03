@@ -55,15 +55,6 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
       site: "I already have a website",
     },
   },
-  client: {
-    prompt: "What do you use for mail right now?",
-    options: {
-      gmail: "Gmail",
-      outlook: "Outlook",
-      apple: "Apple Mail",
-      none: "Nothing set up yet",
-    },
-  },
   team: {
     prompt: "How many email addresses do you need?",
     options: {
@@ -90,9 +81,9 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
     },
   },
   extras: {
-    prompt: "Do you do any of these today?",
+    prompt: "Which of these are a regular part of your work?",
     options: {
-      invoices: "Send quotes or invoices",
+      invoices: "Quoting and invoicing jobs",
       campaigns: "Message past customers as a group",
       bookings: "Book people in for a time",
       receipts: "Check whether mail was opened",
@@ -149,7 +140,10 @@ const SCHEMA = {
         properties: {
           questionId: {
             type: "string",
-            enum: ["import", "surface", "channel", "client", "team", "sells", "volume", "extras", "catalogue"],
+            /* Derived, never typed out. This list was hand-written and went stale twice —
+               once stuck at six ids while the bank held nine, and again when `client` was
+               removed. QUESTION_SHAPE is the one place a question is declared here. */
+            enum: Object.keys(QUESTION_SHAPE),
           },
           prompt: { type: "string", description: "The question. Under 60 characters." },
           sub: { type: "string", description: "One clarifying line. Under 90 characters." },
@@ -240,7 +234,11 @@ const SYSTEM = [
   "  'Two'                     -> 'You need two email addresses'   (the question already asks)",
   "  'None of these'           -> 'You do not currently do any of these'",
   "  'Photos and documents'    -> 'You often share images or documents'",
-  "Most options need no hint at all. An empty hint is the normal case, not a failure.",
+  "But do not swing to giving none at all: that instruction, put more bluntly, returned 27",
+  "empty hints out of 27. Write a hint when you can name something CONCRETE out of their own",
+  "description — 'Scanned PDFs and other attachments', for a firm that mentioned scanned",
+  "returns, is worth having. Return an empty hint when all you would be writing is the label",
+  "again in other words.",
   "",
   "These are the nine questions and their EXACT ids. Use these ids verbatim. Do not invent an",
   "id, do not add or drop options, and keep each option meaning what it means now:",
@@ -340,7 +338,29 @@ export async function handleQuestions(
       schemaName: "question_surface",
       /* Nine questions now, not six. Raised with the bank; llm.ts reports truncation rather
          than letting it surface as a JSON parse error. */
-      maxOutputTokens: 3800,
+      /**
+       * 8000, and the ceiling is nearly free to raise: billing is on tokens actually used,
+       * not on the cap. What it buys is headroom for REASONING tokens, which gpt-5.6 counts
+       * against `max_completion_tokens` alongside the visible output. The visible JSON here is
+       * only ~1,200-1,500 tokens; at 3,800 a long deliberation left too little room to finish
+       * it, and a live call came back "output truncated ... the JSON is incomplete" after 25s.
+       *
+       * That failure is invisible from outside: the service returns an empty surface, every
+       * question renders from the fixed bank, and the flow looks like it simply never
+       * personalised anything. Which is the symptom this whole thread began with.
+       */
+      maxOutputTokens: 8000,
+      /* The long call. 45s and no retry beats 20s twice: the old pair spent 40.5s to return
+         nothing, and nothing here means every screen reads from the fixed bank. Nobody waits
+         on this — it resolves while the guess screen is up and is dropped if a question is
+         already being read, so a slow success still costs the user no time. */
+      /* Measured live at 11.5s on one call and past 45s on the next — reasoning-token variance,
+         not network. 45s was still cutting off successful generations. The wait costs the user
+         nothing (the guess screen never blocks on this, and App now applies late wording to
+         every question except the one being read), so the ceiling should sit above the slow
+         tail rather than inside it. */
+      timeoutMs: 75000,
+      maxRetries: 0,
     });
     questions = out.questions;
   } catch (err) {

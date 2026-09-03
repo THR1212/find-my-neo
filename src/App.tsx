@@ -5,7 +5,6 @@ import {
   applyAnswer,
   confidence,
   nextQuestion,
-  remainingSetups,
   shouldReveal,
   type EngineState,
 } from "./lib/engine";
@@ -20,7 +19,7 @@ import {
   type PlanVerdict,
 } from "./lib/api";
 import { recommend } from "./lib/rules";
-import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
+import { fetchNeoSites, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
 
@@ -32,10 +31,24 @@ import AdaptiveQuestion from "./screens/AdaptiveQuestion";
 import Reveal from "./screens/Reveal";
 
 const transition = { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const };
+
+/**
+ * Entry and exit use DIFFERENT easings, and that is the whole fix.
+ *
+ * Both used `[0.16, 1, 0.3, 1]` — a strong ease-OUT, right for arriving: most of the change
+ * happens immediately, so a screen appears to land. Run it backwards on the way out and the
+ * same curve dumps opacity in roughly the first 120ms of a 420ms transition, so the screen
+ * you just submitted vanishes and then 300ms of nothing happens. Hari described it as
+ * disappearing instantly, which is exactly what an ease-out exit does.
+ *
+ * The exit now eases IN: it holds, then leaves. Slightly shorter overall, because a slow
+ * departure delays the answer they are waiting for.
+ */
+const EXIT_EASE = [0.4, 0, 1, 1] as const;
 const variants = {
   enter: { opacity: 0, y: 18 },
   center: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -14 },
+  exit: { opacity: 0, y: -14, transition: { duration: 0.34, ease: EXIT_EASE } },
 };
 
 const emptyEngine: EngineState = { profile: {}, asked: [], freeText: {} };
@@ -65,6 +78,16 @@ export default function App() {
    */
   const [neoSite, setNeoSite] = useState<NeoSite | null>(restored?.neoSite ?? null);
   /**
+   * The SECOND generator snapshot, shown beside the first on the email+site reveal.
+   *
+   * Not a second round-trip in series: `generateNeoSites` classifies once, then generates
+   * both templates with `Promise.allSettled` and drops a duplicate `templateKey`, so the pair
+   * costs one call's wall-clock. The pair is the point — Neo picks the template randomly
+   * client-side (docs/neo-product-facts.md), and showing two is what lets someone choose
+   * instead of being assigned one.
+   */
+  const [neoSiteAlt, setNeoSiteAlt] = useState<NeoSite | null>(restored?.neoSiteAlt ?? null);
+  /**
    * Model-written "why this matters to you" clauses, by feature id.
    *
    * Needed only at the reveal, so unlike the question surface there is no race to guard: it
@@ -78,8 +101,12 @@ export default function App() {
    * Empty until the last question is answered, and empty forever if that call fails — the
    * reveal falls back to `buildRationale`, which is why those templates were kept.
    */
-  const [rationale, setRationale] = useState<{ rationale: string; whyNotCheaper: string }>(
-    restored?.rationale ?? { rationale: "", whyNotCheaper: "" },
+  const [rationale, setRationale] = useState<{
+    rationale: string;
+    whyNotCheaper: string;
+    because: string;
+  }>(
+    restored?.rationale ?? { rationale: "", whyNotCheaper: "", because: "" },
   );
   /**
    * The model's verified verdict on the plan — the one place a model can change what someone
@@ -101,13 +128,13 @@ export default function App() {
     () => confidence(engine.profile, engine.prefilled, engine.prosaic),
     [engine.profile, engine.prefilled, engine.prosaic],
   );
-  const remaining = useMemo(
-    () => remainingSetups(engine.profile, engine.prefilled, engine.prosaic),
-    [engine.profile, engine.prefilled, engine.prosaic],
-  );
   /* The model's ranking now lives inside `engine` (and so is persisted and overruled there),
      rather than in a separate state that was consumed once and thrown away. */
   const current = useMemo(() => nextQuestion(engine), [engine]);
+  /* Read inside the question-surface callback, which fires long after that render. A ref, not
+     the value, because the callback closes over whichever render started the fetch. */
+  const currentQuestionRef = useRef<string | null>(null);
+  currentQuestionRef.current = current?.id ?? null;
   /* What the description already answered, in the words the option would have used. Shown on
      the guess screen so a skipped question is visible and therefore correctable. */
   const inferred = useMemo(
@@ -128,8 +155,14 @@ export default function App() {
    */
   const kickOff = useCallback(
     (text: string, opts: { profile: boolean; site: boolean; seedNextQuestion: boolean }) => {
-      /* fetchNeoSite never rejects; it falls back to a recorded real response. */
-      if (opts.site) fetchNeoSite("", text).then(setNeoSite);
+      /* fetchNeoSites never rejects; it falls back to a recorded real response. */
+      if (opts.site) {
+        setNeoSiteAlt(null);
+        void fetchNeoSites("", text).then((sites) => {
+          if (sites[0]) setNeoSite(sites[0]);
+          setNeoSiteAlt(sites[1] ?? null);
+        });
+      }
 
       /* Question wording, in parallel and deliberately not awaited. It only has to land
          before the FIRST question screen, which is a guess-screen read away, so it never
@@ -145,16 +178,29 @@ export default function App() {
       if (opts.profile) {
         void fetchQuestionSurface(text).then((surface) => {
           if (Object.keys(surface).length === 0) return;
+          /* Nothing left to reword. */
+          if (stageRef.current === "reveal") return;
+
           /**
-           * Do not apply it once a question is on screen.
+           * Apply it to every question EXCEPT the one being read right now.
            *
-           * Wording lands ~12s in. Someone who taps "That's us" quickly is already reading
-           * question 1 in the fixed wording, and applying the override then rewrites the
-           * question under them mid-read. Better to lose the generated wording for a fast
-           * mover than to change the words they are in the middle of.
+           * The rule used to be "drop it entirely once a question is on screen", and the
+           * reason was right: rewriting a question under someone mid-read is worse than
+           * plain wording. But it threw away the other seven to protect one, and it did that
+           * more and more often as the call got slower — measured live at 11.5s on one run
+           * and past 45s on the next, against a guess screen most people leave in a few
+           * seconds. The generated wording was being discarded almost every time.
+           *
+           * Holding back the current question keeps the original guarantee intact and lets
+           * the rest of the flow read as it was meant to.
            */
-          if (stageRef.current === "question" || stageRef.current === "reveal") return;
-          setEngine((prev) => ({ ...prev, surface }));
+          setEngine((prev) => {
+            const onScreen = stageRef.current === "question" ? currentQuestionRef.current : null;
+            if (!onScreen) return { ...prev, surface };
+            const rest = { ...surface };
+            delete rest[onScreen];
+            return { ...prev, surface: rest };
+          });
         });
       }
       if (!opts.profile) return;
@@ -287,8 +333,8 @@ export default function App() {
 
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
-    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, reasons, rationale, verdict });
-  }, [stage, engine, rawText, reveal, summary, neoSite, reasons, rationale, verdict]);
+    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict });
+  }, [stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict]);
 
   /**
    * Apply an answer and decide where to go next.
@@ -362,7 +408,7 @@ export default function App() {
             mailboxes: finalRec.mailboxes,
           });
         }).then((r) => {
-          if (r && (r.rationale || r.whyNotCheaper)) setRationale(r);
+          if (r && (r.rationale || r.whyNotCheaper || r.because)) setRationale(r);
         });
 
       }
@@ -393,7 +439,7 @@ export default function App() {
     setSummary(null);
     setNeoSite(null);
     setReasons({});
-    setRationale({ rationale: "", whyNotCheaper: "" });
+    setRationale({ rationale: "", whyNotCheaper: "", because: "" });
     setVerdict(null);
     setError(null);
   }, []);
@@ -451,7 +497,32 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
             transition={transition}
           >
-            <NarrowingMeter confidence={conf} remaining={remaining} />
+            {/* Words, not a count. The raw "possible setups" number went on Hari's call on
+                02 Sep — it read as a made-up statistic to anyone outside the team — and Moin's
+                replacement writes a line from the stage and the last answer instead. Merged
+                file-level from moin-version; `copyContext` is optional, so the AI-written
+                variant on his branch can be wired later without changing this. */}
+            <NarrowingMeter
+              confidence={conf}
+              stage={stage}
+              lastQuestionId={engine.asked[engine.asked.length - 1] ?? null}
+              profile={engine.profile}
+              /**
+               * NO `copyContext`, and this was tried and backed out on 03 Sep.
+               *
+               * The meter reads the same line for the whole question phase, which looks like
+               * something to fix. Passing `pickedOptionIds` does make it vary — into nonsense.
+               * `situationFromPicks` wants a per-option `meter` line generated by the server;
+               * with none it falls through to `fallbackSituation`, which was written for the
+               * NUMBERS meter and returns another audience phrase, so `pairSituation` stacks
+               * two of them: "small teams like yours / Clubs like yours" for a bike shop.
+               *
+               * To turn it on properly, questionService has to emit `meter` per option — the
+               * field is already declared on QuestionSurface for exactly this. That is more
+               * output on the call that is already the slow one, so it waits until the
+               * question rewrite is cheaper. Static and coherent beats varying and garbled.
+               */
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -463,11 +534,17 @@ export default function App() {
         </button>
       )}
 
-      <main className="stage">
+      {/* `stage-reveal` and `screen-wide` are what the merged split layout hangs off:
+          html:has(.stage-reveal) locks the page to the viewport so the reveal is one screen,
+          and .screen-wide widens it for the two panes. Without these two class names the
+          layout renders but scrolls, which is the thing the split was for. */}
+      <main className={`stage${stage === "reveal" ? " stage-reveal" : ""}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={stage === "question" ? `q-${current?.id ?? "none"}` : stage}
-            className="screen"
+            className={`screen${stage === "reveal" ? " screen-wide" : ""}${
+              stage === "guess" && loading ? " screen-wait" : ""
+            }`}
             variants={variants}
             initial="enter"
             animate="center"
@@ -508,6 +585,7 @@ export default function App() {
                 profile={engine.profile}
                 businessText={rawText}
                 neoSite={neoSite}
+                neoSiteAlt={neoSiteAlt}
                 reasons={reasons}
                 rationale={rationale}
                 verdict={verdict}

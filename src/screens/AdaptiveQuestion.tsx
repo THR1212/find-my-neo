@@ -48,7 +48,7 @@ export default function AdaptiveQuestion({
       onPicked?.([optionId]);
       window.setTimeout(() => {
         onAnswer(question.id, [optionId], text.trim() || undefined);
-      }, 130);
+      }, 320);
       return;
     }
     const turningOn = !picked.includes(optionId);
@@ -63,16 +63,20 @@ export default function AdaptiveQuestion({
   function submit(e?: FormEvent) {
     e?.preventDefault();
     if (picked.length === 0 && !text.trim()) return;
+    if (locked.current) return;
+    locked.current = true;
     unlockSound();
     playSound("progress");
-    onAnswer(question.id, picked, text.trim() || undefined);
+    window.setTimeout(() => {
+      onAnswer(question.id, picked, text.trim() || undefined);
+    }, 280);
   }
 
   const canContinue = picked.length > 0 || text.trim().length > 0;
 
   return (
     <form onSubmit={submit} key={question.id}>
-      <ScreenIn>
+      <ScreenIn pace="measured">
         <LineIn>
           <p className="eyebrow">Question {step}</p>
         </LineIn>

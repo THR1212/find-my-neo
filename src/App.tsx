@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import {
   applyAnswer,
@@ -32,11 +32,52 @@ import Guess from "./screens/Guess";
 import AdaptiveQuestion from "./screens/AdaptiveQuestion";
 import Reveal from "./screens/Reveal";
 
-const transition = { duration: 0.2, ease: [0.16, 1, 0.3, 1] as const };
-const variants = {
-  enter: { opacity: 0, y: 8 },
+const EASE = [0.16, 1, 0.3, 1] as const;
+const meterTransition = { duration: 0.2, ease: EASE };
+
+/**
+ * Hook / describe / reveal stay snappy. Questions used to share that 200ms swap, so each
+ * prompt popped in and was gone before it had landed. `mode="wait"` still sequences them —
+ * the current question fades out, there is a short hold, then the next one eases in.
+ * pointer-events off on enter/exit so a second click cannot land on a screen that is leaving
+ * (the outgoing question stays mounted for the whole exit — see DECISIONS.md 2 Sep).
+ */
+const SNAPPY_SCREEN = {
+  enter: { opacity: 0, y: 8, pointerEvents: "none" as const },
+  center: {
+    opacity: 1,
+    y: 0,
+    pointerEvents: "auto" as const,
+    transition: { duration: 0.22, ease: EASE },
+  },
+  exit: {
+    opacity: 0,
+    y: -6,
+    pointerEvents: "none" as const,
+    transition: { duration: 0.2, ease: EASE },
+  },
+};
+
+const QUESTION_SCREEN = {
+  enter: { opacity: 0, y: 16, pointerEvents: "none" as const },
+  center: {
+    opacity: 1,
+    y: 0,
+    pointerEvents: "auto" as const,
+    transition: { duration: 0.7, delay: 0.2, ease: EASE },
+  },
+  exit: {
+    opacity: 0,
+    y: -14,
+    pointerEvents: "none" as const,
+    transition: { duration: 0.55, ease: EASE },
+  },
+};
+
+const INSTANT_SCREEN = {
+  enter: { opacity: 1, y: 0 },
   center: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -6 },
+  exit: { opacity: 1, y: 0 },
 };
 
 const emptyEngine: EngineState = { profile: {}, asked: [], freeText: {} };
@@ -483,6 +524,12 @@ export default function App() {
 
   const stepNumber = engine.asked.length + 1;
   const screenKey = stage === "question" ? `q-${current?.id ?? "none"}` : stage;
+  const reduceMotion = useReducedMotion();
+  const screenVariants = reduceMotion
+    ? INSTANT_SCREEN
+    : screenKey.startsWith("q-")
+      ? QUESTION_SCREEN
+      : SNAPPY_SCREEN;
   const liveOptionIds =
     stage === "question" && livePick.questionId === current?.id ? livePick.ids : [];
 
@@ -501,7 +548,7 @@ export default function App() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          transition={transition}
+          transition={meterTransition}
         >
           <NarrowingMeter
             confidence={conf}
@@ -531,11 +578,10 @@ export default function App() {
           <motion.div
             key={screenKey}
             className={`screen${stage === "reveal" ? " screen-wide" : ""}${stage === "guess" && loading ? " screen-wait" : ""}`}
-            variants={variants}
+            variants={screenVariants}
             initial="enter"
             animate="center"
             exit="exit"
-            transition={transition}
           >
             {stage === "hook" && (
               <Hook

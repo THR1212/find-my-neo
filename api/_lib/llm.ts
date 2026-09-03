@@ -55,7 +55,7 @@ export function llmMode(): "replay" | "live" {
 // gpt-5.6-terra: $2/$12 per 1M in/out, proven in flock-partner-analysis.
 // gpt-5.6-luna: $0.2/$1.2 — 10x cheaper, likely fine for profile extraction.
 // Both do strict structured outputs. Terra is the safe default; Luna is the cost story.
-const model = () => process.env.LLM_MODEL ?? "gpt-5.6-terra";
+const model = () => process.env.LLM_MODEL ?? "gpt-5.6-luna";
 
 /** See the note at the call site. One retry, because a cold provider often works second try. */
 const TIMEOUT_MS = 20000;

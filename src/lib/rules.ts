@@ -20,7 +20,6 @@ interface MailPlanJson {
   name: string;
   inr: Partial<Record<BillingCycle, number | null>>;
   afterFirstCycleInr: number;
-  blurb: string;
 }
 
 interface SitePlanJson {
@@ -75,66 +74,64 @@ function chooseCycle(profile: Profile): BillingCycle {
 }
 
 /**
- * Starter is the floor. There is nothing below it.
+ * Mail tier. Chosen by what someone NEEDS, never by how many mailboxes they have.
  *
- * This used to drop a solo, non-importing, mail-only person onto **Neo Lite** at ₹59. Lite is
- * in Neo's pricing sheet but **Neo does not sell it** (confirmed 03 Sep 2026), so that branch
- * recommended a plan, showed its real price, and handed the person to a checkout that cannot
- * fulfil it — the worst class of error this project can make, because everything else on the
- * reveal is defensible and this one number quietly was not.
+ * This used to read `if (mailboxes >= 5) return standard`, and that rule had no basis. Neo
+ * prices mail **per mailbox**, so a 5-person business was quoted 5 x ₹299 = ₹1,495/mo where
+ * 5 x ₹149 = ₹745/mo would have done — **double the price for having five people**, justified
+ * by nothing.
  *
- * The lesson is more general than the plan: **the pricing sheet is not the offering.** Do not
- * re-derive a recommendable plan from `plans.json` without checking it is actually purchasable.
+ * The tempting defence was storage, and Neo's own catalogue kills it: `storage` is "Storage
+ * space allotted for **each mailbox** that is created." Per mailbox. Adding mailboxes adds
+ * storage; it never exhausts a tier. Count multiplies the bill and must not also select the
+ * tier, or it is charged for twice.
  *
- * Note what this removes: `importIntent` no longer gates any plan at all. It now only colours
- * a feature bullet, which makes its 0.15 weight the least justified in the bank — see the
- * note in questions.ts. Flagged rather than silently re-tuned, because weights are data-derived.
+ * So the tier gates on capability, like `chooseSitePlan` — but note the asymmetry that makes
+ * this one deliberately narrower. Basic genuinely *cannot* capture a lead, so Plus was a
+ * capability floor. Nothing on Starter is broken; Standard is polish. A weaker reason to
+ * upgrade deserves a stricter rule.
+ *
+ * **Standard on exactly one signal:** someone whose customers currently reach them at a
+ * personal address. Signature Designer is Standard-and-above (Pandora), and "every mail you
+ * send looks like it came from a real business" is precisely the move from a personal Gmail to
+ * their own domain. Company branding and unlimited templates come with it.
+ *
+ * **Max stays unreachable, on purpose.** Its exclusives are Invoice Builder, AI Email Writer
+ * and Campaign Mode, so the tempting rule is `sellsOnline -> max`. That is a **4x jump on one
+ * boolean**, and docs/data-findings.md §9 is explicit that only 3.5% of orders ever build an
+ * order form (31% even on Plus) — the exact over-serve it warns about. Inventing a route to
+ * Max is a worse answer than leaving the question open. See plan-features.json `_openQuestion`.
  */
-function chooseMailPlan(_profile: Profile, mailboxes: number): MailPlanJson {
-  // Bigger teams get more storage and the fuller feature set.
-  if (mailboxes >= 5) return byId(MAIL, "standard");
-
+function chooseMailPlan(profile: Profile): MailPlanJson {
+  /* Worth knowing, because it is the trade-off this design accepts: mail is priced per
+     mailbox, so a capability-driven tier bump MULTIPLIES. Standard on 8 mailboxes is
+     ₹2,392/mo against Starter's ₹1,192. That is the right shape (they need the feature on
+     every mailbox) and it is bounded in practice, because this product is scoped at 1-3
+     person businesses where the gap is ₹150/mo. If we ever widen that scope, revisit. */
+  if (has(profile, "customerChannel", "personal_email")) return byId(MAIL, "standard");
   return byId(MAIL, "starter");
 }
 
 /**
- * Site plan. Gated on what each tier can actually DO, not on storage.
+ * Site tier.
  *
- * Rewritten 03 Sep 2026 against Neo's own site feature table (`src/data/site-features.json`,
- * read from their pricing page), which corrected a real mis-recommendation:
+ * **Growth is deliberately unreachable**, and this is the same argument that keeps Max
+ * unreachable, applied consistently. This morning `growth` was gated on
+ * `sellsOnline && mailboxes >= 5` — mailbox count standing in for "a real operation". That is
+ * the identical fault just removed from `chooseMailPlan`, wearing a different hat: a count that
+ * says nothing about the thing the tier actually sells.
  *
- *   **Basic has no Contact Forms at all.** Plus gets 1,000, Growth unlimited. Basic carries
- *   only "Business contact info" — a phone number and address printed on the page.
- *
- * The old rule sent everyone who was NOT selling online to Basic. That is precisely the
- * enquiry-led business — "no, they enquire, then we arrange it" — whose site exists to
- * collect an enquiry. We were recommending the one tier that cannot capture a lead, and
- * saying so on a screen next to a real price.
- *
- * The honest split is by how someone is reached, not by whether money moves:
- *   - reachable offline (phone, walk-ins) and not selling -> Basic genuinely is enough;
- *     business contact info is the whole job, and Basic does it.
- *   - anyone who needs a form, testimonials, a subscribe box or their own branding -> Plus.
- *   - a real catalogue on a multi-person operation -> Growth.
- *
- * On Growth: it was previously UNREACHABLE — `plans.json` lists it and this function could
- * never return it (docs/data-findings.md §9 caught this). It is a catalogue-size tier
- * (unlimited products/services/gallery, premium fonts, priority support), so it is gated on
- * selling online AND enough mailboxes to imply someone is minding the shop.
- *
- * The caveat that belongs next to this, from our own data: §9 finds only 3.5% of all orders
- * ever build an order form, 31% even on Plus, and warns that routing every "I take payments"
- * answer to Plus over-serves roughly two thirds of them. That warning stands. What changed is
- * the REASON for Plus — contact forms, which an enquiry business demonstrably needs, rather
- * than order forms, which most never touch. If we later get per-plan conversion data, this is
- * the function to revisit first.
+ * What separates Growth from Plus is catalogue size — unlimited products, services and gallery
+ * against Plus's 500 — plus premium fonts and priority support. **A 1-3 person business does
+ * not have 500 products.** CLAUDE.md scopes this product at 1-3 person businesses with no
+ * 50-200 employee branch, so Growth is out of scope by design rather than by oversight. If a
+ * catalogue-size signal ever exists, that is what should gate it — not headcount, and not
+ * mailboxes.
  */
-function chooseSitePlan(profile: Profile, mailboxes: number): SitePlanJson | null {
+function chooseSitePlan(profile: Profile): SitePlanJson | null {
   if (has(profile, "surface", "mail")) return null;
 
-  const sells = has(profile, "sellsOnline", true);
-  if (sells && mailboxes >= 5) return byId(SITE, "growth");
-  if (sells) return byId(SITE, "plus");
+  if (has(profile, "sellsOnline", true)) return byId(SITE, "plus");
 
   /* Not selling. Basic only if they are genuinely reachable without a form — someone whose
      customers phone them or walk in. Everyone else needs the form Basic does not have. */
@@ -162,8 +159,8 @@ export function recommend(profile: Profile, suggestedMailboxes: number): Recomme
     (profile.mailboxCount as number) || (profile.teamSize as number) || suggestedMailboxes || 1,
   );
   const cycle = chooseCycle(profile);
-  const mailPlan = chooseMailPlan(profile, mailboxes);
-  const sitePlan = chooseSitePlan(profile, mailboxes);
+  const mailPlan = chooseMailPlan(profile);
+  const sitePlan = chooseSitePlan(profile);
 
   const mailUnit = mailPlan.inr[cycle] ?? mailPlan.inr.monthly ?? null;
   const siteUnit = sitePlan ? (sitePlan.inr[cycle] ?? sitePlan.inr.monthly ?? null) : 0;
@@ -177,18 +174,24 @@ export function recommend(profile: Profile, suggestedMailboxes: number): Recomme
     cycle,
     mailboxes,
     monthlyInr,
-    rationale: buildRationale(profile, mailPlan, sitePlan, mailboxes),
+    rationale: buildRationale(profile, sitePlan, mailboxes),
   };
 }
 
-function buildRationale(
+/**
+ * The FALLBACK rationale, and it must stay.
+ *
+ * `/api/rationale` writes a better one with the whole run in hand, but it is the only model
+ * call in the flow with nothing behind it — the other three degrade to fixed wording, fixed
+ * `because` strings, and a recorded site. Without these four templates a failed generation
+ * would leave a blank line on the one screen CLAUDE.md says must be perfect.
+ */
+export function buildRationale(
   profile: Profile,
-  mailPlan: MailPlanJson,
   sitePlan: SitePlanJson | null,
   mailboxes: number,
 ): string {
   const who = mailboxes === 1 ? "One mailbox" : `${mailboxes} mailboxes`;
-  if (mailPlan.id === "lite") return `${who} is all you need for now — you can add more later.`;
   if (profile.importIntent && !has(profile, "importIntent", "none"))
     return `${who}, with your existing mail brought across.`;
   if (sitePlan) return `${who} plus a one-page site, on your own domain.`;

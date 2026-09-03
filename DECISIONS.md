@@ -1160,3 +1160,44 @@ forbids.
 Snapshot version 4. Four features (invoice builder, AI email writer, campaign mode, appointment
 booking) still get reasons written for them and can never be shown while Max is unreachable —
 a few wasted output tokens, kept so the shape stays stable if Max ever becomes reachable.
+
+### Mailbox count was selecting the plan tier, and it should never have been
+
+Hari, reading the reveal: *"the way we are suggesting plan based on number of mailboxes seem
+wrong."* It was, and the arithmetic is stark.
+
+`chooseMailPlan` read `if (mailboxes >= 5) return standard`. Neo prices mail **per mailbox**, so
+a five-person business was quoted **5 × ₹299 = ₹1,495/mo** where **5 × ₹149 = ₹745/mo** would
+have done. Double, for having five people. At eight mailboxes it was ₹2,392 against ₹1,192.
+
+The only available defence was storage, and Neo's own catalogue kills it. `storage` reads:
+*"Storage space allotted for **each mailbox** that is created."* Per mailbox. Adding mailboxes
+adds storage and can never exhaust a tier. **Count multiplies the bill; letting it also select
+the tier charges for it twice.** Checked before deleting, precisely because "bigger team needs
+the bigger plan" is plausible enough to survive on vibes.
+
+Tier now gates on capability, like `chooseSitePlan` — but deliberately narrower, because the
+two are not symmetric. Basic genuinely *cannot* capture a lead, so Plus was a capability floor.
+Nothing on Starter is broken; Standard is polish, and a weaker reason to upgrade deserves a
+stricter rule. **Standard on exactly one signal:** `customerChannel: personal_email`, because
+Signature Designer is Standard-and-above and "every mail looks like it came from a real
+business" is exactly that person's move off a personal Gmail.
+
+**Growth is now unreachable too, and that is the consistent answer rather than a regression.**
+It was gated this morning on `sellsOnline && mailboxes >= 5` — the identical fault in a hat.
+What separates Growth from Plus is catalogue size (unlimited vs 500 products); a 1-3 person
+business does not have 500 products, and CLAUDE.md scopes this product at 1-3 person businesses
+with no 50-200 branch. Growth and Max are both out of scope **by design**, not oversight. If a
+catalogue-size signal ever exists, that is what should gate Growth — not headcount, not
+mailboxes.
+
+Accepted trade-off, recorded in the code: a capability bump multiplies across mailboxes. In the
+1-3 person range that is ₹150/mo, which is the range we are built for.
+
+Also removed: the dead `lite` branch in `buildRationale`, and `blurb` from the mail plan type.
+`blurb` was typed and rendered nowhere — three hand-written strings in exactly the register
+this project spent the day removing ("Everything, for teams that live in their inbox"). What a
+"why not the cheaper one" line actually needs is the **delta between adjacent tiers**, and
+`plan-features.json` already holds it exactly: Starter→Standard is signature, branding,
+templates, 50 GB; Standard→Max is Invoice Builder, AI Email Writer, Campaign Mode, 100 GB.
+Derive it there rather than hand-writing a second string.

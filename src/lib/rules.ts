@@ -12,6 +12,7 @@
 
 import plansData from "../data/plans.json";
 import { has, type Profile } from "./engine";
+import { solve, type Candidate, type Need } from "./candidates";
 
 export type BillingCycle = "monthly" | "quarterly" | "yearly" | "twoYearly" | "fourYearly";
 
@@ -40,6 +41,14 @@ export interface Recommendation {
   mailboxes: number;
   /** Total INR per month at the chosen cycle. Null if any component price is unavailable. */
   monthlyInr: number | null;
+  /**
+   * The needs that forced this shape above the baseline — the justification, derived rather
+   * than templated. Each carries the Pandora entitlement it rests on, so a reviewer can check
+   * the claim instead of trusting it.
+   */
+  needs: Need[];
+  /** Every setup still viable, cheapest first. Feeds "why not the cheaper one". */
+  viable: Candidate[];
   /** One sentence the reveal can show. Must be defensible, not salesy. */
   rationale: string;
 }
@@ -74,80 +83,15 @@ function chooseCycle(profile: Profile): BillingCycle {
 }
 
 /**
- * Mail tier. Chosen by what someone NEEDS, never by how many mailboxes they have.
+ * Plan choice now lives in `candidates.ts`.
  *
- * This used to read `if (mailboxes >= 5) return standard`, and that rule had no basis. Neo
- * prices mail **per mailbox**, so a 5-person business was quoted 5 x ₹299 = ₹1,495/mo where
- * 5 x ₹149 = ₹745/mo would have done — **double the price for having five people**, justified
- * by nothing.
- *
- * The tempting defence was storage, and Neo's own catalogue kills it: `storage` is "Storage
- * space allotted for **each mailbox** that is created." Per mailbox. Adding mailboxes adds
- * storage; it never exhausts a tier. Count multiplies the bill and must not also select the
- * tier, or it is charged for twice.
- *
- * So the tier gates on capability, like `chooseSitePlan` — but note the asymmetry that makes
- * this one deliberately narrower. Basic genuinely *cannot* capture a lead, so Plus was a
- * capability floor. Nothing on Starter is broken; Standard is polish. A weaker reason to
- * upgrade deserves a stricter rule.
- *
- * **Standard on exactly one signal:** someone whose customers currently reach them at a
- * personal address. Signature Designer is Standard-and-above (Pandora), and "every mail you
- * send looks like it came from a real business" is precisely the move from a personal Gmail to
- * their own domain. Company branding and unlimited templates come with it.
- *
- * **Max stays unreachable, on purpose.** Its exclusives are Invoice Builder, AI Email Writer
- * and Campaign Mode, so the tempting rule is `sellsOnline -> max`. That is a **4x jump on one
- * boolean**, and docs/data-findings.md §9 is explicit that only 3.5% of orders ever build an
- * order form (31% even on Plus) — the exact over-serve it warns about. Inventing a route to
- * Max is a worse answer than leaving the question open. See plan-features.json `_openQuestion`.
+ * `chooseMailPlan` and `chooseSitePlan` were deleted rather than moved, because the problem
+ * with them was structural: each was a short if-chain in which one boolean set a tier, so no
+ * recommendation could say why it fired. `solve()` instead collects the NEEDS a profile
+ * establishes, turns each into a floor on a tier that traces to a Pandora entitlement, and
+ * returns the cheapest setup meeting all of them — plus the needs that bound, which is the
+ * justification the reveal shows.
  */
-function chooseMailPlan(profile: Profile): MailPlanJson {
-  /* Worth knowing, because it is the trade-off this design accepts: mail is priced per
-     mailbox, so a capability-driven tier bump MULTIPLIES. Standard on 8 mailboxes is
-     ₹2,392/mo against Starter's ₹1,192. That is the right shape (they need the feature on
-     every mailbox) and it is bounded in practice, because this product is scoped at 1-3
-     person businesses where the gap is ₹150/mo. If we ever widen that scope, revisit. */
-  if (has(profile, "customerChannel", "personal_email")) return byId(MAIL, "standard");
-  return byId(MAIL, "starter");
-}
-
-/**
- * Site tier.
- *
- * **Growth is deliberately unreachable**, and this is the same argument that keeps Max
- * unreachable, applied consistently. This morning `growth` was gated on
- * `sellsOnline && mailboxes >= 5` — mailbox count standing in for "a real operation". That is
- * the identical fault just removed from `chooseMailPlan`, wearing a different hat: a count that
- * says nothing about the thing the tier actually sells.
- *
- * What separates Growth from Plus is catalogue size — unlimited products, services and gallery
- * against Plus's 500 — plus premium fonts and priority support. **A 1-3 person business does
- * not have 500 products.** CLAUDE.md scopes this product at 1-3 person businesses with no
- * 50-200 employee branch, so Growth is out of scope by design rather than by oversight. If a
- * catalogue-size signal ever exists, that is what should gate it — not headcount, and not
- * mailboxes.
- */
-function chooseSitePlan(profile: Profile): SitePlanJson | null {
-  if (has(profile, "surface", "mail")) return null;
-
-  if (has(profile, "sellsOnline", true)) return byId(SITE, "plus");
-
-  /* Not selling. Basic only if they are genuinely reachable without a form — someone whose
-     customers phone them or walk in. Everyone else needs the form Basic does not have. */
-  const offlineOnly =
-    has(profile, "customerChannel", "offline") &&
-    !has(profile, "customerChannel", "social") &&
-    !has(profile, "customerChannel", "personal_email") &&
-    !has(profile, "customerChannel", "site");
-  if (offlineOnly) return byId(SITE, "basic");
-
-  /* Includes the case where the channel question was never asked. Unknown defaults to the
-     tier that can capture a lead, because the failure is asymmetric: recommending Plus to
-     someone who needed Basic costs them money they can downgrade, while recommending Basic to
-     someone who needed a form gives them a site that cannot do its one job. */
-  return byId(SITE, "plus");
-}
 
 export function recommend(profile: Profile, suggestedMailboxes: number): Recommendation {
   /* `mailboxCount` first: it is what the question actually asks for. `teamSize` is the
@@ -159,8 +103,11 @@ export function recommend(profile: Profile, suggestedMailboxes: number): Recomme
     (profile.mailboxCount as number) || (profile.teamSize as number) || suggestedMailboxes || 1,
   );
   const cycle = chooseCycle(profile);
-  const mailPlan = chooseMailPlan(profile);
-  const sitePlan = chooseSitePlan(profile);
+  const solution = solve(profile, mailboxes, cycle);
+
+  const mailPlan = byId(MAIL, solution.candidate.mail);
+  const sitePlan =
+    solution.candidate.site === "none" ? null : byId(SITE, solution.candidate.site);
 
   const mailUnit = mailPlan.inr[cycle] ?? mailPlan.inr.monthly ?? null;
   const siteUnit = sitePlan ? (sitePlan.inr[cycle] ?? sitePlan.inr.monthly ?? null) : 0;
@@ -174,6 +121,10 @@ export function recommend(profile: Profile, suggestedMailboxes: number): Recomme
     cycle,
     mailboxes,
     monthlyInr,
+    /* What actually forced this shape. Empty means the baseline was enough, which is itself
+       worth saying: "Starter is genuinely all you need" is a trust-building sentence. */
+    needs: solution.binding,
+    viable: solution.viable,
     rationale: buildRationale(profile, sitePlan, mailboxes),
   };
 }

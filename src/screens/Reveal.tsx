@@ -95,17 +95,22 @@ export default function Reveal({
   const showSite = surface !== "mail";
   const notesByName = Object.fromEntries(reveal.domains.map((d) => [d.name, d.note]));
   const extraNames = new Set(extraDomains.map((d) => d.name));
-  const suggested: DomainOption[] = availableFromLookup(
+  const lookedUp = availableFromLookup(
     reveal.domains.map((d) => d.name),
     Object.values(live).filter((r) => r.domain.startsWith(`${stem}.`) && !extraNames.has(r.domain)),
-  ).map((row, i) => ({
-    name: row.domain,
-    available: row.available,
-    priceInr: row.priceInr,
-    note: notesByName[row.domain],
-    recommended: i === 0,
-  }));
-  const allDomains = [...suggested, ...extraDomains];
+  );
+  const suggested: DomainOption[] = (
+    lookedUp.length > 0
+      ? lookedUp.map((row, i) => ({
+          name: row.domain,
+          available: row.available,
+          priceInr: row.priceInr,
+          note: notesByName[row.domain],
+          recommended: i === 0,
+        }))
+      : reveal.domains
+  );
+  const allDomains = [...suggested, ...extraDomains.filter((d) => !suggested.some((s) => s.name === d.name))];
   const domain = allDomains.find((d) => d.name === chosenName) ?? allDomains[0];
 
   async function checkOwnDomain() {
@@ -182,11 +187,13 @@ export default function Reveal({
         <section className="reveal-setup">
           <p className="eyebrow">Your setup</p>
 
+          <div className="reveal-domain">
           <p className="reveal-label">Recommended domain</p>
           {domain ? (
             <div className="domain">
               <span className="domain-name">{domain.name}</span>
               {liveAvail === true && <span className="badge">Available</span>}
+              {liveAvail === false && <span className="badge badge-taken">Taken</span>}
               {livePrice !== null && (
                 <span className="domain-price">
                   ~₹{livePrice.toLocaleString("en-IN")}/yr
@@ -198,11 +205,12 @@ export default function Reveal({
             <p className="domain-note">Every name we tried is taken. Check one of yours below.</p>
           )}
 
-          {allDomains.length > 1 && (
+          {allDomains.length > 0 && (
             <div className="alts" role="group" aria-label="Choose a domain">
               {allDomains.map((d) => {
                 const active = d.name === (domain?.name ?? chosenName);
                 const price = live[d.name]?.priceInr ?? d.priceInr;
+                const taken = (live[d.name]?.available ?? d.available) === false;
                 return (
                   <button
                     key={d.name}
@@ -219,6 +227,7 @@ export default function Reveal({
                     {price !== null && (
                       <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
                     )}
+                    {taken && <span className="alt-taken">taken</span>}
                   </button>
                 );
               })}
@@ -256,6 +265,7 @@ export default function Reveal({
             </div>
             {ownError && <p className="own-error">{ownError}</p>}
           </details>
+          </div>
 
           <div className="reveal-block reveal-block-tight">
             <p className="reveal-label">Your mailboxes</p>

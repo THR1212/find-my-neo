@@ -540,7 +540,9 @@ being recommended, and swapping it in would quietly change what the tool claims 
 > out the cheap approaches: **`*.co.site` is a DNS wildcard** (`zzqx7v9nonexistentstem.co.site`
 > resolves to the same four A records as `co.site` itself), and **a 404 does not mean free** —
 > the host returns an identical 404 for an unclaimed stem and for a claimed-but-unpublished
-> one, and §9 of `docs/data-findings.md` found 31,545 of 44,581 site orders never published.
+> one, and §9 of `docs/data-findings.md` found only 9,121 of 44,581 site orders were ever
+> published — 79.5% invisible to a probe, and Darrel confirmed an unpublished site still
+> exists as an active order, so those names are genuinely taken.
 > So the fallback probe proves "taken" only, and `NEO_COSITE_CHECK_URL` is the seam for Neo's
 > real endpoint.
 

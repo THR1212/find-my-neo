@@ -27,11 +27,14 @@
  *
  * 2. **A 404 does not mean free.** The host returns an identical 404 (18,725 bytes) for
  *    every unclaimed stem — but also for a stem that was claimed and never published, and
- *    `docs/data-findings.md` §9 is blunt about how common that is: **31,545 of 44,581 site
- *    orders never published**. Most claimed co.site names are therefore invisible to this
- *    probe. Reading 404 as "available" would put a green badge on names a person can find
- *    taken one keystroke later — the exact florist/thistletwine bug already fixed once in
- *    `src/lib/session.ts`. So: 200 proves taken, everything else proves nothing.
+ *    `docs/data-findings.md` §9 quantifies it: of 44,581 site orders only **9,121 (20.5%)
+ *    were ever published**, so **35,460 (79.5%) are invisible to this probe**. And Darrel
+ *    confirmed 2026-09-03 that an unpublished site **still exists as an active order**, so
+ *    the name is genuinely occupied — the probe just cannot see it. The probe therefore
+ *    misses roughly four in five taken names. Reading 404 as "available" would put a green
+ *    badge on names a person finds taken one keystroke later — the exact florist/thistletwine
+ *    bug already fixed once in `src/lib/session.ts`. So: 200 proves taken, everything else
+ *    proves nothing, and only Neo's own endpoint can prove free.
  *
  * No traffic is sent to Neo's production domain SEARCH — CLAUDE.md rule 5. This fetches a
  * published page from the site host, once per stem per session, behind a cache.

@@ -993,8 +993,8 @@ nothing to check separately, so `.co.site` is deliberately exempt from `MAX_TLDS
    reintroduce it.
 2. **A 404 does not mean free.** The host returns an identical 404 (18,725 bytes) for an
    unclaimed stem *and* for a claimed-but-never-published one — and `docs/data-findings.md` §9
-   found **31,545 of 44,581 site orders never published**, so most claimed names are invisible
-   to an HTTP probe. Reading 404 as "available" would put a green badge on a name a person can
+   found only **9,121 of 44,581 site orders were ever published** — so **79.5% of taken names
+   are invisible to an HTTP probe**. Reading 404 as "available" would put a green badge on a name a person can
    find taken one keystroke later: the same class of bug as the florist shown
    "thistletwine.com Available" (fixed in `src/lib/session.ts`).
 
@@ -1474,3 +1474,38 @@ an opaque non-JWT session and a malformed JWT payload both fall back without thr
 
 **Reverse if:** Titan exposes a public availability endpoint that needs no login exchange —
 then the whole minting layer is dead weight and `NEO_COSITE_CHECK_TOKEN` or no auth is simpler.
+
+---
+
+### 2026-09-03 · An unpublished site still holds its name — which promotes the endpoint and demotes the probe
+
+Darrel confirmed: **a site that was never published still exists as an active order.** So its
+`.co.site` name is genuinely occupied.
+
+That answers the question left open when the check endpoint was specified, and it moves the
+numbers in opposite directions for the two sources:
+
+| | sees | of 44,581 orders |
+|---|---|---|
+| Neo's check endpoint (orders) | claimed **and** published | all of them |
+| Our HTTP probe (published pages) | published only | **9,121 — 20.5%** |
+
+So the probe misses roughly **four in five taken names**. It is a poor substitute, not a
+near-equivalent, and the earlier decision that it may answer only "taken" or "unknown" —
+never "free" — is now quantified rather than merely cautious. A 404 from the probe is
+uninformative in about 80% of the cases that matter.
+
+**It also upgrades the endpoint.** Because it reads orders rather than pages, a `true` from it
+is genuinely authoritative in both directions, which is what justifies rendering the green
+"Available" badge on a `.co.site` name at all (`source === "neo"` →
+`confidence: "authoritative"` in `domainService`). Nothing else we have can earn that badge.
+
+**And it corrects a figure I had wrong in three places.** I had written "31,545 of 44,581 never
+published", which is only the `generated=0/published=0` cell of the §9 crosstab. The true
+never-published total is **35,460 (79.5%)** — the other unpublished cell, 3,915 generated but
+never published, belongs in it too. Fixed in `cositeService.ts`, `neo-product-facts.md` and the
+earlier entry above. The §9 table itself was always right; the prose summarising it was not.
+
+**Consequence for the demo:** without endpoint access there is no honest path to a green badge
+on a `.co.site` name. The row still renders, still says Free, and says nothing about
+availability — which is correct, and worth stating plainly rather than papering over.

@@ -1792,8 +1792,5 @@ because a `404` means "not in Titan's system" — the same as free inside Neo's 
 very much registered. And it never parses the response body, in a local tool as much as in a
 server: the status is the whole answer, so parsing could only add a liability.
 
-**Spot-checked on production while deciding this:** `rbsitsolutions.co.site` and
-`innovatio.co.site` are both taken — Active Neo Business bundles, created Apr and Nov 2024.
-
 **Reverse if:** a scoped credential arrives, or the 500 is fixed. Then `askPartnerPanel` moves
 into `cositeService.ts` as a rung below `askNeo`, and this CLI can stay as the manual spot-check.

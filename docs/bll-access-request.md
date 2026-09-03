@@ -148,8 +148,8 @@ Both were checked, because both were plausible. Neither changes anything — the
 domain we were given behaves exactly like the production-namespace ones:
 
 ```
-domainName=14test.costaging.site                      500  InternalServerError
-domainName=14test.costaging.site&partnerId=71         500  InternalServerError
+domainName=<test-domain>.costaging.site                      500  InternalServerError
+domainName=<test-domain>.costaging.site&partnerId=71         500  InternalServerError
 domainName=test.costaging.site&partnerId=71           500  InternalServerError
 domainName=zzqx7v9nonexistent.costaging.site&partnerId=71   500  InternalServerError
 domainName=foo.co.site&partnerId=71                   500  InternalServerError
@@ -179,7 +179,7 @@ Authorization: p_999:<secret>   500  InternalServerError
 authentication error. So **the `p_N:` prefix satisfies a format check and the handler then fails
 before doing anything partner-specific.** The `p_54` / partnerId-71 mismatch was a red herring.
 
-Leading whitespace in the value (`domainName=%2014test.costaging.site`) also makes no
+Leading whitespace in the value (`domainName=%20<test-domain>.costaging.site`) also makes no
 difference — it is evidently trimmed, and returns the same `500`.
 
 ### Everything testable from outside is now eliminated
@@ -187,7 +187,7 @@ difference — it is evidently trimmed, and returns the same `500`.
 | Variable | Tried | Effect on the `500` |
 |---|---|---|
 | Namespace | `costaging.site`, `co.site`, `cas.site` | none |
-| Domain exists | `14test…`, `example.com`, `zzqx7v9nonexistent…` | none |
+| Domain exists | the staging test domain, `example.com`, a nonexistent stem | none |
 | `partnerId` query param | present / absent, `71` | none |
 | `partnerId` header | `x-partner-id`, `partnerId`, `x-partner` | none |
 | Partner prefix in token | `p_71`, `p_54`, `p_1`, `p_999` | none |
@@ -224,10 +224,10 @@ Results:
 
 | query | status | meaning |
 |---|---|---|
-| `14test.costaging.site` | `200` | 1 domain bundle, `status: active`, `source: "Neo Site"`, `partner: {id: 71, name: "Neo Business"}` |
+| the staging test domain | `200` | 1 domain bundle, `status: active`, `source: "Neo Site"`, `partner: {id: 71, name: "Neo Business"}` |
 | `zzqx7v9nonexistentstem.costaging.site` | `404` | no bundle |
 
-**So `14test.costaging.site` is a real, active bundle** — three live orders against it (Free Site,
+**So `<test-domain>.costaging.site` is a real, active bundle** — three live orders against it (Free Site,
 Free Domain, Starter MailSuite), verified MX and SPF. The data
 `check-domain-availability` needs is present and queryable, and that endpoint **still returns
 `500` for that exact domain**. That is a server-side bug, not a data gap and not our request.
@@ -246,10 +246,8 @@ only.
 ### ⚠️ `bundle/list` answers it, and we deliberately did not wire it into the app
 
 **Decided 03 Sep:** it ships as `tools/cosite-check.mjs`, a local CLI run by a person, and the
-reveal keeps its HTTP probe. Verified against production on the way to that decision —
-`rbsitsolutions.co.site` and `innovatio.co.site` are both taken (Active Neo Business bundles),
-via `GET api.flockmail.com/partner-panel/bundle/list?query=<domain>`, `200` = taken,
-`404` = free.
+reveal keeps its HTTP probe. The lookup itself is verified working against production —
+`GET api.flockmail.com/partner-panel/bundle/list?query=<domain>`, `200` = taken, `404` = free.
 
 Reading only the status code fully solves the PII problem: `200` versus `404` is a complete
 answer, so no body is read and there is nothing to filter. What it does not solve:
@@ -271,6 +269,11 @@ and nothing else. This is a reason to fix it, not to route around it.
 
 ### Request IDs for tracing
 
+The exact domain each request used is deliberately not written here — it is a QA record, not
+ours to publish. Supply it alongside these IDs when you send this on; the IDs identify the
+requests unambiguously either way.
+
+
 ```
 0903_084256_2_ldHxnhaZoG   repeated domainNames  -> 500
 0903_084317_2_gG36RlnFAX   domainName=foo.co.site -> 500
@@ -278,13 +281,13 @@ and nothing else. This is a reason to fix it, not to route around it.
 0903_084322_2_yznXQpQ2Np   domainName=zzqx...co.site -> 500
 0903_083024_3_8I4W9letpB   prod, no auth header  -> 401
 
-0903_085754_2_MC5sQwFnvr   14test.costaging.site&partnerId=71 -> 500
-0903_085755_2_CtwkEHtxEp   14test.costaging.site (no partnerId) -> 500
+0903_085754_2_MC5sQwFnvr   <test-domain>.costaging.site&partnerId=71 -> 500
+0903_085755_2_CtwkEHtxEp   <test-domain>.costaging.site (no partnerId) -> 500
 0903_085756_2_1tQT6eYoFk   foo.co.site&partnerId=71 -> 500
 0903_085757_2_T7us9WBztN   zzqx7v9nonexistent.costaging.site&partnerId=71 -> 500
 0903_085758_2_jU6oxuRqME   test.costaging.site&partnerId=71 -> 500
 
-0903_090626_2_O3I2N5QIm9   p_71 token, 14test.costaging.site -> 500
+0903_090626_2_O3I2N5QIm9   p_71 token, <test-domain>.costaging.site -> 500
 0903_090642_2_st0U504iGV   p_71 token, clean value           -> 500
 0903_090645_2_jmMnuv8VBK   p_54 token, same value            -> 500
 0903_090647_2_tAb43TVDH5   p_1 token,  same value            -> 500
@@ -299,12 +302,12 @@ the partner id, which makes them a clean set to diff in the logs.
 ## What we need
 
 **Q1 — Why does the handler return `500` for a domain your own admin panel resolves fine?**
-`partner-panel/bundle/list?query=14test.costaging.site` returns `200` with an active bundle
+`partner-panel/bundle/list?query=<test-domain>.costaging.site` returns `200` with an active bundle
 (req `0903_100343_2_cNlr2y7YfC`). `check-domain-availability` returns `500` for the same domain
 seconds later. The data is there; the endpoint is broken.
 
 `flockmail-bll.flock-staging.com`, `GET`, partner token `p_54:…`,
-`?domainName=14test.costaging.site`. Request IDs above. `INVALID_DOMAIN` on a malformed input
+`?domainName=<test-domain>.costaging.site`. Request IDs above. `INVALID_DOMAIN` on a malformed input
 proves we reach the handler's validation, so the `500` sits downstream of everything we control.
 Ruled out already: the namespace (`costaging.site` behaves like `co.site`), a missing `partnerId`
 (as a query parameter and in three header spellings), and whether the domain exists.

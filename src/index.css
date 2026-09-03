@@ -1192,10 +1192,16 @@ a.btn {
 }
 
 /* ?debug=1 only — out of the layout flow so it cannot disturb a demo or a screenshot. */
+/* TOP left, not bottom left, and the move is the point.
+   It sat at bottom:16px under a comment promising it "cannot disturb a screenshot or a
+   demo" — true until the split reveal pinned its CTA to the same corner, after which this
+   rendered directly on top of "Claim it and start building", the primary action on the one
+   screen that has to be perfect. A fixed-position debug control does not stay out of the way
+   on its own; it stays out of the way of the layout it was written against. */
 .debug-save {
   position: fixed;
   left: 16px;
-  bottom: 16px;
+  top: 16px;
   z-index: 6;
   font-size: 12px;
   padding: 6px 10px;

@@ -312,6 +312,18 @@ export default function Reveal({
             </p>
           )}
 
+          {/* Moved out of the plan card 03 Sep. It is a statement about the DOMAIN — what
+              happens to the name they picked — and it sat 300px below the fold at the
+              bottom of a card about price, where the person it is addressed to could not
+              see it. Measured: the left column hid 326px of 807px, and this was in it. */}
+          <p className="plan-meta plan-note domain-handoff-note">
+              {!domain
+                ? `Neo's domain purchase is coming, so for now you'll connect a name you own.`
+                : isCoSite(domain.name)
+                  ? `We'll copy ${domain.name} for you — it's Neo's own, free for your first billing cycle, and you can claim it on the next screen.`
+                  : `We'll copy ${domain.name} for you — Neo's domain purchase is coming, so for now you'll connect it under "use a domain I own".`}
+            </p>
+
           <details className="own-domain">
             <summary className="own-label">Had a different name in mind?</summary>
             <div className="own-row">
@@ -367,7 +379,25 @@ export default function Reveal({
                 <span className="plan-price"> ₹{rec.monthlyInr.toLocaleString("en-IN")}/mo</span>
               )}
             </div>
-            <p className="plan-why">{rationale?.rationale || rec.rationale}</p>
+            {/**
+              * ONLY when `because` is absent, and this was a real bug on 03 Sep.
+              *
+              * `because` was added to replace this block and the needs bullets, and the
+              * bullets were duly swapped — but this line was left in, so the card carried two
+              * generated sentences about the same decision. Live, for a ticket reseller:
+              *
+              *   plan-why  "...a solo ticket reseller moving customers from social messages
+              *              and personal email."
+              *   because   "...email and a website move you beyond social messages and
+              *              personal email."
+              *
+              * Same clause, twice, on the screen we were shortening. `because` wins because it
+              * is built from the solver's own needs and can be checked against them; this one
+              * is free-form and cannot. It stays as the fallback, which is what it was.
+              */}
+            {!rationale?.because && (
+              <p className="plan-why">{rationale?.rationale || rec.rationale}</p>
+            )}
 
             {/**
              * What the total is made of.
@@ -397,7 +427,7 @@ export default function Reveal({
                 <tfoot>
                   <tr>
                     <th scope="row">Total</th>
-                    <td className="bd-qty">{CYCLE_LABEL[rec.cycle]}</td>
+                    <td className="bd-qty">{CYCLE_LABEL[rec.cycle]} · cancel anytime</td>
                     <td className="bd-total">
                       ₹{rec.monthlyInr.toLocaleString("en-IN")}/mo
                     </td>
@@ -456,14 +486,7 @@ export default function Reveal({
             {rationale?.whyNotCheaper && (
               <p className="plan-meta plan-cheaper">{rationale.whyNotCheaper}</p>
             )}
-            <p className="plan-meta">cancel anytime</p>
-            <p className="plan-meta plan-note">
-              {!domain
-                ? `Neo's domain purchase is coming, so for now you'll connect a name you own.`
-                : isCoSite(domain.name)
-                  ? `We'll copy ${domain.name} for you — it's Neo's own, free for your first billing cycle, and you can claim it on the next screen.`
-                  : `We'll copy ${domain.name} for you — Neo's domain purchase is coming, so for now you'll connect it under "use a domain I own".`}
-            </p>
+
           </div>
           </div>
 

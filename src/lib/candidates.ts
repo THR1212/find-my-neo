@@ -238,14 +238,21 @@ export const NEEDS: Need[] = [
    * Rs958 with the tick, Rs658 without. Invoice Builder still put them on Max, because that
    * one genuinely is Max-only — which is the difference between our modelling error and Neo's
    * actual gating. */
-  {
-    id: "a_real_catalogue",
-    because: "you have hundreds of things to list",
-    /* Plus caps products, services and gallery at 500 each; Growth is unlimited. */
-    entitlement: "site_products",
-    minSite: "growth",
-    when: (p) => !has(p, "surface", "mail") && has(p, "catalogueSize", "hundreds"),
-  },
+  /* THERE IS NO `a_real_catalogue` NEED, AND GROWTH IS UNREACHABLE ON PURPOSE.
+   *
+   * It forced GROWTH on `catalogueSize: "hundreds"`, citing `site_products` — Rs508 to
+   * Rs1,048, an extra Rs540 a month. Plus allows **500 products, 500 services and 500 gallery
+   * images**. "Hundreds" is under 500, so Plus covered every answer the question could give.
+   * Third instance of a cap read as a gate in one day, after read receipts (Starter has 50)
+   * and attachments (Starter has 15 GB), and by far the most expensive.
+   *
+   * There is no honest replacement, because GROWTH HAS NO PRESENCE GATE AT ALL. Every
+   * difference from Plus is a cap or a quality upgrade: 500 -> unlimited on products,
+   * services, gallery, testimonials and forms; Standard -> Premium fonts; 24x7 -> priority
+   * chat. Nothing exists on Growth that Plus lacks, so no question we could ask would justify
+   * it. Unreachable is the correct answer for a 1-3 person business — CLAUDE.md's stated
+   * scope — not a gap to be filled.
+   */
 ];
 
 export function needsFor(profile: Profile): Need[] {

@@ -49,7 +49,6 @@ export type SignalId =
   | "attachmentVolume"
   /** Multi-select. Holds any of invoices / campaigns / bookings / receipts / none. */
   | "extras"
-  | "catalogueSize"
   | "brandName";
 
 export interface QuestionOption {
@@ -435,18 +434,11 @@ QUESTIONS.push(
       { id: "none", label: "None of these", resolves: { extras: "none" } },
     ],
   },
-  {
-    id: "catalogue",
-    signal: "catalogueSize",
-    prompt: "How much would you list on the site?",
-    sub: "Products or services, roughly.",
-    weight: 0.12,
-    options: [
-      { id: "few", label: "A handful", hint: "Under ten", resolves: { catalogueSize: "few" } },
-      { id: "dozens", label: "Dozens", resolves: { catalogueSize: "dozens" } },
-      { id: "hundreds", label: "Hundreds", resolves: { catalogueSize: "hundreds" } },
-    ],
-  },
+  /* THERE IS NO `catalogue` QUESTION. `catalogueSize` was read by exactly one need,
+     `a_real_catalogue`, and that need was removed on 03 Sep for charging Growth prices against
+     a Plus limit it never reached. With it gone the question changed neither the plan nor the
+     reveal — nothing else matched on the signal — so it was a screen for nothing, the same
+     measured-out ending as `client`. */
 );
 
 export const QUESTION_BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]));

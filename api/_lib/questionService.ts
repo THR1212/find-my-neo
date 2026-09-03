@@ -90,10 +90,6 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
       none: "None of these",
     },
   },
-  catalogue: {
-    prompt: "How much would you list on the site?",
-    options: { few: "A handful", dozens: "Dozens", hundreds: "Hundreds" },
-  },
 };
 
 /**

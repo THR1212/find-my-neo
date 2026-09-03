@@ -72,7 +72,6 @@ const QUESTION_IDS = [
      adaptivity built around them would have been half-disabled while looking fine. */
   "volume",
   "extras",
-  "catalogue",
 ] as const;
 
 /**

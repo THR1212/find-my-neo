@@ -234,6 +234,22 @@ export default function Reveal({
 
   const liveAvail = domain ? (live[domain.name]?.available ?? domain.available) : null;
   const livePrice = domain ? (live[domain.name]?.priceInr ?? domain.priceInr) : null;
+  /**
+   * The domain as a per-month figure, so it can join a monthly total.
+   *
+   * Null means we genuinely do not know — DomScan has not answered, or answered without a
+   * price — and the row is then omitted rather than shown as zero. A missing price and a free
+   * name are different facts and must not render the same.
+   *
+   * `.co.site` is 0 for the first billing cycle (Neo's own namespace) and Neo has not
+   * published a renewal figure, which is why the row says "free first cycle" rather than
+   * implying it stays free.
+   */
+  const domainMonthly = domain?.free
+    ? 0
+    : livePrice !== null
+      ? Math.round(livePrice / 12)
+      : null;
   const domainName = domain?.name ?? `${stem || "yourbusiness"}.com`;
 
   return (
@@ -248,15 +264,22 @@ export default function Reveal({
           {domain ? (
             <div className="domain">
               <span className="domain-name">{domain.name}</span>
-              {liveAvail === true && <span className="badge">Available</span>}
-              {liveAvail === false && <span className="badge badge-taken">Taken</span>}
+              {/* `.co.site` is not "available", it is FREE, and it earns the same pill the
+                  other names get rather than a different-shaped price. Gradient rather than
+                  green because free is a different KIND of answer to available — and the
+                  gradient is Neo's own, so it still belongs on their page. */}
               {domain.free ? (
+                <span className="badge badge-free">Free</span>
+              ) : (
+                <>
+                  {liveAvail === true && <span className="badge">Available</span>}
+                  {liveAvail === false && <span className="badge badge-taken">Taken</span>}
+                </>
+              )}
+              {domain.free ? (
+                /* The badge above already says Free; this is only the caveat, because
+                   free-for-the-first-cycle and free are different promises. */
                 <span className="domain-price domain-free">
-                  {firstCycle === 0
-                    ? "Free"
-                    : firstCycle != null
-                      ? `₹${firstCycle.toLocaleString("en-IN")}/mo`
-                      : "Free"}
                   <span className="price-caveat">first billing cycle</span>
                 </span>
               ) : (
@@ -444,13 +467,41 @@ export default function Reveal({
                       </td>
                     </tr>
                   ))}
+                  {/**
+                    * THE DOMAIN, which the total left out entirely.
+                    *
+                    * `rec.lines` comes from rules.ts and covers mail and site only — the
+                    * domain is chosen here on the reveal, after the recommendation, so the
+                    * solver never sees it. The screen showed "Total Rs149/mo" above a domain
+                    * priced at Rs1,050/yr on the same screen: the one number someone reads as
+                    * "what this costs" was missing a third of it.
+                    *
+                    * Shown as a MONTHLY equivalent so the column adds up, with the real yearly
+                    * figure beside it — a Rs1,050/yr domain dropped into a monthly column with
+                    * no unit would be a worse lie than omitting it. `~` because DomScan's
+                    * price is indicative, which is the same caveat the hero already carries.
+                    */}
+                  {domainMonthly !== null && (
+                    <tr>
+                      <th scope="row">{domain?.name ?? "Domain"}</th>
+                      <td className="bd-qty">
+                        {domain?.free
+                          ? "free first cycle"
+                          : `~₹${(livePrice ?? 0).toLocaleString("en-IN")}/yr`}
+                      </td>
+                      <td className="bd-total">
+                        {domainMonthly === 0 ? "₹0" : `~₹${domainMonthly.toLocaleString("en-IN")}`}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
                 <tfoot>
                   <tr>
                     <th scope="row">Total</th>
                     <td className="bd-qty">{CYCLE_LABEL[rec.cycle]} · cancel anytime</td>
                     <td className="bd-total">
-                      ₹{rec.monthlyInr.toLocaleString("en-IN")}/mo
+                      {domainMonthly === null ? "" : "~"}₹
+                      {(rec.monthlyInr + (domainMonthly ?? 0)).toLocaleString("en-IN")}/mo
                     </td>
                   </tr>
                 </tfoot>

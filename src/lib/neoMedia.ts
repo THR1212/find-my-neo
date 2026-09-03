@@ -41,6 +41,18 @@ export interface NeoClip {
   minMailPlan?: MailPlanId;
   /** Wait-reel category label. Omit on the mail-only reveal — that pane is already one category. */
   kicker?: string;
+  /**
+   * The `features.ts` id this film is OF, when the two names differ.
+   *
+   * They mostly do: this file names clips after the footage (`bookings`, `signature`,
+   * `fast_apps`) and features.ts names them after Pandora entitlements
+   * (`appointment_booking`, `signature_builder`, `multi_device_support`). Only
+   * `invoice_builder` happens to match.
+   *
+   * Without this the mail-only pane cannot tell that its "Signature Designer" film and its
+   * "Signature Designer" feature card are the same thing, and shows both.
+   */
+  featureId?: string;
 }
 
 const VIDEOS = "/neo/videos";
@@ -60,6 +72,7 @@ export const MAIL_CLIPS: NeoClip[] = [
   },
   {
     id: "bookings",
+  featureId: "appointment_booking",
     name: "Neo Bookings",
     caption: "Customers pick a slot themselves instead of trading messages",
     src: `${VIDEOS}/bookings.mp4`,
@@ -67,6 +80,7 @@ export const MAIL_CLIPS: NeoClip[] = [
   },
   {
     id: "signature",
+  featureId: "signature_builder",
     name: "Signature Designer",
     caption: "Every reply signs off with your name and your domain",
     src: `${VIDEOS}/signature.mp4`,
@@ -81,6 +95,7 @@ export const MAIL_CLIPS: NeoClip[] = [
   },
   {
     id: "fast_apps",
+  featureId: "multi_device_support",
     name: "Neo Mail apps",
     caption: "The same inbox on your phone and your desktop",
     src: `${VIDEOS}/apps.mp4`,
@@ -103,6 +118,7 @@ function mailClip(id: string): NeoClip {
  */
 export const SITE_CLIP: NeoClip = {
   id: "site_builder",
+  featureId: "neo_site",
   name: "AI-powered site builder",
   caption: "A one-page site generated from what you just described",
   src: `${VIDEOS}/site.mp4`,

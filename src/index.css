@@ -2173,3 +2173,13 @@ html:has(.stage-reveal) #root {
   flex-direction: column;
   gap: 4px;
 }
+
+/* Free is a different KIND of answer to available, so it gets a different pill — Neo's own
+   gradient rather than the green used for "this name can be registered". Same shape and
+   position as .badge so the row still reads as one row. */
+
+.badge-free {
+  color: #ffffff;
+  border-color: transparent;
+  background: var(--neo-gradient, linear-gradient(90deg, #7c5cff, #ff5cc8 55%, #ff8a3d));
+}

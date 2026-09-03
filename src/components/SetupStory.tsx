@@ -53,7 +53,13 @@ export default function SetupStory({
      *
      * Any clip that exists still wins its slot; this only fills what would otherwise stretch.
      */
-    const shown = features.filter((f) => !clips.some((c) => c.id === f.id)).slice(0, 3 - clips.length);
+    /* Match on `featureId` as well as `id`: this file's clips are named after the footage
+       (`fast_apps`, `signature`) and features.ts after Pandora entitlements
+       (`multi_device_support`, `signature_builder`). Only `invoice_builder` matches by id, so
+       an id-only check would show the Signature Designer card under the Signature Designer
+       film. */
+    const filmed = new Set(clips.flatMap((c) => [c.id, c.featureId ?? c.id]));
+    const shown = features.filter((f) => !filmed.has(f.id)).slice(0, 3 - clips.length);
     return (
       <aside className="setup-story setup-story-mail" aria-label="What comes with your mail">
         <p className="story-kicker">On {planLabel}</p>

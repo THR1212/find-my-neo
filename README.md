@@ -48,6 +48,8 @@ right — that still needs eyes.
 4. **That's us**, then answer whatever it asks — the questions aren't fixed, so you'll get a
    different set depending on what you typed. Some let you pick several; most have a text box.
 5. The reveal builds itself line by line. That's the moment. Let it finish; don't talk over it.
+6. **Claim it and start building** opens Neo's checkout in this app (name **Moin F**). Pay
+   does not charge Stripe — it shows the DNS setup screen. Email-only and email+site both work.
 
 **Type whatever you like for the site — it's real.** Neo generates that from your actual words,
 so a different business gets a genuinely different site. Expect to wait 22–38 seconds for it.

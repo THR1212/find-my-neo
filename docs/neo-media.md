@@ -1,7 +1,10 @@
 # Neo's own product media, vendored
 
-Everything in `videos/` and `templates/` is **Neo's own marketing media**, copied from
-neo.space rather than hotlinked. Consumed by `src/lib/neoMedia.ts`.
+Everything in `public/neo/videos/` and `public/neo/templates/` is **Neo's own marketing
+media**, copied from neo.space rather than hotlinked. Consumed by `src/lib/neoMedia.ts`.
+
+This file lives in `docs/`, not next to the assets: anything under `public/` is copied into
+`dist/` and served, and internal notes are not something to publish.
 
 Nothing here was drawn, redrawn, or reinterpreted by us. The rule is the same one that governs
 the site generator (`api/_lib/neoSite.ts`): **show Neo's real output, never our impression of

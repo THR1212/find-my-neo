@@ -976,7 +976,7 @@ Same rule as the site generator: **show Neo's real output, not our impression of
 mock-up of Invoice Builder that we drew would be a claim about a product we do not own.
 
 **Vendored, not hotlinked.** They live in `public/neo/`, with every source URL and the exact
-ffmpeg commands recorded in `public/neo/README.md`. Pointing the last screen at a marketing CDN
+ffmpeg commands recorded in `docs/neo-media.md`. Pointing the last screen at a marketing CDN
 means a Webflow redeploy silently empties half of it, and this is the one screen that has to
 look finished. Re-encoded to the size they actually render at, the originals go from **29 MB to
 under 900 KB** — `ED.mp4` alone ships as 18 MB to fill a card 150 px wide. Audio is stripped;
@@ -995,8 +995,8 @@ template non-deterministically — six different ones for one description across
 implying the single card above is final would be wrong.
 
 **Reverse if:** Neo restyles these products enough that the films misrepresent the current UI.
-Refreshing is a re-download and a re-encode, both scripted in that README. Failure is soft
-either way — the video element removes itself on error and the layout closes up.
+Refreshing is a re-download and a re-encode, both scripted in that doc. Failure is soft either
+way — the video element removes itself on error and the layout closes up.
 
 ---
 

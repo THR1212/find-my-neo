@@ -5,8 +5,8 @@
  * captured 3 Sep 2026 from the homepage markup (`<video data-src=…>` in the "Small business
  * bundle" section, and the `template-horizontal-scroll*.webp` reel under "Beautiful
  * templates, ready for anything"). They now live in `public/neo/`, re-encoded for the size
- * they are actually displayed at; `public/neo/README.md` records every source URL and the
- * exact ffmpeg commands, so any of them can be re-pulled when Neo updates its site.
+ * they are actually displayed at; `docs/neo-media.md` records every source URL and the exact
+ * ffmpeg commands, so any of them can be re-pulled when Neo updates its site.
  *
  * Serving them ourselves rather than from Neo's CDN means the reveal cannot break because a
  * marketing page was redeployed, and it drops a third-party request from the one screen that

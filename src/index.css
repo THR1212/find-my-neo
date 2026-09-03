@@ -1583,3 +1583,380 @@ a.btn {
   max-width: 16em;
   text-transform: none;
 }
+
+
+/* ===== Split reveal, merged from moin-version on 03 Sep =====
+   His layout: setup on the left, Neo's own output on the right — two generated site
+   templates when they asked for a site, product films for the plan's own features when
+   they did not. The viewport lock (html:has(.stage-reveal)) is what makes it one screen.
+   Everything .co.site is stripped; the rest is his. */
+
+html:has(.stage-reveal),
+html:has(.stage-reveal) body,
+html:has(.stage-reveal) #root {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.product-wait-beat .neo-loop-hero {
+  flex: 1;
+  min-height: 0;
+}
+
+.alt-active .alt-price,
+.alt-active .alt-taken {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.badge-taken {
+  color: var(--text-faint);
+  background: var(--bg-page);
+  border-color: var(--border);
+}
+
+.alt-taken {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.screen-wide {
+  width: min(1320px, 100%);
+  height: 100%;
+  min-height: 0;
+}
+
+.stage-reveal:has(.tpl-pair) .screen-wide {
+  width: min(1320px, 100%);
+}
+
+.stage-reveal {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  /* Centres the capped-width reveal. `.stage` centres with `justify-items`, which is a GRID
+     property and does nothing here — this container is flex. Without this the reveal sat hard
+     against the left edge of a wide monitor with a few hundred px of dead space to its right,
+     which read as a broken layout rather than a margin. */
+  align-items: center;
+  /* Clears the centred meter above the content. */
+  padding: 96px 20px 12px;
+  overflow: hidden;
+}
+
+.stage-reveal .screen {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  /* `stretch` would be overridden by the width cap anyway, and the combination is what
+     produced the left-aligned result above. */
+  align-self: center;
+}
+
+.reveal-page {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.reveal-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  /* Even split. The left column lost the addresses/professional-email cards (they repeated
+     the mailbox list directly above them), so it no longer needs the extra width — and the
+     right column is the visual, which is the half worth giving space to. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px 32px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.reveal-setup,
+.setup-story {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The column is short now that the identity cards are gone, so the question is where its
+   spare height goes. `margin-top: auto` on the plan pooled all of it into one void above the
+   CTA. `space-between` was worse: it pushed four blocks to the far corners and the column read
+   as four unrelated things floating in a field.
+   Grouping them and centring the group puts the same space into one balanced margin above and
+   below, which reads as breathing room rather than a hole.
+   `safe center` because a centred flex column with overflow clips its own top when the content
+   does grow past the viewport — the overflow lands above the scroll origin and is unreachable.
+   Same reason `.stage` uses it. */
+.reveal-setup {
+  overflow: hidden;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.reveal-setup-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+  gap: clamp(12px, 1.8vh, 20px);
+}
+
+.reveal-domain {
+  flex: 0 0 auto;
+}
+
+/* The column gap owns the vertical rhythm now — per-block margins on top of it double the
+   spacing and reintroduce the gaps this layout just removed. */
+.reveal-setup-main > * {
+  flex: 0 0 auto;
+}
+
+.reveal-setup .eyebrow {
+  margin: 0;
+}
+
+.reveal-block-tight {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.reveal-setup .domain-name {
+  font-size: clamp(18px, 1.6vw + 12px, 26px);
+}
+
+.reveal-setup .mailbox {
+  padding: 5px 0;
+}
+
+.reveal-setup .mailbox-address {
+  font-size: 14px;
+}
+
+.plan-card {
+  flex: 0 0 auto;
+  padding: 12px 14px 12px;
+  background: var(--neo-bg-blue-alt);
+  border: 1px solid var(--neo-border-blue);
+  border-radius: var(--radius-card);
+}
+
+.plan-why {
+  margin: 4px 0 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--neo-text);
+}
+
+.reveal-cta {
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding-top: 4px;
+}
+
+/* Fills the right column. The two template panes stretch with it so they stay fully
+   viewable instead of sitting in a 96px strip under the generated card. */
+.setup-story {
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.setup-story-site {
+  overflow: hidden;
+  justify-content: center;
+}
+
+.setup-story-site > .story-kicker {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.tpl-pair {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  overflow: hidden;
+}
+
+.tpl-pane {
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  min-height: 0;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.tpl-pane .neo-site,
+.tpl-pane .neo-gen {
+  flex: 0 0 auto;
+  min-height: 0;
+  height: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tpl-pane .neo-site-chrome,
+.tpl-pane .neo-site-foot {
+  flex: 0 0 auto;
+}
+
+.tpl-pane .neo-site-hero {
+  flex: 0 0 auto;
+  aspect-ratio: 16 / 9;
+  max-height: none;
+  min-height: 0;
+}
+
+.tpl-pane .neo-site-body {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 14px 12px;
+}
+
+.tpl-pane .neo-site-heading {
+  font-size: clamp(14px, 1vw + 11px, 17px);
+}
+
+.tpl-pane .neo-site-cta {
+  margin-top: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.tpl-pane .neo-site-products {
+  margin-top: 12px;
+  margin-bottom: 0;
+  gap: 6px;
+}
+
+.tpl-pane .neo-product img {
+  aspect-ratio: 4 / 3;
+}
+
+.story-kicker {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--neo-text-muted);
+}
+
+/* --- Neo's own product films (mail-only reveal) -------------------------- */
+/* Muted looping MP4s straight off Neo's CDN — see src/lib/neoMedia.ts for why these are
+   their assets rather than something we drew. Only shown when someone asked for email
+   only, where the right column would otherwise be empty. */
+
+.setup-story-mail {
+  gap: 6px;
+  overflow: hidden;
+}
+
+.setup-story-mail > .story-kicker {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.loop-stack {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 8px;
+  overflow: hidden;
+}
+
+.neo-loop-hero {
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.neo-loop-hero .neo-loop-frame {
+  min-height: 0;
+  height: 100%;
+}
+
+.neo-loop-hero .neo-loop-frame video {
+  object-fit: cover;
+  object-position: center;
+}
+
+.neo-loop-hero figcaption {
+  padding: 12px 14px 14px;
+}
+
+.neo-loop-hero .neo-loop-name {
+  font-size: 15px;
+}
+
+.neo-loop-hero .neo-loop-caption {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+@media (max-width: 840px) {
+  .reveal-split,
+    .reveal-split:has(.tpl-pair) {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+    }
+
+  .tpl-pair {
+      gap: 8px;
+    }
+
+  .plan-card {
+      margin-top: 8px;
+    }
+
+  /* Three stacked films do not fit a phone-height column; show the best-matched one. */
+    .loop-stack .neo-loop:nth-child(n + 3) {
+      display: none;
+    }
+}
+
+@media (max-width: 640px) {
+  .stage-reveal {
+      padding-top: 88px;
+    }
+
+  .reveal-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+  .loop-stack .neo-loop:nth-child(n + 2) {
+      display: none;
+    }
+}

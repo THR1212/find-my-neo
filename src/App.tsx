@@ -19,7 +19,7 @@ import {
   type PlanVerdict,
 } from "./lib/api";
 import { recommend } from "./lib/rules";
-import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
+import { fetchNeoSites, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
 
@@ -63,6 +63,16 @@ export default function App() {
    * Starting it any later and the reveal would sit waiting on it.
    */
   const [neoSite, setNeoSite] = useState<NeoSite | null>(restored?.neoSite ?? null);
+  /**
+   * The SECOND generator snapshot, shown beside the first on the email+site reveal.
+   *
+   * Not a second round-trip in series: `generateNeoSites` classifies once, then generates
+   * both templates with `Promise.allSettled` and drops a duplicate `templateKey`, so the pair
+   * costs one call's wall-clock. The pair is the point — Neo picks the template randomly
+   * client-side (docs/neo-product-facts.md), and showing two is what lets someone choose
+   * instead of being assigned one.
+   */
+  const [neoSiteAlt, setNeoSiteAlt] = useState<NeoSite | null>(restored?.neoSiteAlt ?? null);
   /**
    * Model-written "why this matters to you" clauses, by feature id.
    *
@@ -127,8 +137,14 @@ export default function App() {
    */
   const kickOff = useCallback(
     (text: string, opts: { profile: boolean; site: boolean; seedNextQuestion: boolean }) => {
-      /* fetchNeoSite never rejects; it falls back to a recorded real response. */
-      if (opts.site) fetchNeoSite("", text).then(setNeoSite);
+      /* fetchNeoSites never rejects; it falls back to a recorded real response. */
+      if (opts.site) {
+        setNeoSiteAlt(null);
+        void fetchNeoSites("", text).then((sites) => {
+          if (sites[0]) setNeoSite(sites[0]);
+          setNeoSiteAlt(sites[1] ?? null);
+        });
+      }
 
       /* Question wording, in parallel and deliberately not awaited. It only has to land
          before the FIRST question screen, which is a guess-screen read away, so it never
@@ -299,8 +315,8 @@ export default function App() {
 
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
-    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, reasons, rationale, verdict });
-  }, [stage, engine, rawText, reveal, summary, neoSite, reasons, rationale, verdict]);
+    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict });
+  }, [stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict]);
 
   /**
    * Apply an answer and decide where to go next.
@@ -500,11 +516,17 @@ export default function App() {
         </button>
       )}
 
-      <main className="stage">
+      {/* `stage-reveal` and `screen-wide` are what the merged split layout hangs off:
+          html:has(.stage-reveal) locks the page to the viewport so the reveal is one screen,
+          and .screen-wide widens it for the two panes. Without these two class names the
+          layout renders but scrolls, which is the thing the split was for. */}
+      <main className={`stage${stage === "reveal" ? " stage-reveal" : ""}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={stage === "question" ? `q-${current?.id ?? "none"}` : stage}
-            className="screen"
+            className={`screen${stage === "reveal" ? " screen-wide" : ""}${
+              stage === "guess" && loading ? " screen-wait" : ""
+            }`}
             variants={variants}
             initial="enter"
             animate="center"
@@ -545,6 +567,7 @@ export default function App() {
                 profile={engine.profile}
                 businessText={rawText}
                 neoSite={neoSite}
+                neoSiteAlt={neoSiteAlt}
                 reasons={reasons}
                 rationale={rationale}
                 verdict={verdict}

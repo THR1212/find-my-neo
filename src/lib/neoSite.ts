@@ -33,6 +33,12 @@ export interface NeoSite {
 
 const FIXTURE: NeoSite = { ...(fixture as unknown as NeoSite), source: "fixture" };
 
+/** The recorded fallback is Proof & Butter. Only show it when that is what they typed. */
+export function fixtureFitsDescription(description: string): boolean {
+  const t = description.toLowerCase();
+  return /proof\s*&?\s*butter|sourdough|celebration cake|bakery in bandra/.test(t);
+}
+
 /**
  * Generation takes real time on Neo's side — measured at 22–38s, and their own UI shows a
  * 12-step loader for up to 24s.
@@ -45,34 +51,60 @@ const FIXTURE: NeoSite = { ...(fixture as unknown as NeoSite), source: "fixture"
  */
 const TIMEOUT_MS = 90000;
 
+function fallbackSite(description: string): NeoSite | null {
+  return fixtureFitsDescription(description) ? FIXTURE : null;
+}
+
 export async function fetchNeoSite(
   businessName: string,
   description: string,
-  industryKey = "ecommerce_retail",
-): Promise<NeoSite> {
+  industryKey = "",
+): Promise<NeoSite | null> {
+  const sites = await fetchNeoSites(businessName, description, industryKey);
+  return sites[0] ?? null;
+}
+
+export async function fetchNeoSites(
+  businessName: string,
+  description: string,
+  industryKey = "",
+): Promise<NeoSite[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const qs = new URLSearchParams({ bn: businessName, bd: description, ik: industryKey });
-    const res = await fetch(`/api/neo-site?${qs}`, { signal: controller.signal });
+    const res = await fetch("/api/neo-site", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({
+        bn: businessName,
+        bd: description,
+        ...(industryKey ? { ik: industryKey } : {}),
+      }),
+      signal: controller.signal,
+    });
     if (!res.ok) {
       reportDegraded("neo-site http", String(res.status));
-      return FIXTURE;
+      return fallbackSites(description);
     }
-    const body = (await res.json()) as { site: NeoSite | null; error?: string };
-    if (!body.site) {
+    const body = (await res.json()) as { site: NeoSite | null; sites?: NeoSite[]; error?: string };
+    const raw = (body.sites?.length ? body.sites : body.site ? [body.site] : []).filter(Boolean);
+    if (!raw.length) {
       reportDegraded("neo-site empty", body.error);
-      return FIXTURE;
+      return fallbackSites(description);
     }
-    return { ...body.site, source: "live" };
+    return raw.map((site) => ({ ...site, source: "live" as const }));
   } catch (err) {
-    /* Includes the 45s timeout. Worth knowing: if this fires for everyone, Neo's generator is
-       down or has changed, and every visitor is silently seeing the bakery. */
     reportDegraded("neo-site unreachable", err instanceof Error ? err.message : String(err));
-    return FIXTURE;
+    return fallbackSites(description);
   } finally {
     clearTimeout(timer);
   }
+}
+
+function fallbackSites(description: string): NeoSite[] {
+  const site = fallbackSite(description);
+  return site ? [site] : [];
 }
 
 /* ---------- Reading Neo's block format ---------- */
@@ -97,6 +129,63 @@ export function imageUrl(site: NeoSite, node: unknown): string | null {
 export function str(data: Record<string, unknown> | null, key: string): string | null {
   const v = data?.[key];
   return typeof v === "string" && v.trim() ? v : null;
+}
+
+/**
+ * Hero URLs from this generated site, preferred first.
+ *
+ * Two templates can resolve to the same Pexels photo (similar cover prompts). The second
+ * card walks this list so it shows a different image from the SAME generation rather than
+ * repeating the snapshot.
+ */
+export function heroCandidates(
+  site: NeoSite,
+  prefer: "landing" | "shop" = "landing",
+): string[] {
+  const intro = block(site, "introduction");
+  const products = block(site, "products");
+  const productList = ((products as Record<string, unknown> | null)?.productList ?? []) as Record<
+    string,
+    unknown
+  >[];
+  const urls: string[] = [];
+  const add = (node: unknown) => {
+    const u = imageUrl(site, node);
+    if (u && !urls.includes(u)) urls.push(u);
+  };
+
+  if (prefer === "shop") {
+    for (const p of productList) add(p.image);
+    add((intro as Record<string, unknown> | null)?.mobileCoverImage);
+    add((intro as Record<string, unknown> | null)?.desktopCoverImage);
+    add((intro as Record<string, unknown> | null)?.image);
+  } else {
+    add((intro as Record<string, unknown> | null)?.desktopCoverImage);
+    add((intro as Record<string, unknown> | null)?.mobileCoverImage);
+    add((intro as Record<string, unknown> | null)?.image);
+    for (const p of productList) add(p.image);
+  }
+
+  for (const u of Object.values(site.images)) {
+    if (u && !urls.includes(u)) urls.push(u);
+  }
+  return urls;
+}
+
+export function pickHero(
+  site: NeoSite,
+  prefer: "landing" | "shop" = "landing",
+  avoid?: string | null,
+  fallback?: NeoSite | null,
+): string | null {
+  const all = heroCandidates(site, prefer);
+  const unique = all.find((u) => u !== avoid);
+  if (unique) return unique;
+  if (fallback && avoid) {
+    const other = heroCandidates(fallback, "shop").find((u) => u !== avoid);
+    if (other) return other;
+  }
+  return all[0] ?? null;
 }
 
 /** A short, human label for the chosen template, e.g. "offline_services" -> "Offline services". */

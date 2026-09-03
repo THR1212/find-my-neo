@@ -85,12 +85,12 @@ export default function App() {
   stageRef.current = stage;
 
   const conf = useMemo(
-    () => confidence(engine.profile, engine.prefilled),
-    [engine.profile, engine.prefilled],
+    () => confidence(engine.profile, engine.prefilled, engine.prosaic),
+    [engine.profile, engine.prefilled, engine.prosaic],
   );
   const remaining = useMemo(
-    () => remainingSetups(engine.profile, engine.prefilled),
-    [engine.profile, engine.prefilled],
+    () => remainingSetups(engine.profile, engine.prefilled, engine.prosaic),
+    [engine.profile, engine.prefilled, engine.prosaic],
   );
   /* The model's ranking now lives inside `engine` (and so is persisted and overruled there),
      rather than in a separate state that was consumed once and thrown away. */

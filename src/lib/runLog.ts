@@ -35,6 +35,8 @@ export interface RunRecord {
   profile: Record<string, unknown>;
   /** Questions the free text answered, so they were never asked. */
   prefilled: string[];
+  /** Questions answered in prose. No fixed rule can read these — see engine.ts. */
+  prosaic: string[];
   /** The model's ranking. Empty means the engine fell back to fixed weights. */
   priority: string[];
   /** Every question as displayed, and what was done with it. */
@@ -70,6 +72,7 @@ export function buildRunRecord(input: {
     businessText: input.businessText.slice(0, 2000),
     profile: engine.profile as Record<string, unknown>,
     prefilled: engine.prefilled ?? [],
+    prosaic: engine.prosaic ?? [],
     priority: engine.priority ?? [],
     trail: (engine.trail ?? []).map((t) => ({
       id: t.id,
@@ -111,9 +114,9 @@ export async function postRun(record: RunRecord): Promise<void> {
 /**
  * Hand the run to a person as a file.
  *
- * Behind `?debug=1` rather than always on, because it is a developer's tool, not a feature.
- * The best bug report anyone can give us is this file: it carries the generated wording, the
- * answers, the plan and every degradation, so a problem can be read rather than reproduced.
+ * The best bug report anyone can give us: it carries the generated wording, every answer, the
+ * plan and every degradation, so a problem can be read rather than reproduced. See
+ * `debugEnabled` for when the control is shown.
  */
 export function downloadRun(record: RunRecord): void {
   const blob = new Blob([JSON.stringify(record, null, 2)], { type: "application/json" });

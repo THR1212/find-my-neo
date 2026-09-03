@@ -1,13 +1,18 @@
 /**
  * The narrowing engine. Deterministic — no model call.
  *
- * The model's only jobs are (a) read the free text into a starting profile and (b) suggest
- * which question to ask next. Everything the user *sees* narrowing is computed here, because
- * a confidence number that the model made up is a number that can embarrass us live.
+ * The model reads free text into a starting profile, ranks which questions are worth asking,
+ * rewords them, and explains the result. It never computes what is in here, because a
+ * confidence number a model made up is a number that can embarrass us live.
  *
- * Gamification comes from making the narrowing visible: a ring that fills, and a count of
- * remaining possible setups that visibly collapses. Akinator works because you watch it
- * close in on you — a form with nice animation does not do that.
+ * `remainingSetups` is INTERNAL as of 03 Sep. The "possible setups" counter came off screen —
+ * the meter shows words relevant to the current screen instead — so do not treat that number
+ * as a design constraint. `confidence` is still load-bearing: it decides when to stop asking.
+ *
+ * Three ways a signal can be known, and they are not interchangeable:
+ *   tapped     full weight   the person chose an option
+ *   prefilled  half weight   we inferred it from their description (may be wrong)
+ *   prosaic    half weight   they answered in words no fixed rule can read
  */
 
 import {
@@ -97,6 +102,18 @@ export interface EngineState {
    */
   prefilled?: string[];
   /**
+   * Question ids someone answered in their own words rather than by tapping.
+   *
+   * Kept apart from `prefilled` because they mean different things: a prefill is a signal we
+   * read and RESOLVED to a known value, while this is a signal we asked about and got an
+   * answer no fixed rule can read. Both count at half weight, for opposite reasons — one is
+   * an inference, the other is knowledge we cannot yet act on.
+   *
+   * The prose itself lives in `freeText` and in the trail. `/api/rationale` reads it, and once
+   * the plan call sees the whole run it is the natural place for this to actually count.
+   */
+  prosaic?: string[];
+  /**
    * The model's ranking of all six questions, most worth asking first.
    *
    * Consumed head-first for the WHOLE flow, not just the first question. The single
@@ -143,21 +160,30 @@ export function isResolved(profile: Profile, signal: SignalId): boolean {
  * less than one someone tapped, because a tap cannot be misread. Reinstated with the reason
  * corrected — this is about when to stop asking, not about a number on screen.
  */
-export function resolvedWeight(profile: Profile, prefilled?: string[]): number {
+export function resolvedWeight(
+  profile: Profile,
+  prefilled?: string[],
+  prosaic?: string[],
+): number {
   const pre = new Set(prefilled ?? []);
-  return QUESTIONS.filter((q) => isResolved(profile, q.signal)).reduce(
-    (sum, q) => sum + (pre.has(q.id) ? q.weight / 2 : q.weight),
-    0,
-  );
+  const pro = new Set(prosaic ?? []);
+  return QUESTIONS.reduce((sum, q) => {
+    /* Answered in prose: not resolved (no matcher can read it) but genuinely answered, so it
+       earns half and is never asked again. Without this the flow would keep asking as though
+       the person had said nothing, which is the opposite failure to the one just fixed. */
+    if (pro.has(q.id)) return sum + q.weight / 2;
+    if (!isResolved(profile, q.signal)) return sum;
+    return sum + (pre.has(q.id) ? q.weight / 2 : q.weight);
+  }, 0);
 }
 
 /**
  * 0–1. Starts above zero because the free-text answer alone tells us a lot — opening the
  * ring at empty after someone has just written a paragraph reads as "you weren't listening".
  */
-export function confidence(profile: Profile, prefilled?: string[]): number {
+export function confidence(profile: Profile, prefilled?: string[], prosaic?: string[]): number {
   const base = isResolved(profile, "industry") ? 0.22 : 0.05;
-  const earned = (resolvedWeight(profile, prefilled) / TOTAL_WEIGHT) * (1 - base);
+  const earned = (resolvedWeight(profile, prefilled, prosaic) / TOTAL_WEIGHT) * (1 - base);
   return Math.min(0.97, base + earned);
 }
 
@@ -166,8 +192,12 @@ export function confidence(profile: Profile, prefilled?: string[]): number {
  * feel dramatic (thousands falling away) and later ones feel precise (dozens to a handful) —
  * linear decay reads as a progress bar, which is the opposite of the feeling we want.
  */
-export function remainingSetups(profile: Profile, prefilled?: string[]): number {
-  const c = confidence(profile, prefilled);
+export function remainingSetups(
+  profile: Profile,
+  prefilled?: string[],
+  prosaic?: string[],
+): number {
+  const c = confidence(profile, prefilled, prosaic);
   const value = STARTING_SETUPS * Math.pow(1 - c, 3.2);
   return Math.max(FLOOR_SETUPS, Math.round(value));
 }
@@ -243,7 +273,10 @@ export function shouldReveal(state: EngineState): boolean {
   if (nextQuestion(state) === null) return true;
   if (state.asked.length >= MAX_QUESTIONS) return true;
   // Never cut it off before two — one answer after the free text feels like it guessed.
-  return state.asked.length >= 2 && confidence(state.profile, state.prefilled) >= CONFIDENT_ENOUGH;
+  return (
+    state.asked.length >= 2 &&
+    confidence(state.profile, state.prefilled, state.prosaic) >= CONFIDENT_ENOUGH
+  );
 }
 
 /**
@@ -282,11 +315,28 @@ export function applyAnswer(
     }
   }
 
-  /* Free text alone resolves the signal too. Someone who skips the options and types
-     "we sell at weekend markets" has told us more than any option would have, and the
-     engine must not ask the same question again. */
+  /**
+   * Free text does NOT go into the signal slot, and that is a deliberate reversal.
+   *
+   * It used to: `profile[q.signal] = typed`. So someone who typed "we sell at weekend
+   * markets" got `profile.customerChannel = "we sell at weekend markets"`, and then every
+   * matcher in rules.ts and features.ts asked `has(profile, "customerChannel", "social")` —
+   * comparing prose against a fixed enum, which is **false every time**. The answer resolved
+   * the signal, counted toward confidence, stopped the question being asked again, and
+   * changed nothing about the plan, the features or the price.
+   *
+   * Worse than dead weight, it was dishonest in two directions: we acted more confident than
+   * we were, and the prose still reached `/api/rationale` through the trail — so the reveal
+   * could cite "weekend markets" while the plan underneath had been computed as if they had
+   * said nothing at all.
+   *
+   * So: the prose is kept (in `freeText` and in the trail, where the plan call reads it), the
+   * question is not asked again (it is in `asked`), and the signal stays genuinely unresolved
+   * so no matcher silently mis-fires. `prosaic` records it, and `resolvedWeight` counts it at
+   * half — we learned something real, just not something a fixed rule can act on.
+   */
   const typed = freeText?.trim();
-  if (typed && chosen.length === 0) profile[q.signal] = typed;
+  const answeredInProse = Boolean(typed) && chosen.length === 0;
 
   /* Record what was actually on screen, not what the fixed bank says — the two differ
      whenever the model reworded it, and the displayed version is the one a person can
@@ -309,6 +359,7 @@ export function applyAnswer(
     ...state,
     profile,
     asked: [...state.asked, questionId],
+    ...(answeredInProse ? { prosaic: [...(state.prosaic ?? []), questionId] } : {}),
     freeText: typed ? { ...state.freeText, [questionId]: typed } : state.freeText,
     trail: [...(state.trail ?? []), trace],
   };

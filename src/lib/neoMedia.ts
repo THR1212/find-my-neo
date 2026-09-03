@@ -1,14 +1,22 @@
 /**
  * Neo's own product films and template shots, as used on neo.space.
  *
- * These are the exact public asset URLs the marketing site loads (captured 3 Sep 2026 from
- * the homepage markup: `<video data-src=...>` in the "Small business bundle" section, and the
- * `template-horizontal-scroll*.webp` reel under "Beautiful templates, ready for anything").
- * We hotlink Neo's CDN on purpose — the same rule as the site generator: show Neo's real
- * output rather than something we drew that merely looks like it.
+ * SELF-HOSTED, not hotlinked. The originals are the exact assets the marketing site loads —
+ * captured 3 Sep 2026 from the homepage markup (`<video data-src=…>` in the "Small business
+ * bundle" section, and the `template-horizontal-scroll*.webp` reel under "Beautiful
+ * templates, ready for anything"). They now live in `public/neo/`, re-encoded for the size
+ * they are actually displayed at; `public/neo/README.md` records every source URL and the
+ * exact ffmpeg commands, so any of them can be re-pulled when Neo updates its site.
  *
- * They are muted, looping MP4s, not GIFs, which is why nothing here decodes a .gif: an MP4
- * of the same loop is roughly a tenth of the bytes and does not block the main thread.
+ * Serving them ourselves rather than from Neo's CDN means the reveal cannot break because a
+ * marketing page was redeployed, and it drops a third-party request from the one screen that
+ * has to look finished.
+ *
+ * Same rule as the site generator: show Neo's real output, never our impression of it. A
+ * mock-up of Invoice Builder that we drew would be a claim about a product we do not own.
+ *
+ * They are muted, looping MP4s, not GIFs, which is what neo.space itself ships: an MP4 of the
+ * same loop is roughly a tenth of the bytes and does not block the main thread.
  *
  * Captions are OURS. The product names are Neo's, verbatim from their feature catalogue —
  * see the header of features.ts. Do not invent a Neo product that is not in that file.
@@ -23,8 +31,8 @@ export interface NeoClip {
   src: string;
 }
 
-const FLOCK = "https://static.flock.co/neo/website/videos";
-const WEBFLOW = "https://cdn.prod.website-files.com/6380708edae368c5674306ee";
+const VIDEOS = "/neo/videos";
+const TEMPLATES = "/neo/templates";
 
 /**
  * The mail-side bundle. Order is the default priority; `clipsFor` re-ranks per profile.
@@ -35,41 +43,33 @@ export const MAIL_CLIPS: NeoClip[] = [
     id: "invoice_builder",
     name: "Invoice Builder",
     caption: "Build the invoice and send it without leaving the inbox",
-    src: `${FLOCK}/Neo_IB_final.mp4`,
+    src: `${VIDEOS}/invoice.mp4`,
   },
   {
     id: "bookings",
     name: "Neo Bookings",
     caption: "Customers pick a slot themselves instead of trading messages",
-    src: `${FLOCK}/Appointment_Booking.mp4`,
+    src: `${VIDEOS}/bookings.mp4`,
   },
   {
     id: "signature",
     name: "Signature Designer",
     caption: "Every reply signs off with your name and your domain",
-    src: `${FLOCK}/Signature-Builder.mp4`,
+    src: `${VIDEOS}/signature.mp4`,
   },
   {
     id: "email_designer",
     name: "Email Designer",
     caption: "Send something that looks designed, without a designer",
-    src: `${FLOCK}/ED.mp4`,
+    src: `${VIDEOS}/designer.mp4`,
   },
   {
     id: "fast_apps",
     name: "Neo Mail apps",
     caption: "The same inbox on your phone and your desktop",
-    src: `${WEBFLOW}/65035c87854b97797c0ad0a7_Fast%20Apps%2002-transcode.mp4`,
+    src: `${VIDEOS}/apps.mp4`,
   },
 ];
-
-/** The site-side film: a generated one-page site going live. */
-export const SITE_LAUNCH_CLIP: NeoClip = {
-  id: "website_launch",
-  name: "AI-powered site builder",
-  caption: "One description in, a one-page site out",
-  src: `${FLOCK}/Website_Launch.mp4`,
-};
 
 /**
  * Which loops to show, most relevant first.
@@ -120,26 +120,10 @@ export interface NeoTemplateShot {
  * sitting directly above them.
  */
 export const TEMPLATE_SHOTS: NeoTemplateShot[] = [
-  {
-    id: "t1",
-    label: "Studio",
-    src: `${WEBFLOW}/674db18c56a1cbebbcefacb6_template-horizontal-scroll1.webp`,
-  },
-  {
-    id: "t3",
-    label: "Storefront",
-    src: `${WEBFLOW}/674db18b27bed59220306062_template-horizontal-scroll3.webp`,
-  },
-  {
-    id: "t5",
-    label: "Services",
-    src: `${WEBFLOW}/674db18bf9d959ec7aaf732a_template-horizontal-scroll5.webp`,
-  },
-  {
-    id: "t6",
-    label: "Hospitality",
-    src: `${WEBFLOW}/674db18b57c47c10cf39c84a_template-horizontal-scroll6.webp`,
-  },
+  { id: "studio", label: "Studio", src: `${TEMPLATES}/studio.webp` },
+  { id: "storefront", label: "Storefront", src: `${TEMPLATES}/storefront.webp` },
+  { id: "services", label: "Services", src: `${TEMPLATES}/services.webp` },
+  { id: "hospitality", label: "Hospitality", src: `${TEMPLATES}/hospitality.webp` },
 ];
 
 /**

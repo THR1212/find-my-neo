@@ -968,15 +968,19 @@ locked-viewport reveal held a three-line text card. Someone who asked for email 
 person actually buying the mail plan — got a visibly emptier page than someone who asked for
 a site. That reads as "we built the site half and bolted email on".
 
-**What fills it.** Neo's own looping product videos, hotlinked from their CDN
-(`src/lib/neoMedia.ts`). The URLs are the exact ones neo.space loads in its "Small business
-bundle" section, captured 3 Sep 2026 from the homepage markup:
-
-    static.flock.co/neo/website/videos/{Neo_IB_final,Appointment_Booking,Signature-Builder,ED}.mp4
-    cdn.prod.website-files.com/…/Fast Apps 02-transcode.mp4
+**What fills it.** Neo's own looping product videos — Invoice Builder, Bookings, Signature
+Designer, Email Designer, the mail apps. The sources are the exact assets neo.space loads in
+its "Small business bundle" section, captured 3 Sep 2026 from the homepage markup.
 
 Same rule as the site generator: **show Neo's real output, not our impression of it.** A
 mock-up of Invoice Builder that we drew would be a claim about a product we do not own.
+
+**Vendored, not hotlinked.** They live in `public/neo/`, with every source URL and the exact
+ffmpeg commands recorded in `public/neo/README.md`. Pointing the last screen at a marketing CDN
+means a Webflow redeploy silently empties half of it, and this is the one screen that has to
+look finished. Re-encoded to the size they actually render at, the originals go from **29 MB to
+under 900 KB** — `ED.mp4` alone ships as 18 MB to fill a card 150 px wide. Audio is stripped;
+these autoplay muted, so a silent track is bytes for nothing.
 
 They are MP4s, not GIFs, which is what the marketing site actually ships — an MP4 of the same
 loop is roughly a tenth of the bytes and does not block the main thread. `muted` +
@@ -990,8 +994,9 @@ Bookings.
 template non-deterministically — six different ones for one description across runs — so
 implying the single card above is final would be wrong.
 
-**Reverse if:** Neo objects to the hotlinks, or the CDN paths rot. Both fail soft — the video
-element removes itself on error and the layout closes up.
+**Reverse if:** Neo restyles these products enough that the films misrepresent the current UI.
+Refreshing is a re-download and a re-encode, both scripted in that README. Failure is soft
+either way — the video element removes itself on error and the layout closes up.
 
 ---
 

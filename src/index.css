@@ -50,10 +50,11 @@ body,
   margin: 0;
 }
 
-html.is-reveal,
-html.is-reveal body,
-html.is-reveal #root {
+html:has(.stage-reveal),
+html:has(.stage-reveal) body,
+html:has(.stage-reveal) #root {
   height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
 }
 

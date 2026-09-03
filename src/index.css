@@ -396,17 +396,6 @@ h1 {
   text-align: right;
 }
 
-.plan-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-}
-
 .plan-meta {
   font-size: 13px;
   color: var(--text-faint);
@@ -490,13 +479,6 @@ h1 {
   display: flex;
   flex-direction: column;
   line-height: 1.15;
-}
-
-.meter-count {
-  font-size: 17px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
 }
 
 .meter-label {
@@ -793,16 +775,6 @@ h1 {
   .domain-name {
     font-size: clamp(23px, 7vw, 30px);
     overflow-wrap: anywhere;
-  }
-
-  .plan-line {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 16px;
-  }
-
-  .plan-line .row {
-    width: 100%;
   }
 
   .progress {
@@ -1311,54 +1283,6 @@ a.btn {
   min-height: 0;
 }
 
-.product-wait-templates {
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  overflow: hidden;
-  height: 100%;
-}
-
-.product-wait-tpl-pair {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.product-wait-tpl {
-  margin: 0;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.product-wait-tpl + .product-wait-tpl {
-  border-left: 1px solid var(--border);
-}
-
-.product-wait-tpl img {
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top center;
-  display: block;
-}
-
-.product-wait-caption {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin: 0;
-  padding: 12px 14px 14px;
-}
-
 .product-wait-pips {
   display: flex;
   gap: 6px;
@@ -1563,21 +1487,6 @@ a.btn {
   max-width: 16em;
 }
 
-.meter-headline.is-dropping {
-  background: var(--gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.meter.is-tight .meter-headline.is-dropping {
-  background: none;
-  -webkit-background-clip: unset;
-  background-clip: unset;
-  color: var(--ok);
-}
-
-.meter--numbers .meter-label,
 .meter--words .meter-label {
   letter-spacing: 0.06em;
   max-width: 16em;
@@ -2108,4 +2017,27 @@ html:has(.stage-reveal) #root {
   font-size: 13.5px;
   line-height: 1.5;
   color: var(--text);
+}
+
+/* Two rules the markup has always referenced and no branch ever defined (found 03 Sep by
+   diffing className usage against the stylesheet). Neither was visibly broken, which is why
+   they survived: both inherited something close enough to look deliberate. */
+
+/* Wrapper for NeoSiteGenerating's shimmer. Its six children are all styled; only the box
+   holding them was missing, so the skeleton sat flush against the card edge instead of
+   matching the finished preview it is standing in for. */
+.neo-gen-skeleton {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--bg-raised);
+}
+
+/* The domain inside an alternate pill. `.alt` is an inline-flex with a baseline gap, so this
+   was inheriting the parent's size and colour and happened to look right — but nothing said
+   so, and `.alt-price` beside it IS explicit. Stating it makes the pair symmetrical and stops
+   a future change to `.alt` silently moving the name. */
+.alt-name {
+  font-size: inherit;
+  color: inherit;
 }

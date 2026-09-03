@@ -327,7 +327,7 @@ confident recommendation into a shopping list.
 ### 2026-08-27 · The prices shown are NOT Neo's prices
 
 DomScan returns third-party **registrar** list prices in **USD**. We take the cheapest
-eligible registrar and convert at a hardcoded 88 INR/USD, rounded to ₹10.
+eligible registrar and convert at a hardcoded 95 INR/USD, rounded to ₹10.
 
 So the figure is wrong in two ways at once: wrong currency origin, and wrong seller — the
 user buys from **Neo**, not Porkbun. It is a placeholder that makes the reveal feel complete.
@@ -388,7 +388,7 @@ Someone will change these. Here's what breaks.
   the first answer, leaving nothing to watch.
 - **Confidence base `0.22`** when industry is known — the ring must not open at empty after
   someone has just written a paragraph. That reads as "you weren't listening".
-- **`USD_TO_INR = 88`**, hardcoded — a live FX feed would be false precision on top of the wrong
+- **`USD_TO_INR = 95`**, hardcoded — a live FX feed would be false precision on top of the wrong
   seller's price.
 - **Porkbun as the single pricing registrar** — publishes an official feed and prices near the
   floor, which suits an indicative "from" figure. Any single registrar would do; the point is

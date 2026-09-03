@@ -48,7 +48,7 @@ const PRICE_REGISTRARS = "porkbun";
 
 /** Approximate, hardcoded on purpose. Precision here would be false precision — the
  *  underlying price is the wrong seller's anyway. Revisit with Neo's API, not with a FX feed. */
-const USD_TO_INR = 88;
+const USD_TO_INR = 95;
 
 export interface DomainInfo {
   domain: string;

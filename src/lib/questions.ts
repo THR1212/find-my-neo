@@ -336,13 +336,36 @@ QUESTIONS.push(
      */
     id: "extras",
     signal: "extras",
-    prompt: "Do you do any of these today?",
-    sub: "Pick any that apply. Asking what you already do, not what sounds useful.",
+    /**
+     * "REGULAR PART OF YOUR WORK", NOT "DO YOU DO THIS TODAY".
+     *
+     * Run hmcrd0yw is the argument. Someone whose own description said "no website or mailbox"
+     * was asked what they do *today* — they cannot be doing any of it today, so the options
+     * read as a menu and they ticked two. One tick is Rs418 -> Rs868. Every answer that
+     * question could get from them was aspirational.
+     *
+     * "Today" was also wrong for a subtler set of people: someone who emails two invoices a
+     * year truthfully answers yes, and gets charged for Invoice Builder they will open twice.
+     * The entitlement is worth its price to someone who quotes jobs weekly and is not worth it
+     * to someone who quotes twice. Regularity is what separates them, and it is a fair thing
+     * to ask — unlike wanting, which everybody does.
+     *
+     * The options are unchanged in MEANING, which is what `resolves` and the rewrite contract
+     * both depend on. What changed is that they now describe the work rather than the mail
+     * feature: someone who quotes jobs recognises themselves whether or not they email a PDF.
+     */
+    prompt: "Which of these are a regular part of your work?",
+    sub: "Only what you actually do often. Leave the rest — you can add it any time.",
     weight: 0.2,
     multi: true,
     freeText: { placeholder: "Something else you do a lot of?" },
     options: [
-      { id: "invoices", label: "Send quotes or invoices", resolves: { extras: "invoices" } },
+      {
+        id: "invoices",
+        label: "Quoting and invoicing jobs",
+        hint: "Regularly, not once a year",
+        resolves: { extras: "invoices" },
+      },
       {
         id: "campaigns",
         label: "Message past customers as a group",

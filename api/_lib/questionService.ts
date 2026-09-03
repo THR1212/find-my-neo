@@ -81,9 +81,9 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
     },
   },
   extras: {
-    prompt: "Do you do any of these today?",
+    prompt: "Which of these are a regular part of your work?",
     options: {
-      invoices: "Send quotes or invoices",
+      invoices: "Quoting and invoicing jobs",
       campaigns: "Message past customers as a group",
       bookings: "Book people in for a time",
       receipts: "Check whether mail was opened",

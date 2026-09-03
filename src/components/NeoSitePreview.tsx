@@ -1,38 +1,34 @@
 import { motion } from "framer-motion";
-import { block, imageUrl, str, type NeoSite } from "../lib/neoSite";
+import { block, pickHero, str, type NeoSite } from "../lib/neoSite";
 
 /**
  * Renders Neo's ACTUAL generated site, not our invented copy.
  *
  * Compact snapshot: chrome, hero, headline, a line of copy, CTA. That is the card Neo's
  * own generator shows, and it is small enough that the recommendation column next to a
- * pair of them does not have to scroll. Product thumbs and the provenance footer are
- * omitted here — they were the bits that overflowed the locked viewport.
+ * pair of them does not have to scroll.
  *
- * `look: shop` is only used when we have a single generation and still need a second
- * card: it is the products block from the SAME site, not a screenshot of someone else.
+ * `avoidHero` skips a URL the other card is already showing — two templates often share
+ * a cover prompt and would otherwise paint the same photo twice.
  */
 export default function NeoSitePreview({
   site,
   delay = 0,
   look = "landing",
+  avoidHero = null,
+  fallbackSite = null,
 }: {
   site: NeoSite;
   delay?: number;
   look?: "landing" | "shop";
+  avoidHero?: string | null;
+  fallbackSite?: NeoSite | null;
 }) {
   const header = block(site, "header");
   const intro = block(site, "introduction");
   const products = block(site, "products");
-  const productList = ((products as any)?.productList ?? []) as Record<string, unknown>[];
-  const firstProduct = productList[0];
 
-  const landingHero = imageUrl(site, (intro as any)?.desktopCoverImage ?? (intro as any)?.image);
-  const shopHero =
-    (firstProduct ? imageUrl(site, firstProduct.image) : null) ??
-    imageUrl(site, (intro as any)?.mobileCoverImage);
-  const heroUrl = look === "shop" ? (shopHero ?? landingHero) : landingHero;
-
+  const heroUrl = pickHero(site, look, avoidHero, fallbackSite);
   const title = str(header, "title") ?? "Your site";
   const heading =
     look === "shop" ? (str(products, "heading") ?? str(intro, "heading")) : str(intro, "heading");

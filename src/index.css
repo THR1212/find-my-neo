@@ -1762,9 +1762,19 @@ a.btn {
    Same reason `.stage` uses it. */
 .reveal-setup {
   overflow: hidden;
-  justify-content: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.reveal-setup-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   justify-content: safe center;
-  gap: clamp(14px, 2.2vh, 22px);
+  gap: clamp(12px, 1.8vh, 20px);
 }
 
 .reveal-domain {
@@ -1773,7 +1783,7 @@ a.btn {
 
 /* The column gap owns the vertical rhythm now — per-block margins on top of it double the
    spacing and reintroduce the gaps this layout just removed. */
-.reveal-setup > * {
+.reveal-setup-main > * {
   flex: 0 0 auto;
 }
 
@@ -1814,7 +1824,9 @@ a.btn {
 }
 
 .reveal-cta {
-  margin-top: 10px;
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding-top: 4px;
 }
 
 .own-domain summary {

@@ -131,6 +131,63 @@ export function str(data: Record<string, unknown> | null, key: string): string |
   return typeof v === "string" && v.trim() ? v : null;
 }
 
+/**
+ * Hero URLs from this generated site, preferred first.
+ *
+ * Two templates can resolve to the same Pexels photo (similar cover prompts). The second
+ * card walks this list so it shows a different image from the SAME generation rather than
+ * repeating the snapshot.
+ */
+export function heroCandidates(
+  site: NeoSite,
+  prefer: "landing" | "shop" = "landing",
+): string[] {
+  const intro = block(site, "introduction");
+  const products = block(site, "products");
+  const productList = ((products as Record<string, unknown> | null)?.productList ?? []) as Record<
+    string,
+    unknown
+  >[];
+  const urls: string[] = [];
+  const add = (node: unknown) => {
+    const u = imageUrl(site, node);
+    if (u && !urls.includes(u)) urls.push(u);
+  };
+
+  if (prefer === "shop") {
+    for (const p of productList) add(p.image);
+    add((intro as Record<string, unknown> | null)?.mobileCoverImage);
+    add((intro as Record<string, unknown> | null)?.desktopCoverImage);
+    add((intro as Record<string, unknown> | null)?.image);
+  } else {
+    add((intro as Record<string, unknown> | null)?.desktopCoverImage);
+    add((intro as Record<string, unknown> | null)?.mobileCoverImage);
+    add((intro as Record<string, unknown> | null)?.image);
+    for (const p of productList) add(p.image);
+  }
+
+  for (const u of Object.values(site.images)) {
+    if (u && !urls.includes(u)) urls.push(u);
+  }
+  return urls;
+}
+
+export function pickHero(
+  site: NeoSite,
+  prefer: "landing" | "shop" = "landing",
+  avoid?: string | null,
+  fallback?: NeoSite | null,
+): string | null {
+  const all = heroCandidates(site, prefer);
+  const unique = all.find((u) => u !== avoid);
+  if (unique) return unique;
+  if (fallback && avoid) {
+    const other = heroCandidates(fallback, "shop").find((u) => u !== avoid);
+    if (other) return other;
+  }
+  return all[0] ?? null;
+}
+
 /** A short, human label for the chosen template, e.g. "offline_services" -> "Offline services". */
 export function templateLabel(key: string): string {
   return key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());

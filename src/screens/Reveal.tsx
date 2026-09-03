@@ -223,6 +223,7 @@ export default function Reveal({
     <div className="reveal-page">
       <div className="reveal-split">
         <section className="reveal-setup">
+          <div className="reveal-setup-main">
           <p className="eyebrow">Your setup</p>
 
           <div className="reveal-domain">
@@ -379,25 +380,27 @@ export default function Reveal({
                   ? `We'll copy ${domain.name} for you — it's Neo's own, free for your first billing cycle, and you can claim it on the next screen.`
                   : `We'll copy ${domain.name} for you — Neo's domain purchase is coming, so for now you'll connect it under "use a domain I own".`}
             </p>
-            <div className="row reveal-cta">
-              <a
-                className="btn"
-                href={handoffUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                autoFocus
-                onClick={() => {
-                  unlockSound();
-                  playSound("cta");
-                  void navigator.clipboard?.writeText(domainName).catch(() => {});
-                }}
-              >
-                Claim it and start building
-              </a>
-              <button className="btn btn-ghost" onClick={onRestart}>
-                Start over
-              </button>
-            </div>
+          </div>
+          </div>
+
+          <div className="row reveal-cta">
+            <a
+              className="btn"
+              href={handoffUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              autoFocus
+              onClick={() => {
+                unlockSound();
+                playSound("cta");
+                void navigator.clipboard?.writeText(domainName).catch(() => {});
+              }}
+            >
+              Claim it and start building
+            </a>
+            <button className="btn btn-ghost" onClick={onRestart}>
+              Start over
+            </button>
           </div>
         </section>
 

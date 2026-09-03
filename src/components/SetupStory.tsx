@@ -1,8 +1,8 @@
 import NeoSitePreview from "./NeoSitePreview";
 import NeoSiteGenerating from "./NeoSiteGenerating";
 import NeoProductLoop from "./NeoProductLoop";
-import type { NeoSite } from "../lib/neoSite";
 import { clipsFor } from "../lib/neoMedia";
+import { pickHero, type NeoSite } from "../lib/neoSite";
 
 /**
  * Right pane.
@@ -50,6 +50,8 @@ export default function SetupStory({
   if (neoSiteAlt) pair.push({ site: neoSiteAlt, look: "landing" });
   else if (neoSite) pair.push({ site: neoSite, look: "shop" });
 
+  const firstHero = pair[0] ? pickHero(pair[0].site, pair[0].look) : null;
+
   return (
     <aside className="setup-story setup-story-site" aria-label="Site preview">
       <p className="story-kicker">AI-powered site builder</p>
@@ -63,7 +65,13 @@ export default function SetupStory({
         </div>
         <div className="tpl-pane">
           {pair[1] ? (
-            <NeoSitePreview site={pair[1].site} look={pair[1].look} delay={0.08} />
+            <NeoSitePreview
+              site={pair[1].site}
+              look={pair[1].look}
+              avoidHero={firstHero}
+              fallbackSite={pair[0].site}
+              delay={0.08}
+            />
           ) : (
             <NeoSiteGenerating />
           )}

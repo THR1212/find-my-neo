@@ -32,11 +32,22 @@ const KEY = "findmyneo.session";
  * the snapshot instead of deserialising yesterday's shape into today's fields, which fails
  * silently and looks like an engine bug.
  */
-const VERSION = 2;
+const VERSION = 5;
 /* v2: EngineState gained `surface` (model-written wording) and `trail` (what was shown).
    Both live inside `engine`, so they ride along in the snapshot automatically — but a v1
    snapshot restored into v2 would have neither, and every question would silently revert to
-   fixed wording mid-run. Discarding is cheaper to reason about than half-restoring. */
+   fixed wording mid-run. Discarding is cheaper to reason about than half-restoring.
+
+   v3: the top-level `preferredQuestionId` is gone, replaced by `engine.priority` (the model's
+   full ranking) and `engine.prefilled` (questions the free text already answered). A v2
+   snapshot restored into v3 would carry a dead field and, worse, an empty `priority` — so the
+   run would silently fall back to the fixed weight order it was supposed to have escaped.
+
+   v4: added `reasons` (model-written feature `because` clauses). A v3 snapshot restored into
+   v4 simply has none, which is a legitimate state — but the version bump keeps the rule
+   simple rather than making restore reason about which fields are optional.
+
+   v5: added `rationale` (the generated pair under the price). */
 
 /**
  * RESOLVED 02 Sep — kept because the reasoning still governs the design.
@@ -67,8 +78,11 @@ export interface Snapshot {
   rawText: string;
   reveal: RevealContent | null;
   summary: string | null;
-  preferredQuestionId: string | null;
   neoSite: NeoSite | null;
+  /** Model-written feature reasons, by feature id. Empty is a valid, complete state. */
+  reasons: Record<string, string>;
+  /** The two sentences under the price. Empty strings mean the fixed rationale is shown. */
+  rationale: { rationale: string; whyNotCheaper: string };
 }
 
 /** Everything App owns that is worth restoring. `loading` and `error` are deliberately absent. */

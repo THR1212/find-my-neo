@@ -1,6 +1,5 @@
 {
   "_comment": "Hand-written demo fixture, matched to the scripted input in docs/demo-script.md. Not model output — tuned by hand so the reveal lands exactly as intended. Replace with a recorded live response once the prompt is tuned.",
-
   "profile": {
     "summary": "a two-person bakery in Bandra taking custom cake orders over Instagram",
     "_industryNote": "Titan's 16-industry taxonomy, which api/profile.ts constrains the model to. Was 'Bakery & confectionery' - a label matching neither Titan's taxonomy nor Neo's builder categories, so the handoff URL never carried an industryKey. See docs/data-findings.md section 6.",
@@ -8,15 +7,13 @@
     "teamSize": 2,
     "location": "Bandra, Mumbai",
     "domainStem": "proofandbutter",
-    "suggestedMailboxes": ["hello", "orders"]
+    "suggestedMailboxes": [
+      "hello",
+      "orders"
+    ]
   },
-
-  "_nextQuestionIdNote": "The model's suggestion for what to ask first. The engine overrules it if the signal is already resolved, so this can never break the flow. 'channel' is chosen here because the free text already mentions Instagram — asking it back makes the tool look like it was listening.",
-  "nextQuestionId": "channel",
-
   "reveal": {
     "_domainsNote": "Availability and price are overridden at runtime by the live DomScan lookup (/api/domains). These values are the FALLBACK shown only when that call fails. The .co.site row is the exception \u2014 see its own _note. They are set to the measured live figures rather than invented ones, so the fallback path can never contradict the happy path in front of an audience. The stem must match domainStem above — the lookup keys off it.",
-
     "domains": [
       {
         "name": "proofandbutter.com",
@@ -47,13 +44,42 @@
       }
     ],
     "mailboxes": [
-      { "address": "hello@proofandbutter.com", "label": "For enquiries and new customers" },
-      { "address": "orders@proofandbutter.com", "label": "So cake orders stop living in your DMs" }
+      {
+        "address": "hello@proofandbutter.com",
+        "label": "For enquiries and new customers"
+      },
+      {
+        "address": "orders@proofandbutter.com",
+        "label": "So cake orders stop living in your DMs"
+      }
     ],
     "site": {
       "headline": "Celebration cakes, made to order in Bandra",
       "subhead": "Two bakers, one oven, and a waiting list worth joining.",
-      "sections": ["This week's cakes", "Order for a date", "Find us in Bandra"]
+      "sections": [
+        "This week's cakes",
+        "Order for a date",
+        "Find us in Bandra"
+      ]
     }
-  }
+  },
+  "_adaptNote": "Replaces nextQuestionId (removed 03 Sep 2026). questionPriority is the model's full ranking, consumed head-first for the whole flow; prefill is what the description already answered, in the same vocabulary the resolves payloads use. The recorded business is a Bandra bakery taking cake orders over Instagram, so channel and surface are exactly what it states.",
+  "questionPriority": [
+    "team",
+    "sells",
+    "import",
+    "client",
+    "surface",
+    "channel"
+  ],
+  "prefill": {
+    "customerChannel": [
+      "social"
+    ],
+    "surface": "both"
+  },
+  "prefilledQuestionIds": [
+    "surface",
+    "channel"
+  ]
 }

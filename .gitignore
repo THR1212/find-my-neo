@@ -43,3 +43,6 @@ tools/bookmarklet/bookmarklet.txt
 # Raw source data — real customer records. Never commit.
 analysis/data/
 analysis/.venv/
+
+# Per-run records written by the dev server. Contain business descriptions people typed.
+runs.jsonl

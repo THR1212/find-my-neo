@@ -12,6 +12,7 @@
 
 import plansData from "../data/plans.json";
 import { has, type Profile } from "./engine";
+import { solve, type Candidate, type Need } from "./candidates";
 
 export type BillingCycle = "monthly" | "quarterly" | "yearly" | "twoYearly" | "fourYearly";
 
@@ -20,7 +21,6 @@ interface MailPlanJson {
   name: string;
   inr: Partial<Record<BillingCycle, number | null>>;
   afterFirstCycleInr: number;
-  blurb: string;
 }
 
 interface SitePlanJson {
@@ -41,6 +41,14 @@ export interface Recommendation {
   mailboxes: number;
   /** Total INR per month at the chosen cycle. Null if any component price is unavailable. */
   monthlyInr: number | null;
+  /**
+   * The needs that forced this shape above the baseline — the justification, derived rather
+   * than templated. Each carries the Pandora entitlement it rests on, so a reviewer can check
+   * the claim instead of trusting it.
+   */
+  needs: Need[];
+  /** Every setup still viable, cheapest first. Feeds "why not the cheaper one". */
+  viable: Candidate[];
   /** One sentence the reveal can show. Must be defensible, not salesy. */
   rationale: string;
 }
@@ -74,26 +82,16 @@ function chooseCycle(profile: Profile): BillingCycle {
   return "yearly";
 }
 
-function chooseMailPlan(profile: Profile, mailboxes: number): MailPlanJson {
-  // Solo, no import, no site — Lite is genuinely enough, and saying so builds trust.
-  const solo = mailboxes <= 1;
-  /* has() rather than === : multi-select answers arrive as arrays. */
-  const importing =
-    profile.importIntent !== undefined && !has(profile, "importIntent", "none");
-  if (solo && !importing && has(profile, "surface", "mail")) return byId(MAIL, "lite");
-
-  // Bigger teams get more storage and the fuller feature set.
-  if (mailboxes >= 5) return byId(MAIL, "standard");
-
-  return byId(MAIL, "starter");
-}
-
-function chooseSitePlan(profile: Profile): SitePlanJson | null {
-  if (has(profile, "surface", "mail")) return null;
-  // Selling online means products, images and a contact path — Basic's 1 GB gets tight.
-  if (has(profile, "sellsOnline", true)) return byId(SITE, "plus");
-  return byId(SITE, "basic");
-}
+/**
+ * Plan choice now lives in `candidates.ts`.
+ *
+ * `chooseMailPlan` and `chooseSitePlan` were deleted rather than moved, because the problem
+ * with them was structural: each was a short if-chain in which one boolean set a tier, so no
+ * recommendation could say why it fired. `solve()` instead collects the NEEDS a profile
+ * establishes, turns each into a floor on a tier that traces to a Pandora entitlement, and
+ * returns the cheapest setup meeting all of them — plus the needs that bound, which is the
+ * justification the reveal shows.
+ */
 
 export function recommend(profile: Profile, suggestedMailboxes: number): Recommendation {
   /* `mailboxCount` first: it is what the question actually asks for. `teamSize` is the
@@ -105,8 +103,11 @@ export function recommend(profile: Profile, suggestedMailboxes: number): Recomme
     (profile.mailboxCount as number) || (profile.teamSize as number) || suggestedMailboxes || 1,
   );
   const cycle = chooseCycle(profile);
-  const mailPlan = chooseMailPlan(profile, mailboxes);
-  const sitePlan = chooseSitePlan(profile);
+  const solution = solve(profile, mailboxes, cycle);
+
+  const mailPlan = byId(MAIL, solution.candidate.mail);
+  const sitePlan =
+    solution.candidate.site === "none" ? null : byId(SITE, solution.candidate.site);
 
   const mailUnit = mailPlan.inr[cycle] ?? mailPlan.inr.monthly ?? null;
   const siteUnit = sitePlan ? (sitePlan.inr[cycle] ?? sitePlan.inr.monthly ?? null) : 0;
@@ -120,18 +121,28 @@ export function recommend(profile: Profile, suggestedMailboxes: number): Recomme
     cycle,
     mailboxes,
     monthlyInr,
-    rationale: buildRationale(profile, mailPlan, sitePlan, mailboxes),
+    /* What actually forced this shape. Empty means the baseline was enough, which is itself
+       worth saying: "Starter is genuinely all you need" is a trust-building sentence. */
+    needs: solution.binding,
+    viable: solution.viable,
+    rationale: buildRationale(profile, sitePlan, mailboxes),
   };
 }
 
-function buildRationale(
+/**
+ * The FALLBACK rationale, and it must stay.
+ *
+ * `/api/rationale` writes a better one with the whole run in hand, but it is the only model
+ * call in the flow with nothing behind it — the other three degrade to fixed wording, fixed
+ * `because` strings, and a recorded site. Without these four templates a failed generation
+ * would leave a blank line on the one screen CLAUDE.md says must be perfect.
+ */
+export function buildRationale(
   profile: Profile,
-  mailPlan: MailPlanJson,
   sitePlan: SitePlanJson | null,
   mailboxes: number,
 ): string {
   const who = mailboxes === 1 ? "One mailbox" : `${mailboxes} mailboxes`;
-  if (mailPlan.id === "lite") return `${who} is all you need for now — you can add more later.`;
   if (profile.importIntent && !has(profile, "importIntent", "none"))
     return `${who}, with your existing mail brought across.`;
   if (sitePlan) return `${who} plus a one-page site, on your own domain.`;

@@ -8,7 +8,7 @@ import {
   lookupDomains,
   type DomainInfo,
 } from "../lib/domains";
-import { pickFeatures, type FeatureSurface } from "../lib/features";
+import { pickFeatures, withReason, type FeatureSurface, type ReasonMap } from "../lib/features";
 import { recommend, CYCLE_LABEL, domainFirstCycleInr } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
 import NeoSitePreview from "../components/NeoSitePreview";
@@ -48,6 +48,8 @@ export default function Reveal({
   profile,
   businessText,
   neoSite,
+  reasons,
+  rationale,
   onRestart,
 }: {
   reveal: RevealContent | null;
@@ -66,6 +68,19 @@ export default function Reveal({
   businessText: string;
   /** Neo's real generated site. Null while it's still generating. */
   neoSite: NeoSite | null;
+  /**
+   * Model-written `because` clauses by feature id. Empty means every line uses its
+   * hand-written string — see withReason. Which features appear is NOT affected by this.
+   */
+  reasons?: ReasonMap;
+  /**
+   * The two sentences under the price, written with the whole run in hand.
+   *
+   * Both may be empty, and that is the normal state until the call lands (~15s into a reveal
+   * that is already waiting on Neo's generator). `rationale` falls back to `rec.rationale`,
+   * which rules.ts always computes; `whyNotCheaper` has no fallback and simply does not render.
+   */
+  rationale?: { rationale: string; whyNotCheaper: string };
   onRestart: () => void;
 }) {
   /**
@@ -239,10 +254,21 @@ export default function Reveal({
    * failure available to this demo.
    */
   const surfaces: FeatureSurface[] = showSite ? ["mail", "site"] : ["mail"];
-  const features = pickFeatures(profile, surfaces);
 
   /** Plan choice + price. Deterministic — see rules.ts. */
   const rec = recommend(profile, mailboxCount);
+
+  /* Features are filtered by the tier rules.ts just chose, so we never name something the
+     plan printed underneath does not include. Must stay AFTER `recommend`. */
+  const features = pickFeatures(
+    profile,
+    surfaces,
+    2,
+    rec.sitePlan?.id ?? null,
+    rec.mailPlan.id,
+    /* Overlay the generated reason AFTER selection and entitlement filtering, so a generation
+       can change why we say a feature matters but never which feature is shown. */
+  ).map((f) => withReason(f, reasons));
 
   /**
    * The real handoff URL. Neo's funnel takes plain query params — no encoder, no signing —
@@ -472,10 +498,32 @@ export default function Reveal({
               </span>
             )}
           </div>
+          {/* The generated line when it has landed, the deterministic one until then. Never
+              a spinner and never a gap: this sentence sits directly under a real price, and an
+              empty slot there reads as a broken page rather than a pending one. */}
           <div className="plan-meta">
-            {rec.rationale} {CYCLE_LABEL[rec.cycle]} · cancel anytime · you finish the site in
-            Neo's builder
+            {rationale?.rationale || rec.rationale} {CYCLE_LABEL[rec.cycle]} · cancel anytime ·
+            you finish the site in Neo's builder
           </div>
+          {/* Pre-empts the obvious objection. Darrel found Cynet, Mailchimp and Rinda all
+              justifying the recommendation rather than just naming it — see
+              docs/competitor-qualification.md. No fixed fallback: if it did not generate, the
+              honest thing is to say nothing rather than hand-wave about a cheaper plan. */}
+          {/* Why this shape, derived rather than written. Each line is a need the answers
+              established, and each need's floor traces to a Pandora entitlement — so this is
+              the recommendation showing its working, not copy. Empty when the baseline was
+              enough, which is worth its own sentence: "Starter is genuinely all you need" is
+              a trust-building thing to be able to say. */}
+          {rec.needs.length > 0 && (
+            <ul className="plan-needs">
+              {rec.needs.map((n) => (
+                <li key={n.id}>{n.because}</li>
+              ))}
+            </ul>
+          )}
+          {rationale?.whyNotCheaper && (
+            <div className="plan-meta plan-cheaper">{rationale.whyNotCheaper}</div>
+          )}
           {/* Neo does not sell custom domains yet. The line has to branch, because the two
               cases are genuinely different and one sentence covering both would be wrong in
               whichever direction it leaned:

@@ -63,6 +63,62 @@ export const INDUSTRIES = [
 /** Real question ids from src/lib/questions.ts. The engine overrules a bad pick anyway. */
 const QUESTION_IDS = ["import", "surface", "channel", "client", "team", "sells"] as const;
 
+/**
+ * Signals the model may read straight out of the free text, and the ONLY values it may use.
+ *
+ * These are copied from the `resolves` payloads in src/lib/questions.ts and must stay
+ * identical to them. That is the whole safety property: a prefill is indistinguishable from
+ * the answer a person would have given by tapping, so nothing downstream — rules.ts,
+ * features.ts — can tell the difference or needs to.
+ *
+ * WHY THIS EXISTS. Before it, someone who wrote "we take cake orders over Instagram and need
+ * a website" was still asked "Where do customers reach you today?" and "What needs standing
+ * up first?". They had already answered both, in their own words, on screen one. The engine
+ * had no way to know: `kickOff` seeded only industry, brandName and teamSize, so all six
+ * question signals stayed unresolved no matter what the text said.
+ *
+ * `mailboxCount` IS DELIBERATELY ABSENT and must stay absent. It is the heaviest signal and a
+ * straight multiplier on price, and the only thing free text ever offers is headcount —
+ * "there are three of us". Inferring a mailbox count from that reintroduces exactly the bug
+ * the teamSize -> mailboxCount rename fixed, in the direction that undercharges and caps
+ * people wrong. It is always asked.
+ */
+const PREFILL_VALUES = {
+  importIntent: ["none", "emails", "both", "contacts"],
+  surface: ["mail", "both"],
+  customerChannel: ["social", "personal_email", "offline", "site"],
+  currentClient: ["gmail", "outlook", "apple", "none"],
+} as const;
+
+/** Which question resolves each prefillable signal — used to skip it. */
+const SIGNAL_TO_QUESTION: Record<string, string> = {
+  importIntent: "import",
+  surface: "surface",
+  customerChannel: "channel",
+  currentClient: "client",
+  sellsOnline: "sells",
+};
+
+/**
+ * At most three signals may be prefilled, however much the text says.
+ *
+ * Not a safety limit — a pacing one. Six signals and `MAX_QUESTIONS = 4`: prefilling three
+ * still leaves three to ask, and every signal ends up resolved either way. Prefilling four
+ * would leave a two-question flow, which reads as the product giving up rather than being
+ * clever.
+ *
+ * Was 2, which was too tight and lost real information. A florist who wrote "orders come
+ * through Instagram DMs and we take payment online" had `surface` and `customerChannel`
+ * prefilled, and `sellsOnline` — which the model HAD extracted — silently discarded by the
+ * cap. The model then ranked `sells` last, reasonably, because it believed it had already
+ * answered it. So the signal was dropped by the cap and deprioritised by the ranking, and the
+ * reveal recommended a site plan without knowing they take payments.
+ *
+ * Anything the cap does drop is now recorded, because a signal lost this way is invisible
+ * otherwise — it looks identical to a signal the text never mentioned.
+ */
+const MAX_PREFILL = 3;
+
 /** Matches src/lib/domains.ts TLDS. The stem is the model's; the TLDs are not its business. */
 const TLDS = ["com", "in", "co", "co.site"] as const;
 
@@ -75,6 +131,15 @@ const TLDS = ["com", "in", "co", "co.site"] as const;
  */
 const COSITE_NOTE = "Free for your first billing cycle — Neo's own, and live today";
 
+/** What the free text already answered. Every field optional; null means "not stated". */
+export interface Prefill {
+  importIntent?: string | null;
+  surface?: string | null;
+  customerChannel?: string[] | null;
+  currentClient?: string[] | null;
+  sellsOnline?: boolean | null;
+}
+
 interface ModelProfile {
   summary: string;
   industry: (typeof INDUSTRIES)[number];
@@ -83,7 +148,19 @@ interface ModelProfile {
   location: string | null;
   domainStem: string;
   suggestedMailboxes: string[];
-  nextQuestionId: (typeof QUESTION_IDS)[number] | null;
+  /**
+   * All six question ids, most worth asking first.
+   *
+   * Was `nextQuestionId`, a single pick — and App.tsx nulled it after one use, so questions
+   * 2, 3 and 4 came from `nextQuestion`'s weight fallback. That fallback is a `reduce` over a
+   * fixed array with fixed weights, so it produced the SAME four questions in the SAME order
+   * for every business on earth (team, surface, channel, sells) and `import` and `client`
+   * were never reachable at all. An ordered list, consumed head-first for the whole flow, is
+   * what makes "different businesses get different paths" true rather than aspirational.
+   */
+  questionPriority: (typeof QUESTION_IDS)[number][];
+  /** Signals the text already answered. Validated hard below. */
+  prefill: Prefill;
   /** One short line per TLD saying why it is worth considering. Copy, never price. */
   domainNotes: string[];
   /** One short line per mailbox saying what it is for. */
@@ -101,7 +178,8 @@ const SCHEMA = {
     "domainStem",
     "suggestedMailboxes",
     "mailboxLabels",
-    "nextQuestionId",
+    "questionPriority",
+    "prefill",
     "domainNotes",
   ],
   properties: {
@@ -141,7 +219,56 @@ const SCHEMA = {
         "What each address is for, same order as suggestedMailboxes. Lowercase, no full " +
         "stop, e.g. 'so cake orders stop living in your DMs'.",
     },
-    nextQuestionId: { type: ["string", "null"], enum: [...QUESTION_IDS, null] },
+    questionPriority: {
+      type: "array",
+      minItems: 6,
+      maxItems: 6,
+      items: { type: "string", enum: [...QUESTION_IDS] },
+      description:
+        "All six question ids, each exactly once, ordered by how much asking it would tell " +
+        "us about THIS business that the description does not already say. Put a question " +
+        "LAST if the description already answers it.",
+    },
+    /* Strict mode requires every property listed in `required`, so "not stated" has to be an
+       explicit null rather than an absent key. */
+    prefill: {
+      type: "object",
+      additionalProperties: false,
+      required: ["importIntent", "surface", "customerChannel", "currentClient", "sellsOnline"],
+      properties: {
+        importIntent: {
+          type: ["string", "null"],
+          enum: [...PREFILL_VALUES.importIntent, null],
+          description: "Only if they say they are moving existing mail or contacts across.",
+        },
+        surface: {
+          type: ["string", "null"],
+          enum: [...PREFILL_VALUES.surface, null],
+          description:
+            "'both' only if they ask for a website or say they have none. 'mail' only if " +
+            "they say email is all they want. Wanting to be found online is not enough.",
+        },
+        customerChannel: {
+          type: ["array", "null"],
+          items: { type: "string", enum: [...PREFILL_VALUES.customerChannel] },
+          description:
+            "Every channel they NAME. Instagram/WhatsApp/Facebook DMs -> social. A Gmail or " +
+            "Hotmail address -> personal_email. Phone, walk-ins, market stalls -> offline. " +
+            "An existing website -> site.",
+        },
+        currentClient: {
+          type: ["array", "null"],
+          items: { type: "string", enum: [...PREFILL_VALUES.currentClient] },
+          description: "Only a mail app they NAME. Not inferred from anything else.",
+        },
+        sellsOnline: {
+          type: ["boolean", "null"],
+          description:
+            "true only if money changes hands online — orders, payments, bookings paid for. " +
+            "Taking enquiries or reservations without payment is false. Unclear is null.",
+        },
+      },
+    },
     domainNotes: {
       type: "array",
       minItems: 3,
@@ -170,15 +297,32 @@ const SYSTEM = [
   "orders@; a consultancy wants hello@ and accounts@. Prefer role addresses over personal",
   "names, because a role address survives the person leaving.",
   "",
-  "nextQuestionId is which question is most worth asking FIRST given what the text already",
-  "told you. Prefer one whose answer the text does not already contain. Return null if you",
-  "have no preference. The options are:",
+  "Two fields decide what this person gets asked next. They are the most important thing you",
+  "return, because asking someone a question they just answered in their own words is the",
+  "fastest way to look like nothing was read.",
+  "",
+  "questionPriority ranks all six questions, most worth asking first. The six are:",
   "  import  - are they bringing existing mail or contacts across",
   "  surface - do they need email only, or email and a website",
   "  channel - where customers reach them today",
   "  client  - which mail app they use now",
   "  team    - how many email addresses they need",
   "  sells   - do people pay them online",
+  "Rank by what the description leaves OPEN. A question whose answer is already in the text",
+  "goes last. A question whose answer would change what this specific business needs goes",
+  "first. Do not use a fixed order; a bakery and a law firm should not be ranked the same.",
+  "",
+  "prefill is what the description ALREADY answers. Use it only for facts stated or plainly",
+  "implied — never a guess about what a business like theirs probably does. A wrong prefill",
+  "silently skips a question and puts an answer they never gave into their recommendation,",
+  "which is worse than asking one question too many. When in doubt, return null.",
+  "  STATED:     'we take orders on Instagram'      -> customerChannel ['social']",
+  "  STATED:     'moving off Gmail'                 -> currentClient ['gmail']",
+  "  STATED:     'we need a website too'            -> surface 'both'",
+  "  NOT STATED: a restaurant, so probably takeaway -> sellsOnline null",
+  "  NOT STATED: small, so probably no site yet     -> surface null",
+  "Never prefill how many mailboxes they need. A separate question asks it, and headcount is",
+  "not the same number.",
   "",
   "Write summary in the customer's own register. Plain, specific, no marketing language.",
 ].join("\n");
@@ -212,9 +356,78 @@ function derivedProfile(businessText: string): ModelProfile {
     domainStem: words.slice(0, 2).join("") || "yourbusiness",
     suggestedMailboxes: ["hello", "contact"],
     mailboxLabels: ["For enquiries and new customers", "For everything else"],
-    nextQuestionId: null,
+    /* Empty, not a guessed order: when the call failed we know nothing about this business,
+       and the engine's weight fallback is the honest default. Prefill likewise stays empty —
+       skipping a question on a fact we never read would be inventing an answer. */
+    questionPriority: [],
+    prefill: {},
     domainNotes: ["The one people will guess", "Reads as local", "Short, room to grow"],
   };
+}
+
+/**
+ * Keep only prefills whose value is in the fixed vocabulary, capped at MAX_PREFILL.
+ *
+ * Everything here is a drop, never a repair — same rule as questionService. An out-of-enum
+ * value means the model misread the contract, and mapping it to the nearest option would put
+ * an answer the person never gave into a priced recommendation.
+ *
+ * Returns the profile patch (values in exactly the shape `resolves` would have produced) and
+ * the question ids those signals close, so the engine can skip them.
+ */
+function validatePrefill(raw: Prefill | undefined): {
+  profile: Record<string, string | string[] | boolean>;
+  skip: string[];
+  dropped: string[];
+} {
+  const profile: Record<string, string | string[] | boolean> = {};
+  const skip: string[] = [];
+  const dropped: string[] = [];
+  const p = raw ?? {};
+
+  /* Weight order, so that when the cap bites we keep the signals that move the
+     recommendation most rather than whichever the model happened to list first. */
+  const order = ["surface", "customerChannel", "sellsOnline", "importIntent", "currentClient"];
+
+  for (const signal of order) {
+    const value = p[signal as keyof Prefill];
+    if (value === null || value === undefined) continue;
+    /* Cap reached, but the model DID extract this. Record it: dropped-by-cap and
+       never-mentioned are the same silence otherwise, and only one of them is a design
+       choice. The question stays askable, so the fact is deferred, not lost. */
+    if (skip.length >= MAX_PREFILL) {
+      dropped.push(`${signal}: over MAX_PREFILL, asking instead`);
+      continue;
+    }
+
+    if (signal === "sellsOnline") {
+      if (typeof value !== "boolean") {
+        dropped.push(`sellsOnline: not a boolean`);
+        continue;
+      }
+      profile.sellsOnline = value;
+      skip.push(SIGNAL_TO_QUESTION[signal]);
+      continue;
+    }
+
+    const allowed = PREFILL_VALUES[signal as keyof typeof PREFILL_VALUES] as readonly string[];
+    if (Array.isArray(value)) {
+      const kept = value.filter((v) => allowed.includes(String(v))).map(String);
+      const bad = value.filter((v) => !allowed.includes(String(v)));
+      if (bad.length) dropped.push(`${signal}: ${bad.map(String).join(",").slice(0, 40)}`);
+      if (!kept.length) continue;
+      profile[signal] = kept;
+    } else {
+      if (!allowed.includes(String(value))) {
+        dropped.push(`${signal}: ${String(value).slice(0, 24)}`);
+        continue;
+      }
+      profile[signal] = String(value);
+    }
+    skip.push(SIGNAL_TO_QUESTION[signal]);
+  }
+
+  return { profile, skip, dropped };
 }
 
 /** Slug guard. The stem lands in a domain name and in Neo's handoff URL. */
@@ -294,6 +507,28 @@ export async function handleProfile(
   const mailboxLocals = locals.length ? locals : ["hello", "contact"];
   const primary = `${stem}.${TLDS[0]}`;
 
+  const prefill = validatePrefill(profile.prefill);
+  /* Dedupe and drop anything that is not a real question id. The engine re-checks both, but
+     a malformed list would otherwise sit in the snapshot and in the logs looking valid. */
+  const priority = Array.from(new Set(profile.questionPriority ?? [])).filter((id) =>
+    QUESTION_IDS.includes(id as never),
+  );
+
+  /* Logged separately from the line above because it is answering a different question:
+     not "did the call work" but "is the flow actually adapting". `priority` and `skip`
+     varying across sessions is the evidence that it is; both empty on every request means
+     we have quietly gone back to asking everyone the same four questions. */
+  console.error(
+    "[profile-adapt]",
+    JSON.stringify({
+      sid,
+      priority: priority.join(","),
+      skip: prefill.skip.join(","),
+      ...(prefill.dropped.length ? { dropped: prefill.dropped.join(" | ").slice(0, 200) } : {}),
+    }),
+  );
+
+
   return {
     status: 200,
     body: {
@@ -305,9 +540,9 @@ export async function handleProfile(
         domainStem: stem,
         suggestedMailboxes: mailboxLocals,
       },
-      nextQuestionId: QUESTION_IDS.includes(profile.nextQuestionId as never)
-        ? profile.nextQuestionId
-        : null,
+      questionPriority: priority,
+      prefill: prefill.profile,
+      prefilledQuestionIds: prefill.skip,
       reveal: {
         /* priceInr AND available are both null, and that is the point: the model produces
            neither. `/api/domains` fills them from DomScan when the reveal mounts, and until

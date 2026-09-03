@@ -1745,3 +1745,55 @@ wrong side looks exactly like "no access" — the failure mode that has already 
 **What is actually still needed:** how a Vercel function should reach this service *through* its
 gateway. That is the only remaining blocker; the path, the parameter and the login are all
 solved.
+
+---
+
+### 2026-09-03 · The `.co.site` check stays out of the app, and lives in `tools/` instead
+
+**Decided** (Darrel's call, after the trade-off was laid out): the Partner Panel bundle lookup
+answers the availability question, and we are **not** putting it behind the reveal. It ships as
+`tools/cosite-check.mjs`, a local CLI run by a person. The reveal keeps its HTTP probe and
+renders no availability badge on a `.co.site` name.
+
+**What we gave up:** the green "Available" tick on the one domain Neo can actually sell. That is
+a real loss on the screen CLAUDE.md calls the one that must be perfect.
+
+**Why it was still the right call.** Two reasons, and the second is the one that settles it.
+
+1. **An admin session must not sit in a function anonymous traffic can trigger.** Reading nothing
+   but a status code fully solves the PII problem — `200` versus `404` is a complete answer, so
+   there is no body to filter and none is read. What it does not solve is that a public endpoint
+   backed by a Titan Support session is an **enumeration oracle**: anyone who finds it can ask
+   which domains exist in Titan's system.
+2. **The session cannot be minted in code.** `POST /partner-panel/login` takes an email and
+   password. So the only options were a human pasting a session that silently expires
+   mid-demo, or a serverless function logging in as a human Titan Support user — an account with
+   `is2FAEnabled: false` — on every cold start. Neither is something to hand to judges as the
+   integration story, and the first one fails in the least convenient way possible.
+
+**What unblocks the badge, in preference order:** `check-domain-availability` returning something
+other than a `500` (it is purpose-built and returns no customer data, which is why the ladder
+still tries it first); or a scoped service credential for the panel lookup.
+
+**The contract, verified against production**, so this is a config change rather than research
+when either arrives:
+
+    GET https://api.flockmail.com/partner-panel/bundle/list?query=<domain>
+        x-auth-token: <session>
+        x-user-agent: client=partner_panel;tp=titan;…
+    200 = a bundle exists (taken) · 404 = none (free)
+
+Note the host: `api.flockmail.com`, which is what the real panel uses — the third host we were
+pointed at, after `bll.titan.email` and `flockmail-bll.flock-staging.com`.
+
+**Two guards in the tool that are not optional.** It refuses any domain that is not `.co.site`,
+because a `404` means "not in Titan's system" — the same as free inside Neo's own namespace and
+**nothing at all** outside it; asked about `example.com` the API answers 404 for a domain that is
+very much registered. And it never parses the response body, in a local tool as much as in a
+server: the status is the whole answer, so parsing could only add a liability.
+
+**Spot-checked on production while deciding this:** `rbsitsolutions.co.site` and
+`innovatio.co.site` are both taken — Active Neo Business bundles, created Apr and Nov 2024.
+
+**Reverse if:** a scoped credential arrives, or the 500 is fixed. Then `askPartnerPanel` moves
+into `cositeService.ts` as a rung below `askNeo`, and this CLI can stay as the manual spot-check.

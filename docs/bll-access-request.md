@@ -243,15 +243,28 @@ Tried on `flockmail-backend.flock-staging.com`: `/partner-panel/neo/…`, `/part
 generic `500` for unknown routes and those results carry no information. The route lives on bll
 only.
 
-### ⚠️ `bundle/list` is NOT a usable substitute — do not wire it in
+### ⚠️ `bundle/list` answers it, and we deliberately did not wire it into the app
 
-It answers the availability question correctly, and we are deliberately not using it:
+**Decided 03 Sep:** it ships as `tools/cosite-check.mjs`, a local CLI run by a person, and the
+reveal keeps its HTTP probe. Verified against production on the way to that decision —
+`rbsitsolutions.co.site` and `innovatio.co.site` are both taken (Active Neo Business bundles),
+via `GET api.flockmail.com/partner-panel/bundle/list?query=<domain>`, `200` = taken,
+`404` = free.
 
-- **It returns customer PII.** The `200` body includes the customer's email address, name,
-  `customerId`, order history and plan details. A pre-purchase check on a public marketing page
-  must never touch a payload like that, whatever the caller intends.
-- **It needs a Titan Support session.** That is an admin credential; putting one in a serverless
-  function that anonymous traffic can trigger is not something to ship.
+Reading only the status code fully solves the PII problem: `200` versus `404` is a complete
+answer, so no body is read and there is nothing to filter. What it does not solve:
+
+- **A public endpoint backed by a Titan Support session is an enumeration oracle.** Anyone who
+  finds it can ask which domains exist in Titan's system, status codes alone being enough.
+- **The session cannot be minted in code.** `POST /partner-panel/login` takes an email and
+  password, so the only options were a human pasting a session that expires mid-demo, or a
+  serverless function logging in as a human support user (`is2FAEnabled: false`) on every cold
+  start.
+
+So the cost of *not* fixing `check-domain-availability` is concrete: **no availability badge on
+the one domain Neo can actually sell.** Either a working `check-domain-availability` or a scoped
+service credential for the panel lookup removes that, and the first is preferable — it is
+purpose-built and returns no customer data at all.
 
 `check-domain-availability` is the right endpoint precisely because it should return a boolean
 and nothing else. This is a reason to fix it, not to route around it.

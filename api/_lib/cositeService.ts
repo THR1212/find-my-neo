@@ -47,8 +47,20 @@ export interface CoSiteResult {
   domain: string;
   /** true = free, false = taken, null = WE DO NOT KNOW. null must render no badge. */
   available: boolean | null;
-  /** Which upstream answered, for the deck and for debugging a wrong badge. */
-  source: "neo" | "probe" | "cache" | "error";
+  /**
+   * Which upstream PRODUCED the answer — never "the cache".
+   *
+   * Cache state lives in `cached` instead, because conflating the two loses the only thing
+   * `source` is for. `domainService` maps `source === "neo"` to
+   * `confidence: "authoritative"`; when a cache hit overwrote the source, that confidence
+   * silently dropped to null on every request inside the 10-minute TTL, i.e. nearly all of
+   * them. Nothing rendered wrongly today (Reveal reads `available`, not `confidence`), but a
+   * later gate on `confidence === "authoritative"` — the pattern the DomScan rows already
+   * use — would have failed for reasons no one could see.
+   */
+  source: "neo" | "probe" | "error";
+  /** Served from the process-local cache rather than a fresh upstream call. */
+  cached?: boolean;
 }
 
 /** Same shape and TTL as the availability cache in domainService — per-instance, per-session. */
@@ -121,7 +133,7 @@ export async function checkCoSite(stem: string): Promise<CoSiteResult> {
   const domain = `${stem}.${COSITE_SUFFIX}`;
 
   const hit = cache.get(domain);
-  if (hit && Date.now() - hit.at < TTL_MS) return { ...hit.value, source: "cache" };
+  if (hit && Date.now() - hit.at < TTL_MS) return { ...hit.value, cached: true };
 
   let result: CoSiteResult;
   try {

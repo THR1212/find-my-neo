@@ -142,6 +142,10 @@ server-side only. RDAP was built first and removed — see DECISIONS. **Watch th
 
 ## LLM
 
+**`docs/llm-flow.md` explains the whole model flow end to end** — what the two calls are, when
+they fire, what they may and may not decide, what degrades to what, and what is still
+hand-written. Read that before reasoning about the flow; the notes below are the gotchas only.
+
 Provider is **not Anthropic** — it is GPT-5.6 (`gpt-5.6-terra` default, `gpt-5.6-luna` as the
 cheap tier). Model ID lives in `LLM_MODEL`, never hardcoded outside `api/_lib/llm.ts`.
 

@@ -1285,3 +1285,22 @@ a.btn {
   padding: 6px 10px;
   opacity: 0.75;
 }
+
+/* The needs that forced this plan — the recommendation showing its working. Quiet: it is
+   evidence under the price, not a sales list. */
+.plan-needs {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-faint);
+}
+.plan-needs li {
+  position: relative;
+}
+.plan-needs li::before {
+  content: "·";
+  position: absolute;
+  left: -12px;
+}

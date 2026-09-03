@@ -97,6 +97,16 @@ export const NEEDS: Need[] = [
     minSite: "plus",
     when: (p) => {
       if (has(p, "surface", "mail")) return false;
+      /**
+       * Only once we KNOW how they are reached.
+       *
+       * The if-chain this replaced fired on unknown too — "the failure is asymmetric", which
+       * was right when nothing would ever ask. Now something does, and firing on unknown has
+       * a cost the old design could not have: it forces the site floor to Plus before the
+       * first question, so no later answer can change the outcome and every question scores
+       * zero narrowing. A need that fires on ignorance makes the whole flow pointless.
+       */
+      if (p.customerChannel === undefined && p.sellsOnline === undefined) return false;
       /* The one exemption, and it is real: someone whose customers phone them or walk in is
          reachable without a form, and Basic does carry "Business contact info". Dropping this
          when the old if-chain became a need sent a bike shop to Plus for nothing — caught by
@@ -114,7 +124,10 @@ export const NEEDS: Need[] = [
     because: "you take orders or payments online",
     entitlement: "site_products",
     minSite: "plus",
-    when: (p) => has(p, "sellsOnline", true),
+    /* Guarded on mail-only like every other site floor. Without it, "just email" plus "I sell
+       online" is UNSATISFIABLE — no candidate has both no site and a Plus site — and survivors
+       drops to zero. The probe caught that; reading the needs list would not have. */
+    when: (p) => !has(p, "surface", "mail") && has(p, "sellsOnline", true),
   },
   {
     /* Signature Designer is Standard and above (Pandora). "Looks like it came from a real
@@ -208,7 +221,17 @@ export function solve(profile: Profile, mailboxes: number, cycle: string): Solut
     return MAIL_RANK[a.mail] + SITE_RANK[a.site] - (MAIL_RANK[b.mail] + SITE_RANK[b.site]);
   });
 
-  const candidate = viable[0] ?? { mail: "starter", site: "none" };
+  /**
+   * Empty means the needs contradict each other, which is a bug in the needs rather than a
+   * situation a customer can be in. Falling back silently would hide it, so drop the site
+   * floors (the only ones that can conflict with the mail-only constraint), keep the mail
+   * floors, and let it be visible in the run record as an empty `viable`.
+   */
+  const candidate =
+    viable[0] ??
+    allCandidates(profile).filter((c) =>
+      satisfies(c, needs.filter((n) => !n.minSite)),
+    )[0] ?? { mail: "starter", site: "none" };
 
   /* Only the needs that actually forced this candidate above the floor of its dimension —
      a need satisfied by the baseline anyway explains nothing and would pad the reveal. */
@@ -218,4 +241,53 @@ export function solve(profile: Profile, mailboxes: number, cycle: string): Solut
   );
 
   return { candidate, binding, viable };
+}
+
+/**
+ * How much would asking this question narrow the field?
+ *
+ * **Expected reduction in surviving candidates**, as a fraction of what is standing now, with
+ * a uniform prior over answers (we have no reason to think one answer likelier than another).
+ *
+ *     score = 1 - mean(|survivors after each option|) / |survivors now|
+ *
+ * 0 means no answer changes anything; 1 would mean any answer settles it completely.
+ *
+ * Note the count can go UP as well as down, and that is correct rather than a bug: learning
+ * someone is reached by phone alone REMOVES the contact-form floor, so more setups reopen and
+ * the recommendation gets cheaper. "Narrowing" is the usual direction, not a guarantee — one
+ * more reason the on-screen counter was the wrong thing to show.
+ *
+ * THE FIRST VERSION OF THIS WAS WRONG IN AN INSTRUCTIVE WAY. It scored the Gini impurity of
+ * the partition, which measures how EVENLY a question splits the field rather than how much
+ * it shrinks it. A question that discriminates not at all leaves every option holding the
+ * full set — perfectly even — so it scored highest. `import` and `client`, which cannot move
+ * a plan, ranked above `surface`, which decides whether there is a site at all. The formula
+ * was measuring balance and being read as information. Caught by printing the scores instead
+ * of trusting the shape of the maths.
+ *
+ * Deliberately arithmetic and deliberately here rather than in a prompt: the research is
+ * clear that LLMs are inconsistent probabilistic reasoners (arxiv 2605.06915), so belief
+ * updates stay in code and the model is left to read prose, which it is good at.
+ */
+export function discrimination(
+  profile: Profile,
+  question: { id: string; signal: string; options: { resolves: Record<string, unknown> }[] },
+): number {
+  const before = survivors(profile).length;
+  if (before <= 1 || question.options.length === 0) return 0;
+
+  let after = 0;
+  for (const opt of question.options) {
+    /* Apply the option exactly as applyAnswer would, so the simulation cannot drift from what
+       happens when someone actually taps it. */
+    const hypothetical: Profile = { ...profile };
+    for (const [k, v] of Object.entries(opt.resolves)) {
+      hypothetical[k] = v as Profile[string];
+    }
+    after += survivors(hypothetical).length;
+  }
+
+  const meanAfter = after / question.options.length;
+  return Math.max(0, 1 - meanAfter / before);
 }

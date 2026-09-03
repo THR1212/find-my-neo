@@ -50,6 +50,9 @@ export interface RunRecord {
     answeredAt: number;
   }[];
   plan: Record<string, unknown>;
+  /** Setups still viable at the reveal, and the needs that forced the chosen one. */
+  viableSetups: number;
+  needs: { id: string; because: string; entitlement: string }[];
   /** Which feature lines were generated vs fixed, and the words used. */
   reasons: Record<string, string>;
   rationale: { rationale: string; whyNotCheaper: string };
@@ -61,6 +64,9 @@ export function buildRunRecord(input: {
   businessText: string;
   mode: string;
   plan: Record<string, unknown>;
+  /** Setups still viable at the reveal, and the needs that forced the chosen one. */
+  viableSetups: number;
+  needs: { id: string; because: string; entitlement: string }[];
   reasons: Record<string, string>;
   rationale: { rationale: string; whyNotCheaper: string };
 }): RunRecord {
@@ -85,6 +91,8 @@ export function buildRunRecord(input: {
       answeredAt: t.answeredAt,
     })),
     plan: input.plan,
+    viableSetups: input.viableSetups,
+    needs: input.needs,
     reasons: input.reasons,
     rationale: input.rationale,
     degradations: collectedDegradations(),

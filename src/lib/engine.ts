@@ -24,6 +24,7 @@ import {
   type SignalId,
   type SurfaceMap,
 } from "./questions";
+import { discrimination, survivors } from "./candidates";
 
 /**
  * Starting universe. 5,318 is not decorative — it is the real number of distinct
@@ -235,17 +236,37 @@ export function nextQuestion(state: EngineState): Question | null {
   }
 
   /**
-   * Fallback: heaviest unresolved question.
+   * Otherwise: whichever question most narrows the field of possible setups.
    *
-   * Worth knowing what this alone produces, because it WAS the whole selection logic until
-   * 03 Sep: a reduce over a fixed array with fixed weights returns the same answer every
-   * time, so every business got team, surface, channel, sells in that order and `import` and
-   * `client` were unreachable at MAX_QUESTIONS = 4. It is a sane default for when the model
-   * had no opinion; it is not adaptivity, and it should not be the common path.
+   * This replaced a `reduce` over fixed weights, which — being a pure function of which
+   * signals were resolved — returned the same four questions in the same order for every
+   * business alive, and left `import` and `client` permanently unreachable.
+   *
+   * `discrimination` counts how the surviving candidates split across a question's answers,
+   * so the question that most changes the recommendation is asked first. That is the Akinator
+   * mechanic, and it is arithmetic rather than a model call.
+   *
+   * WHY A ZERO SCORE DOES NOT STOP THE FLOW. Once the plan is pinned, the remaining questions
+   * score 0 — no answer moves a candidate. It is tempting to stop there, and it would be wrong:
+   * `importIntent` and `currentClient` no longer gate any plan (Lite is gone) but they still
+   * decide which feature lines appear, so they change the reveal even when they cannot change
+   * the price. Weight order takes over, and `shouldReveal` still governs when to stop.
    */
   if (!chosen) {
-    chosen = unresolved.reduce((best, q) => (q.weight > best.weight ? q : best), unresolved[0]);
+    let best = unresolved[0];
+    let bestScore = discrimination(state.profile, best);
+    for (const q of unresolved.slice(1)) {
+      const score = discrimination(state.profile, q);
+      /* Strictly better narrowing wins; equal narrowing falls back to the data-derived
+         weight, so the tie-break is the old ordering rather than array position. */
+      if (score > bestScore + 1e-9 || (Math.abs(score - bestScore) <= 1e-9 && q.weight > best.weight)) {
+        best = q;
+        bestScore = score;
+      }
+    }
+    chosen = best;
   }
+
   return withSurface(chosen, state.surface);
 }
 
@@ -269,7 +290,17 @@ export const MAX_QUESTIONS = 4;
  */
 const CONFIDENT_ENOUGH = 0.82;
 
+/**
+ * Setups still standing. Exposed so the reveal and the run record can report the real
+ * narrowing rather than a decayed weight.
+ */
+export function viableSetups(state: EngineState): number {
+  return survivors(state.profile).length;
+}
+
 export function shouldReveal(state: EngineState): boolean {
+  /* Covers both "nothing left to ask" and "nothing left worth asking" — nextQuestion returns
+     null when no remaining question could change the recommendation. */
   if (nextQuestion(state) === null) return true;
   if (state.asked.length >= MAX_QUESTIONS) return true;
   // Never cut it off before two — one answer after the free text feels like it guessed.

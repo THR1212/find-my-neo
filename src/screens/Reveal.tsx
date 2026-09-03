@@ -451,6 +451,18 @@ export default function Reveal({
               justifying the recommendation rather than just naming it — see
               docs/competitor-qualification.md. No fixed fallback: if it did not generate, the
               honest thing is to say nothing rather than hand-wave about a cheaper plan. */}
+          {/* Why this shape, derived rather than written. Each line is a need the answers
+              established, and each need's floor traces to a Pandora entitlement — so this is
+              the recommendation showing its working, not copy. Empty when the baseline was
+              enough, which is worth its own sentence: "Starter is genuinely all you need" is
+              a trust-building thing to be able to say. */}
+          {rec.needs.length > 0 && (
+            <ul className="plan-needs">
+              {rec.needs.map((n) => (
+                <li key={n.id}>{n.because}</li>
+              ))}
+            </ul>
+          )}
           {rationale?.whyNotCheaper && (
             <div className="plan-meta plan-cheaper">{rationale.whyNotCheaper}</div>
           )}

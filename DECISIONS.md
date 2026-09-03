@@ -1234,3 +1234,48 @@ the cheaper plan lack" is precisely the question a model answers plausibly and w
 no fallback and simply does not render if it fails: saying nothing beats hand-waving.
 
 Snapshot version 5.
+
+### The narrowing is real now — candidates, needs and discrimination
+
+Hari: *"i dont think hard rules which dont justify the plans make sense."* Correct, and it
+applied to my own fix from earlier the same day: I deleted `mailboxes >= 5 -> Standard` and
+replaced it with `personal_email -> Standard`, which is better sourced and structurally
+identical — one boolean, a 2x price change, no accumulated evidence.
+
+**`src/lib/candidates.ts` is constraint satisfaction, not scoring.** That is deliberate:
+CLAUDE.md is right that an unauditable score is worse than a short if-chain, and a weighted
+model would have been exactly that. Instead an answer establishes a **need**, a need sets a
+**floor** on a tier which traces to a Pandora entitlement, and we recommend the **cheapest**
+setup meeting every floor. Cheapest-satisfying is the anti-over-serving rule from §9, enforced
+rather than intended.
+
+The reveal now prints the needs that bound. "Why this plan" is derived from what actually
+forced the shape — not a template, not a model's opinion.
+
+**Question choice is expected reduction in surviving candidates**, uniform prior over answers.
+That is the Akinator mechanic and it is arithmetic, which matters: the literature is clear that
+LLMs are inconsistent probabilistic reasoners (arxiv 2605.06915), so belief updates stay in
+code and the model is left to read prose. Weight breaks ties, so the data-derived ordering
+still decides between questions that narrow equally.
+
+**Three bugs the probe caught that reading would not have.**
+
+1. *The first scoring formula was backwards.* It measured Gini impurity of the partition — how
+   EVENLY a question splits the field, not how much it shrinks it. A question that discriminates
+   not at all leaves every option holding the full set, which is perfectly even and scored
+   highest: `import` and `client` outranked `surface`. Balance was being read as information.
+2. *Survivors could hit zero.* "Just email" plus "I sell online" made the needs unsatisfiable,
+   because the site floors were not guarded on mail-only. A contradiction, not a customer.
+3. *`capture_enquiries` fired on an unknown channel.* Inherited from the if-chain, where "the
+   failure is asymmetric" was right because nothing would ever ask. Now something does, and
+   firing on ignorance forced the site floor to Plus before question one — so no later answer
+   could change the outcome and **every question scored zero narrowing**. A need that fires on
+   ignorance makes the whole flow pointless.
+
+Worth recording: **the count can go up.** Learning someone is reached by phone alone removes
+the contact-form floor, so more setups reopen and the price falls (₹508 to ₹418 on a real run).
+Narrowing is the usual direction, not a guarantee — one more reason the on-screen counter was
+the wrong thing to show.
+
+Not done yet: `max` and `growth` are in the candidate set but no need reaches them. That is
+what the six new questions are for, and they are next.

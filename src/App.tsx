@@ -24,6 +24,7 @@ import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/per
 import type { RevealContent } from "./lib/session";
 
 import DegradeBanner from "./components/DegradeBanner";
+import SoundToggle from "./components/SoundToggle";
 import NarrowingMeter from "./components/NarrowingMeter";
 import Hook from "./screens/Hook";
 import Describe from "./screens/Describe";
@@ -551,6 +552,10 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Always mounted, never debug-gated: sound ships MUTED and this is the only way to
+          turn it on, so it has to be there for the audience and not just for us. */}
+      <SoundToggle />
 
       {/* Dev-only, and the whole point is that it is impossible to miss: every silent fallback
           on screen as it happens. See the header of DegradeBanner. */}

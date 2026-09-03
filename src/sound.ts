@@ -5,7 +5,31 @@
 
 export type SoundCue = "start" | "select" | "progress" | "cta" | "curious" | "mcq" | "social" | "setup";
 
-let muted = false;
+/**
+ * MUTED BY DEFAULT, and this was shipping the other way round.
+ *
+ * The plan's wording is "muted by default + visible toggle — non-negotiable, a quiet room
+ * will punish you." What was actually here: `muted = false`, `unlockSound()` forcing
+ * `muted = false` on every option tap, and `setSoundMuted` exported and never called — so the
+ * app played on first use, kept re-unmuting itself, and had no control anywhere. A pitch in a
+ * silent room would have been the first time anyone found out.
+ *
+ * The choice persists: someone who turns sound on should not have to do it again after a
+ * reload, and someone who turns it off must not have it come back.
+ */
+const STORAGE_KEY = "fmn-sound";
+
+function initialMuted(): boolean {
+  try {
+    /* Only an explicit "on" unmutes. A cleared store, a private window, or a browser that
+       throws on storage all fall through to silence — the safe direction. */
+    return localStorage.getItem(STORAGE_KEY) !== "on";
+  } catch {
+    return true;
+  }
+}
+
+let muted = initialMuted();
 let ctx: AudioContext | null = null;
 let successClip: HTMLAudioElement | null = null;
 let lastCueAt = 0;
@@ -25,14 +49,26 @@ function context(): AudioContext | null {
   return ctx;
 }
 
+/**
+ * Unlock the AUDIO CONTEXT, never the mute setting.
+ *
+ * Browsers require a user gesture before an AudioContext will run, so this has to be called
+ * from a click — but it used to set `muted = false` at the same time, which meant every option
+ * tap silently re-enabled sound the person may have just turned off. Unlocking and unmuting
+ * are different things and only one of them is the user's decision.
+ */
 export function unlockSound() {
-  muted = false;
   void context()?.resume();
   ensureSuccessClip();
 }
 
 export function setSoundMuted(next: boolean) {
   muted = next;
+  try {
+    localStorage.setItem(STORAGE_KEY, next ? "off" : "on");
+  } catch {
+    /* Private window or storage disabled: the setting still applies for this session. */
+  }
   if (next) {
     if (successClip) successClip.pause();
     return;

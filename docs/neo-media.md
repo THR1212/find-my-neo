@@ -59,7 +59,6 @@ ffmpeg -y -i "$SRC" -an \
   "public/neo/videos/$NAME.mp4"
 
 # Wait-reel films (apps, site, invoice): same command with -crf 18
-```
 
 # Template shots: 560px wide
 ffmpeg -y -i "$SRC" -vf "scale=560:-1:flags=lanczos" -quality 72 \

@@ -189,6 +189,11 @@ export default function App() {
     saveSnapshot({ stage, engine, rawText, reveal, summary, preferredQuestionId, neoSite });
   }, [stage, engine, rawText, reveal, summary, preferredQuestionId, neoSite]);
 
+  useEffect(() => {
+    document.documentElement.classList.toggle("is-reveal", stage === "reveal");
+    return () => document.documentElement.classList.remove("is-reveal");
+  }, [stage]);
+
   /**
    * Apply an answer and decide where to go next.
    *

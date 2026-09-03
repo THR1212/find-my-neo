@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { DomainOption, RevealContent } from "../lib/session";
-import { lookupDomains, type DomainInfo } from "../lib/domains";
+import { availableFromLookup, lookupDomains, type DomainInfo } from "../lib/domains";
 import { pickFeatures, type FeatureSurface } from "../lib/features";
 import { recommend, CYCLE_LABEL } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
@@ -12,9 +12,9 @@ import type { Profile } from "../lib/engine";
 import { playSetupReady, playSound, unlockSound } from "../sound";
 
 /**
- * THE screen. Domain, mailboxes, plan and CTA stay above the fold on a laptop.
- * Visual story on the right follows Mailchimp/Rinda: justify the recommendation, show
- * what you get, keep start-over visible (docs/competitor-qualification.md).
+ * Locked-viewport reveal. Squarespace Blueprint / Wix ADI / Linear-settings pattern:
+ * the page does not scroll; left is the recommendation, right is a live preview pane.
+ * Taken domains never appear — availableFromLookup drops them (Darrel, 3 Sep).
  */
 
 export default function Reveal({
@@ -38,8 +38,7 @@ export default function Reveal({
   neoSite: NeoSite | null;
   onRestart: () => void;
 }) {
-  const [chosenDomain, setChosenDomain] = useState(0);
-  const [userPickedDomain, setUserPickedDomain] = useState(false);
+  const [chosenName, setChosenName] = useState<string | null>(null);
   const [extraDomains, setExtraDomains] = useState<DomainOption[]>([]);
   const [ownInput, setOwnInput] = useState("");
   const [ownChecking, setOwnChecking] = useState(false);
@@ -49,18 +48,12 @@ export default function Reveal({
 
   const stem = reveal?.domains[0]?.name.split(".")[0] ?? "";
   useEffect(() => {
+    setChosenName(null);
     if (!stem) return;
     let cancelled = false;
     lookupDomains(stem).then((rows) => {
       if (cancelled || !rows.length) return;
-      setLive(Object.fromEntries(rows.map((r) => [r.domain, r])));
-
-      if (userPickedDomain) return;
-      const names = reveal?.domains.map((d) => d.name) ?? [];
-      const chosenIsTaken = rows.some((r) => r.domain === names[chosenDomain] && !r.available);
-      if (!chosenIsTaken) return;
-      const freeIdx = names.findIndex((n) => rows.some((r) => r.domain === n && r.available === true));
-      if (freeIdx >= 0) setChosenDomain(freeIdx);
+      setLive((prev) => ({ ...prev, ...Object.fromEntries(rows.map((r) => [r.domain, r])) }));
     });
     return () => {
       cancelled = true;
@@ -102,8 +95,20 @@ export default function Reveal({
   }
 
   const showSite = surface !== "mail";
-  const allDomains = [...reveal.domains, ...extraDomains];
-  const domain = allDomains[chosenDomain] ?? allDomains[0];
+  const notesByName = Object.fromEntries(reveal.domains.map((d) => [d.name, d.note]));
+  const extraNames = new Set(extraDomains.map((d) => d.name));
+  const suggested: DomainOption[] = availableFromLookup(
+    reveal.domains.map((d) => d.name),
+    Object.values(live).filter((r) => r.domain.startsWith(`${stem}.`) && !extraNames.has(r.domain)),
+  ).map((row, i) => ({
+    name: row.domain,
+    available: row.available,
+    priceInr: row.priceInr,
+    note: notesByName[row.domain],
+    recommended: i === 0,
+  }));
+  const allDomains = [...suggested, ...extraDomains];
+  const domain = allDomains.find((d) => d.name === chosenName) ?? allDomains[0];
 
   async function checkOwnDomain() {
     const raw = ownInput.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
@@ -122,6 +127,10 @@ export default function Reveal({
       setOwnError("That one's already in the list.");
       return;
     }
+    if (live[name]?.available === false) {
+      setOwnError("That one's taken.");
+      return;
+    }
 
     setOwnChecking(true);
     setOwnError(null);
@@ -134,18 +143,19 @@ export default function Reveal({
       return;
     }
     setLive((prev) => ({ ...prev, [row.domain]: row }));
+    if (row.available !== true) {
+      setOwnError(row.available === false ? "That one's taken." : "Couldn't confirm that one's free.");
+      return;
+    }
     setExtraDomains((prev) => [
       ...prev,
-      { name: row.domain, available: row.available, priceInr: row.priceInr, note: "Your own idea" },
+      { name: row.domain, available: true, priceInr: row.priceInr, note: "Your own idea" },
     ]);
-    if (row.available === true) {
-      setUserPickedDomain(true);
-      setChosenDomain(allDomains.length);
-    }
+    setChosenName(row.domain);
     setOwnInput("");
   }
-  const mailboxCount = Math.max(reveal.mailboxes.length, answeredMailboxes ?? 0);
 
+  const mailboxCount = Math.max(reveal.mailboxes.length, answeredMailboxes ?? 0);
   const surfaces: FeatureSurface[] = showSite ? ["mail", "site"] : ["mail"];
   const features = pickFeatures(profile, surfaces);
   const rec = recommend(profile, mailboxCount);
@@ -157,14 +167,16 @@ export default function Reveal({
 
   const handoffUrl = buildHandoffUrl({
     profile,
-    businessName: neoName ?? (profile.brandName as string) ?? domain.name.split(".")[0],
+    businessName:
+      neoName ?? (profile.brandName as string) ?? domain?.name.split(".")[0] ?? "your business",
     businessDescription: businessText ?? "",
     neoIndustryKey: neoSite?.industryKey,
   });
 
-  const liveAvail = live[domain.name]?.available ?? domain.available;
-  const livePrice = live[domain.name]?.priceInr ?? domain.priceInr;
+  const liveAvail = domain ? (live[domain.name]?.available ?? domain.available) : null;
+  const livePrice = domain ? (live[domain.name]?.priceInr ?? domain.priceInr) : null;
   const locals = reveal.mailboxes.map((m) => m.address.split("@")[0]).filter(Boolean);
+  const domainName = domain?.name ?? `${stem || "yourbusiness"}.com`;
 
   return (
     <div className="reveal-page">
@@ -173,25 +185,25 @@ export default function Reveal({
           <p className="eyebrow">Your setup</p>
 
           <p className="reveal-label">Recommended domain</p>
-          <div className="domain">
-            <span className="domain-name">{domain.name}</span>
-            {liveAvail === true && <span className="badge">Available</span>}
-            {live[domain.name]?.available === false && (
-              <span className="badge badge-taken">Taken</span>
-            )}
-            {livePrice !== null && (
-              <span className="domain-price">
-                ~₹{livePrice.toLocaleString("en-IN")}/yr
-                <span className="price-caveat">approx</span>
-              </span>
-            )}
-          </div>
+          {domain ? (
+            <div className="domain">
+              <span className="domain-name">{domain.name}</span>
+              {liveAvail === true && <span className="badge">Available</span>}
+              {livePrice !== null && (
+                <span className="domain-price">
+                  ~₹{livePrice.toLocaleString("en-IN")}/yr
+                  <span className="price-caveat">approx</span>
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="domain-note">Every name we tried is taken. Check one of yours below.</p>
+          )}
 
           {allDomains.length > 1 && (
             <div className="alts" role="group" aria-label="Choose a domain">
-              {allDomains.map((d, i) => {
-                const active = i === chosenDomain;
-                const taken = live[d.name]?.available === false;
+              {allDomains.map((d) => {
+                const active = d.name === (domain?.name ?? chosenName);
                 const price = live[d.name]?.priceInr ?? d.priceInr;
                 return (
                   <button
@@ -200,8 +212,7 @@ export default function Reveal({
                     onClick={() => {
                       unlockSound();
                       playSound("select");
-                      setUserPickedDomain(true);
-                      setChosenDomain(i);
+                      setChosenName(d.name);
                     }}
                     title={d.note}
                     aria-pressed={active}
@@ -210,17 +221,14 @@ export default function Reveal({
                     {price !== null && (
                       <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
                     )}
-                    {taken && <span className="alt-taken">taken</span>}
                   </button>
                 );
               })}
             </div>
           )}
 
-          <div className="own-domain">
-            <label className="own-label" htmlFor="own-domain-input">
-              Had a different name in mind?
-            </label>
+          <details className="own-domain">
+            <summary className="own-label">Had a different name in mind?</summary>
             <div className="own-row">
               <input
                 id="own-domain-input"
@@ -249,7 +257,7 @@ export default function Reveal({
               </button>
             </div>
             {ownError && <p className="own-error">{ownError}</p>}
-          </div>
+          </details>
 
           <div className="reveal-block reveal-block-tight">
             <p className="reveal-label">Your mailboxes</p>
@@ -257,7 +265,7 @@ export default function Reveal({
               <div key={m.address} className="mailbox">
                 <span className="mailbox-address">
                   {m.address.split("@")[0]}
-                  <span className="mailbox-domain">@{domain.name}</span>
+                  <span className="mailbox-domain">@{domainName}</span>
                 </span>
                 <span className="mailbox-label">{m.label}</span>
               </div>
@@ -274,8 +282,13 @@ export default function Reveal({
               )}
             </div>
             <p className="plan-why">{rec.rationale}</p>
+            {features.length > 0 && (
+              <p className="plan-meta">
+                {features.map((f) => f.name).join(" · ")}
+              </p>
+            )}
             <p className="plan-meta">
-              {CYCLE_LABEL[rec.cycle]} · cancel anytime · you finish the site in Neo's builder
+              {CYCLE_LABEL[rec.cycle]} · cancel anytime
             </p>
             <div className="row reveal-cta">
               <a
@@ -287,7 +300,7 @@ export default function Reveal({
                 onClick={() => {
                   unlockSound();
                   playSound("cta");
-                  void navigator.clipboard?.writeText(domain.name).catch(() => {});
+                  void navigator.clipboard?.writeText(domainName).catch(() => {});
                 }}
               >
                 Claim it and start building
@@ -300,39 +313,11 @@ export default function Reveal({
         </section>
 
         <SetupStory
-          domain={domain.name}
+          domain={domainName}
           locals={locals}
           showSite={showSite}
           neoSite={neoSite}
-          businessText={businessText}
         />
-      </div>
-
-      <div className="reveal-below">
-        {showSite && (
-          <div className="reveal-block">
-            <p className="reveal-label">Your site, generated by Neo</p>
-            {neoSite ? <NeoSitePreview site={neoSite} delay={0} /> : <NeoSiteGenerating />}
-          </div>
-        )}
-
-        {features.length > 0 && (
-          <div className="reveal-block">
-            <p className="reveal-label">Why this shape, for you</p>
-            {features.map((f) => (
-              <div key={f.id} className="feature">
-                <span className="feature-name">{f.name}</span>
-                <span className="feature-because">— {f.because}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <p className="plan-meta plan-note">
-          We'll copy {domain.name} for you — Neo's domain purchase is coming, so for now
-          you'll connect it under "use a domain I own".
-          {domain.note ? ` ${domain.note}` : ""}
-        </p>
       </div>
     </div>
   );

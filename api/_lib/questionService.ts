@@ -334,7 +334,18 @@ export async function handleQuestions(
       schemaName: "question_surface",
       /* Nine questions now, not six. Raised with the bank; llm.ts reports truncation rather
          than letting it surface as a JSON parse error. */
-      maxOutputTokens: 3800,
+      /**
+       * 8000, and the ceiling is nearly free to raise: billing is on tokens actually used,
+       * not on the cap. What it buys is headroom for REASONING tokens, which gpt-5.6 counts
+       * against `max_completion_tokens` alongside the visible output. The visible JSON here is
+       * only ~1,200-1,500 tokens; at 3,800 a long deliberation left too little room to finish
+       * it, and a live call came back "output truncated ... the JSON is incomplete" after 25s.
+       *
+       * That failure is invisible from outside: the service returns an empty surface, every
+       * question renders from the fixed bank, and the flow looks like it simply never
+       * personalised anything. Which is the symptom this whole thread began with.
+       */
+      maxOutputTokens: 8000,
       /* The long call. 45s and no retry beats 20s twice: the old pair spent 40.5s to return
          nothing, and nothing here means every screen reads from the fixed bank. Nobody waits
          on this — it resolves while the guess screen is up and is dropped if a question is

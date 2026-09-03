@@ -207,6 +207,55 @@ reach the handler and 500. Every other form we tried returns
 a JSON array. Worth confirming the intended encoding, since batching would let us check the whole
 reveal in one call.
 
+### Proof the 500 is a bug: your own admin panel resolves the same domain fine
+
+Captured from `admin-staging.titan.email` (Partner Panel / Titan Support) with DevTools, logged
+in as an ops user. The panel's domain lookup calls a **different host** from the one we were
+given:
+
+```
+GET https://flockmail-backend.flock-staging.com/partner-panel/bundle/list?query=<domain>
+    x-auth-token: <session>
+    x-user-agent: client=partner_panel;tp=titan;os=…;appVersion=294;locale=en
+    origin: https://admin-staging.titan.email
+```
+
+Results:
+
+| query | status | meaning |
+|---|---|---|
+| `14test.costaging.site` | `200` | 1 domain bundle, `status: active`, `source: "Neo Site"`, `partner: {id: 71, name: "Neo Business"}` |
+| `zzqx7v9nonexistentstem.costaging.site` | `404` | no bundle |
+
+**So `14test.costaging.site` is a real, active bundle** — three live orders against it (Free Site,
+Free Domain, Starter MailSuite), verified MX and SPF. The data
+`check-domain-availability` needs is present and queryable, and that endpoint **still returns
+`500` for that exact domain**. That is a server-side bug, not a data gap and not our request.
+
+This also incidentally confirms the point we were told and built on: the bundle is `active` with
+an unpublished site, so an order does hold the name.
+
+### `check-domain-availability` is not on the backend host
+
+Tried on `flockmail-backend.flock-staging.com`: `/partner-panel/neo/…`, `/partner-panel/…`,
+`/neo/…` — all `500`. But a deliberately bogus path
+(`/partner-panel/this-route-does-not-exist-zzqx`) **also** returns `500`, so that host answers a
+generic `500` for unknown routes and those results carry no information. The route lives on bll
+only.
+
+### ⚠️ `bundle/list` is NOT a usable substitute — do not wire it in
+
+It answers the availability question correctly, and we are deliberately not using it:
+
+- **It returns customer PII.** The `200` body includes the customer's email address, name,
+  `customerId`, order history and plan details. A pre-purchase check on a public marketing page
+  must never touch a payload like that, whatever the caller intends.
+- **It needs a Titan Support session.** That is an admin credential; putting one in a serverless
+  function that anonymous traffic can trigger is not something to ship.
+
+`check-domain-availability` is the right endpoint precisely because it should return a boolean
+and nothing else. This is a reason to fix it, not to route around it.
+
 ### Request IDs for tracing
 
 ```
@@ -227,6 +276,8 @@ reveal in one call.
 0903_090645_2_jmMnuv8VBK   p_54 token, same value            -> 500
 0903_090647_2_tAb43TVDH5   p_1 token,  same value            -> 500
 0903_090648_2_4Zh1On1lSi   p_999 token, same value           -> 500
+
+0903_100343_2_cNlr2y7YfC   partner-panel bundle/list, SAME domain -> 200 (works)
 ```
 
 The last five landed within seven seconds of each other on the same handler, differing only in
@@ -234,7 +285,11 @@ the partner id, which makes them a clean set to diff in the logs.
 
 ## What we need
 
-**Q1 — Why does the handler return `500` for every valid domain?**
+**Q1 — Why does the handler return `500` for a domain your own admin panel resolves fine?**
+`partner-panel/bundle/list?query=14test.costaging.site` returns `200` with an active bundle
+(req `0903_100343_2_cNlr2y7YfC`). `check-domain-availability` returns `500` for the same domain
+seconds later. The data is there; the endpoint is broken.
+
 `flockmail-bll.flock-staging.com`, `GET`, partner token `p_54:…`,
 `?domainName=14test.costaging.site`. Request IDs above. `INVALID_DOMAIN` on a malformed input
 proves we reach the handler's validation, so the `500` sits downstream of everything we control.
@@ -246,6 +301,12 @@ Ruled out already: the namespace (`costaging.site` behaves like `co.site`), a mi
 `p_71`, `p_54`, `p_1` and `p_999` all return the same `500`. Since `p_999` is not a real partner
 and still gets past auth, the prefix only satisfies a format check and the handler fails before
 anything partner-specific happens.
+
+**Q1b — Which host and credential should we actually be using?**
+The Partner Panel frontend talks to `flockmail-backend.flock-staging.com/partner-panel/*` with
+`x-auth-token` plus an `x-user-agent` client string — not to `flockmail-bll…` with a `p_N:`
+token. If bll sits behind that backend, we may be calling it past its gateway, which would also
+explain why any `p_N:` prefix (including `p_999`) gets past auth.
 
 **Q2 — Is there a production equivalent of the staging host, and a production partner token?**
 We were given `flockmail-bll.flock-staging.com` with a staging token. `bll.titan.email` returns

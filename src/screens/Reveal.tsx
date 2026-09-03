@@ -212,12 +212,23 @@ export default function Reveal({
       ? ((blockData(neoSite, "header") as { title: string }).title)
       : null;
 
+  /**
+   * Which of Neo's two templates they picked, by `templateKey`.
+   *
+   * Null until they choose, and null is a real state: it means "we did not ask them to decide
+   * something they had no opinion about", and the handoff then omits `templateKey` so Neo
+   * picks as it does today. Defaulting it to the first pane would put a choice in the URL
+   * that nobody made, which is the thing this control exists to stop.
+   */
+  const [chosenTemplate, setChosenTemplate] = useState<string | null>(null);
+
   const handoffUrl = buildHandoffUrl({
     profile,
     businessName:
       neoName ?? (profile.brandName as string) ?? domain?.name.split(".")[0] ?? "your business",
     businessDescription: businessText ?? "",
     neoIndustryKey: neoSite?.industryKey,
+    neoTemplateKey: chosenTemplate,
   });
 
   const liveAvail = domain ? (live[domain.name]?.available ?? domain.available) : null;
@@ -528,6 +539,14 @@ export default function Reveal({
           profile={profile}
           mailPlanId={rec.mailPlan.id}
           mailPlanName={rec.mailPlan.name}
+          chosenTemplate={chosenTemplate}
+          onChooseTemplate={(key) => {
+            unlockSound();
+            playSound("select");
+            /* Tapping the chosen one again clears it, so a mis-tap is undoable without a
+               "none of these" control. Back to null means Neo picks, as it does today. */
+            setChosenTemplate((prev) => (prev === key ? null : key));
+          }}
         />
       </div>
     </div>

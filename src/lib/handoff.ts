@@ -113,6 +113,21 @@ export interface HandoffInput {
    * fallback for the window before that, and for when the call degrades.
    */
   neoIndustryKey?: string | null;
+  /**
+   * The template THEY picked, from the two Neo generated side by side.
+   *
+   * This is the one param docs/neo-product-facts.md tells us not to guess, and the reason it
+   * is safe to send now is that we are no longer guessing. Neo picks the template RANDOMLY
+   * client-side (§ "Generate design"), and the same bakery came back `fashion_store`, then
+   * `property` ("Real Estate"), then `bio_site` across three runs. The note below still holds
+   * for a DERIVED key — sending our guess would make us complicit in the bug we are pointing
+   * at — but a person choosing between two of Neo's own outputs is not a guess. It is the
+   * answer to the complaint.
+   *
+   * Undefined until the generator lands and someone picks, and omitted entirely when so:
+   * Neo then falls back to its own selection, which is exactly today's behaviour.
+   */
+  neoTemplateKey?: string | null;
   /** Business name, e.g. "Proof & Butter". Neo's field caps at 55 characters. */
   businessName: string;
   /** The user's original free text. Neo's field caps at 2000 characters. */
@@ -124,6 +139,7 @@ export function buildHandoffUrl({
   businessName,
   businessDescription,
   neoIndustryKey,
+  neoTemplateKey,
 }: HandoffInput): string {
   const params = new URLSearchParams();
 
@@ -136,6 +152,13 @@ export function buildHandoffUrl({
      industries have no observed Neo key and send nothing rather than a near neighbour. */
   const ik = neoIndustryKey?.trim() || industryKeyFor(profile.industry);
   if (ik) params.set("industryKey", ik);
+
+  /* `templateKey` only, never `templateName`. Neo's real URL carries both, and templateName is
+     a JSON-encoded {key, value} whose VALUE is their display string — "Real Estate" for
+     `property`. We have the key from their own generator; we do not have their label, and
+     `templateLabel()` derives "Property", which is not the same string. A malformed
+     templateName is worse than an absent one, so we send what we actually know. */
+  if (neoTemplateKey) params.set("templateKey", neoTemplateKey);
 
   params.set("hasUsedAiFlow", "true");
   params.set("source_hook", "purchaseFlow");

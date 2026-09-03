@@ -125,6 +125,44 @@ DECISIONS 2026-09-02 it is the heaviest question in our bank.
 
 ---
 
+## Correction, 2026-09-03: five more recommenders, found by hand
+
+Darrel's own walk of the market (`Research Plan Recommendation.pdf`) turned up five products
+running this pattern, and **one of them contradicts what the desk research above reported**.
+
+| Product | What it asks | What it outputs |
+|---|---|---|
+| **Mailchimp** ([compare-plans](https://mailchimp.com/pricing/marketing/compare-plans/)) | 4 — team size, marketing goals, most-important features, number of contacts | Recommended plan, **why that plan**, and what is in it |
+| **Rinda** ([pricing](https://www.rinda.ai/en/pricing)) | 3 — business type (3 options), number of people, how they manage buyer communication | Recommended plan, **why it's a fit**, features, "try again" |
+| **Cynet** ([hosting recommender](https://www.cynet.com.my/hosting-recommender?#recommender)) | A question sequence | Recommended plan **plus alternatives**, and a start-over |
+| **Capterra** ([get-software-recommendations](https://insights.capterra.com/get-software-recommendations)) | Industry, client size | Hands off to a human expert |
+| **Mailpro** ([pricing](https://www.mailpro.com/pricing)) | One-page form | Cost updates dynamically |
+
+**The correction:** the desk research above reported no native question-then-recommend flow
+verified on Mailchimp. That was wrong — Mailchimp ships one, and it is the closest analogue to
+ours of anything found. Automated search missed it because the flow sits behind an interaction
+on the compare-plans page rather than on a documented URL. Worth remembering as a limit of desk
+research generally: **absence of evidence here was mostly absence of looking properly.** The
+"rare in B2B SaaS" claim below should be read with that in mind — it is weaker than it looked.
+
+**Four design patterns worth stealing, all of them ours to lose:**
+
+1. **"Why this plan"** — Mailchimp and Rinda both justify the recommendation rather than just
+   naming it. We already have the machinery: `rationale` in `rules.ts` and the `because` strings
+   in `features.ts`. This validates showing them prominently on the reveal, not as small print.
+2. **Show alternatives** — Cynet recommends one plan *and* lists the others. We do this for
+   domains (priced alternates) but show exactly one plan. A "why not the cheaper one" line
+   would pre-empt the most obvious objection.
+3. **Start over / try again** — Cynet and Rinda both offer it. We have `onRestart`; this says
+   keep it visible rather than tucked away.
+4. **Three to four questions** — Mailchimp asks 4, Rinda 3. Our `MAX_QUESTIONS = 4` now has
+   direct precedent from the two closest analogues, not just the telecom/insurance range.
+
+**And the addresses gap holds even here.** Rinda asks "number of people". Mailchimp asks team
+size *and* number of contacts — a quantity that drives price, which is structurally what
+`mailboxCount` is for us. Neither asks how many *addresses* the business needs. Five more
+products, and still nobody occupies that ground.
+
 ## Three risks this research turns up
 
 **1. Every conversion number available is vendor marketing.** Octane AI, Zoovu, RevenueHunt and

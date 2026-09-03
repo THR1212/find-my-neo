@@ -1,4 +1,4 @@
-import { has, type Profile } from "./profile";
+import type { Profile } from "./profile";
 
 /**
  * The question bank.
@@ -33,7 +33,6 @@ export type SignalId =
   | "teamSize"
   | "importIntent"
   | "currentClient"
-  | "inboxTools"
   | "surface"
   | "customerChannel"
   | "sellsOnline"
@@ -334,65 +333,6 @@ QUESTIONS.push(
   },
   {
     /**
-     * THE GATE. One binary, and it is the only thing besides storage that can reach Max.
-     *
-     * ## Why this exists, from our own data
-     *
-     * docs/data-findings.md §5 records real paywall clicks, and it is the most directly useful
-     * thing we have: **Storage Banner is the dominant trigger in every single industry at
-     * 32-52%**, Read Receipt is #2 at 8-12%, and *everything else is low single digits*. Its
-     * own conclusion: "Storage and mailbox headroom deserve a question; most of the feature
-     * list does not."
-     *
-     * `extras` was doing the opposite. Three of its options — invoicing, campaigns, bookings —
-     * each forced Max on a single tick, and **none of those three appears in the paywall data
-     * at all**. So the one question that most often set the price was keyed to features almost
-     * nobody upgrades for, and a solo operator who tapped one went Rs418 -> Rs868.
-     *
-     * ## Why the answer is not simply to delete the floors
-     *
-     * Pandora is unambiguous that Invoice Builder, Campaign Mode and Appointment Booking are
-     * Max-only. Someone who genuinely runs their week out of those needs Max, and recommending
-     * Standard would be selling them a plan that cannot do the job. Both facts are true at
-     * once: the entitlement really is Max, and almost nobody upgrades because of it.
-     *
-     * So the fix is not to change what Max contains, it is to stop inferring that someone
-     * needs it. This asks. Two deliberate steps now stand between a person and Max — say yes
-     * here, then name which — instead of one tick on a five-item checklist.
-     *
-     * NEVER PREFILLABLE. It is the gate; reading it out of a description would put the whole
-     * point back. It is absent from PREFILL_VALUES in profileService for that reason.
-     */
-    id: "inbox",
-    signal: "inboxTools",
-    /* NAMES THE THINGS IN THE PROMPT. It was "Should Neo run any of this for you?" with the
-       list in the sub-line, and the model — free to reword — produced "Should Neo help manage
-       any of this?", where "this" refers to nothing on screen above it. A prompt that depends
-       on its own sub-line to mean anything gives the rewrite nothing to hold on to. */
-    prompt: "Want Neo handling quotes, campaigns or bookings?",
-    sub: "Invoices and quotes, messages to past customers, or a booking calendar.",
-    /* Heavier than `extras` was, because this is now the question that decides the tier. */
-    weight: 0.22,
-    options: [
-      {
-        /* Deliberately says nothing about a site. It read "No, just email and a site", which
-           offered a site to someone who had already answered "Just email" one screen earlier —
-           run cz3npnaz, where they picked mail-only and were then shown a site anyway. This
-           question is asked on both surfaces, so its labels must work on both. */
-        id: "no",
-        label: "No, not right now",
-        hint: "You can add these later",
-        resolves: { inboxTools: false },
-      },
-      {
-        id: "yes",
-        label: "Yes, that would save me time",
-        resolves: { inboxTools: true },
-      },
-    ],
-  },
-  {
-    /**
      * FOUR Max gates in ONE multi-select, and the reason is drop-off asymmetry.
      *
      * These were four separate yes/no questions and the probe showed why that fails: a "yes"
@@ -412,9 +352,6 @@ QUESTIONS.push(
      */
     id: "extras",
     signal: "extras",
-    /* Detail, not a gate. Only reached after an explicit yes on `inbox`, so the Max floors
-       below it now require two deliberate answers rather than one stray tick. */
-    askOnly: (p) => has(p, "inboxTools", true),
     /**
      * "REGULAR PART OF YOUR WORK", NOT "DO YOU DO THIS TODAY".
      *
@@ -433,16 +370,40 @@ QUESTIONS.push(
      * both depend on. What changed is that they now describe the work rather than the mail
      * feature: someone who quotes jobs recognises themselves whether or not they email a PDF.
      */
-    prompt: "Which of them?",
-    sub: "Pick what you actually do often — it decides which tools you get.",
+    /**
+     * PAST BEHAVIOUR WITH A RECALL ANCHOR, and the wording is the whole design.
+     *
+     * This question decides Max on its own, so how it is asked matters more than anything
+     * else in the bank. Three versions in one day, and the research settles it:
+     *
+     *   "Do you do any of these today?"     -> present tense, vague. A cinema reseller with
+     *                                          NO MAILBOX ticked two of them.
+     *   "Want Neo handling this for you?"   -> intent, and the worst of the three. Stated
+     *                                          intent runs ~21% above actual behaviour
+     *                                          (Schmidt & Bijmolt, 77 studies; median
+     *                                          hypothetical:actual ratio 1.35, Murphy 2005).
+     *                                          Everybody wants help.
+     *   "Which of these did you do LAST MONTH?"  <- past behaviour, with a recall window.
+     *
+     * The anchor is the mitigation the hypothetical-bias literature recommends: a month is
+     * short enough to remember and long enough to be fair, and it turns "would I like this"
+     * into "did that happen", which a person can check against their own memory.
+     *
+     * It also folds the `inbox` gate back in. That gate existed to stop one stray tick
+     * reaching Max, and it worked — but it asked intent, which is the failure this is
+     * avoiding, and it cost a screen. A tick now means "this actually happened", which is a
+     * stronger signal than two taps where the first one asked what they wanted.
+     */
+    prompt: "Which of these did you do last month?",
+    sub: "Not what you would like to do — what actually happened.",
     weight: 0.2,
     multi: true,
     freeText: { placeholder: "Something else you do a lot of?" },
     options: [
       {
         id: "invoices",
-        label: "Quoting and invoicing jobs",
-        hint: "Regularly, not once a year",
+        label: "Sent a quote or invoice",
+        hint: "More than once",
         resolves: { extras: "invoices" },
       },
       {
@@ -451,7 +412,7 @@ QUESTIONS.push(
         hint: "Offers, new stock, seasonal notes",
         resolves: { extras: "campaigns" },
       },
-      { id: "bookings", label: "Book people in for a time", resolves: { extras: "bookings" } },
+      { id: "bookings", label: "Booked someone in for a time", resolves: { extras: "bookings" } },
       {
         id: "receipts",
         label: "Check whether mail was opened",

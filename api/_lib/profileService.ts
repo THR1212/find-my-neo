@@ -71,10 +71,6 @@ const QUESTION_IDS = [
      `questionPriority` is enum-constrained, so the model could not RANK them at all, and the
      adaptivity built around them would have been half-disabled while looking fine. */
   "volume",
-  /* The gate that decides the mail tier. Rankable and rewordable, but deliberately absent
-     from PREFILL_VALUES below: inferring it from a description is the thing the split exists
-     to stop. */
-  "inbox",
   "extras",
   "catalogue",
 ] as const;

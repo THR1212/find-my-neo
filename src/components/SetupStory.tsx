@@ -59,7 +59,12 @@ export default function SetupStory({
        an id-only check would show the Signature Designer card under the Signature Designer
        film. */
     const filmed = new Set(clips.flatMap((c) => [c.id, c.featureId ?? c.id]));
-    const shown = features.filter((f) => !filmed.has(f.id)).slice(0, 3 - clips.length);
+    /* Only features Neo actually has artwork for. `custom_domain`, `gmail_sync` and
+       `imap_pop` have no asset in their set, and a card with a heading and an empty half is
+       worse than one card fewer — the stack sizes to what is left, so the others grow. */
+    const shown = features
+      .filter((f) => !filmed.has(f.id) && featureArt(f.id))
+      .slice(0, 3 - clips.length);
     return (
       <aside className="setup-story setup-story-mail" aria-label="What comes with your mail">
         <p className="story-kicker">On {planLabel}</p>
@@ -72,11 +77,9 @@ export default function SetupStory({
               {/* Neo's own artwork for this entitlement, several of which are animated. Null
                   for the few with no asset in their set — a card with no picture beats a
                   borrowed one, which is the same rule the site generator follows. */}
-              {featureArt(f.id) && (
-                <div className="mail-feature-art">
-                  <img src={featureArt(f.id)!} alt="" loading="lazy" />
-                </div>
-              )}
+              <div className="mail-feature-art">
+                <img src={featureArt(f.id)!} alt="" loading="lazy" />
+              </div>
               <figcaption>
                 <span className="neo-loop-name">{f.name}</span>
                 <span className="neo-loop-caption">{f.because}</span>

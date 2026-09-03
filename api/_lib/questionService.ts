@@ -80,17 +80,10 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
       heavy: "Large files, often",
     },
   },
-  inbox: {
-    prompt: "Want Neo handling quotes, campaigns or bookings?",
-    options: {
-      no: "No, not right now",
-      yes: "Yes, that would save me time",
-    },
-  },
   extras: {
-    prompt: "Which of these are a regular part of your work?",
+    prompt: "Which of these did you do last month?",
     options: {
-      invoices: "Quoting and invoicing jobs",
+      invoices: "Sent a quote or invoice",
       campaigns: "Message past customers as a group",
       bookings: "Book people in for a time",
       receipts: "Check whether mail was opened",

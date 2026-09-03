@@ -170,39 +170,6 @@ export const NEEDS: Need[] = [
   },
   {
     /**
-     * THE FLOOR SITS ON THE GATE, not only on the detail behind it — and the first attempt at
-     * this split got it wrong in a way worth recording.
-     *
-     * `inbox` was added as a binary in front of `extras`, and `extras` gated on it. But every
-     * need keyed on `extras` values, so answering `inbox` moved no floor, `discrimination`
-     * scored it ZERO, and the engine — correctly, by its own rule — never asked it. Which
-     * gated `extras` out permanently. A florist who genuinely invoices came back Starter: the
-     * split had not made Max rarer, it had made it unreachable.
-     *
-     * A gate question has to be worth asking on its own terms. So the yes answer carries the
-     * floor, and the three needs below only explain WHICH thing earned it.
-     */
-    id: "runs_from_the_inbox",
-    because: "you want Neo running quotes, campaigns or bookings for you",
-    entitlement: "invoice_builder",
-    minMail: "max",
-    /**
-     * ONLY WHILE `extras` IS UNANSWERED. This is a gap-filler, not a second opinion.
-     *
-     * It read "yes AND none of the three Max extras present", which is also true once the
-     * detail HAS been answered and none of them was chosen. Run cz3npnaz at 16:06: they
-     * answered yes, were asked which, picked only "Check whether mail was opened" — a feature
-     * on every tier — and were charged Max ₹599 for it. The question they answered to say
-     * "none of the expensive things" was read as "all of them".
-     *
-     * `extras === undefined` is the honest test: cover the yes whose detail we never asked,
-     * and step aside the moment they tell us. Note it cannot use `has()` — the question is
-     * whether the signal exists at all, not what it holds.
-     */
-    when: (p) => has(p, "inboxTools", true) && p.extras === undefined,
-  },
-  {
-    /**
      * One need per Max entitlement, all reading the same multi-select answer.
      *
      * Kept as four separate needs rather than one, because the `because` line must name the

@@ -128,10 +128,23 @@ export function downloadRun(record: RunRecord): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** `?debug=1` — the download control is opt-in and never shown to a normal visitor. */
+/**
+ * Is the debug control shown?
+ *
+ * **On by default in local dev**, because when you are running the dev server you are working
+ * on this, and a tool you have to remember a query string to reach is a tool you do not use.
+ * That was the first version and it failed the only test that matters: nobody could find it.
+ *
+ * Anywhere else it stays opt-in via `?debug=1`, so a visitor to the deployed build never sees
+ * it — and `?debug=0` turns it off locally for a clean screenshot or a demo.
+ */
 export function debugEnabled(): boolean {
   try {
-    return new URLSearchParams(location.search).get("debug") === "1";
+    const param = new URLSearchParams(location.search).get("debug");
+    if (param === "1") return true;
+    if (param === "0") return false;
+    const host = location.hostname;
+    return host === "localhost" || host === "127.0.0.1";
   } catch {
     return false;
   }

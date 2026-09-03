@@ -260,6 +260,9 @@ export default defineConfig(({ mode }) => {
       /* Cursor's preview proxy hits the pod as *.cursorvm.com, which Vite 6+ rejects unless
          listed. `true` is correct here: this is a demo origin, not a LAN-exposed secret. */
       allowedHosts: true,
+      headers: {
+        "Cache-Control": "no-store",
+      },
     },
   };
 });

@@ -394,7 +394,10 @@ export default function Reveal({
               className="btn"
               type="button"
               autoFocus
-              onClick={() => {
+              data-fmn="in-app-checkout"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 unlockSound();
                 playSound("cta");
                 onClaim(

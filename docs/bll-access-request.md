@@ -164,10 +164,40 @@ validation, so the `500` is downstream of everything we control. It is identical
 that exists, one that does not, the staging namespace, the production namespace, with and without
 `partnerId`, and with `partnerId` in three header spellings.
 
-**One thing we cannot rule out from here: the token is `p_54:` while the partnerId we were given
-is 71.** If the service resolves partner 54 from the token and then needs partner 71's namespace,
-that mismatch could be the whole cause — and testing it needs a `p_71:` token, which we do not
-have.
+### The partner id makes no difference either
+
+Tested with the same secret under four different partner prefixes:
+
+```
+Authorization: p_71:<secret>    500  InternalServerError
+Authorization: p_54:<secret>    500  InternalServerError
+Authorization: p_1:<secret>     500  InternalServerError
+Authorization: p_999:<secret>   500  InternalServerError
+```
+
+`p_999` is almost certainly not a real partner, and it produces the same `500` rather than an
+authentication error. So **the `p_N:` prefix satisfies a format check and the handler then fails
+before doing anything partner-specific.** The `p_54` / partnerId-71 mismatch was a red herring.
+
+Leading whitespace in the value (`domainName=%2014test.costaging.site`) also makes no
+difference — it is evidently trimmed, and returns the same `500`.
+
+### Everything testable from outside is now eliminated
+
+| Variable | Tried | Effect on the `500` |
+|---|---|---|
+| Namespace | `costaging.site`, `co.site`, `cas.site` | none |
+| Domain exists | `14test…`, `example.com`, `zzqx7v9nonexistent…` | none |
+| `partnerId` query param | present / absent, `71` | none |
+| `partnerId` header | `x-partner-id`, `partnerId`, `x-partner` | none |
+| Partner prefix in token | `p_71`, `p_54`, `p_1`, `p_999` | none |
+| Leading whitespace | with / without | none |
+| Method | `GET` / `POST` | `POST` → method not allowed |
+| Auth header | `Authorization` raw / `Bearer` / `x-auth-token` | raw is the only one that reaches the handler |
+
+Meanwhile `domainName=notadomain` still returns `INVALID_DOMAIN`, so the request reaches the
+handler's own validation every time. **There is no remaining variable on the caller's side. This
+needs someone with the service logs.**
 
 ### The plural parameter needs a form we have not guessed
 
@@ -191,7 +221,16 @@ reveal in one call.
 0903_085756_2_1tQT6eYoFk   foo.co.site&partnerId=71 -> 500
 0903_085757_2_T7us9WBztN   zzqx7v9nonexistent.costaging.site&partnerId=71 -> 500
 0903_085758_2_jU6oxuRqME   test.costaging.site&partnerId=71 -> 500
+
+0903_090626_2_O3I2N5QIm9   p_71 token, 14test.costaging.site -> 500
+0903_090642_2_st0U504iGV   p_71 token, clean value           -> 500
+0903_090645_2_jmMnuv8VBK   p_54 token, same value            -> 500
+0903_090647_2_tAb43TVDH5   p_1 token,  same value            -> 500
+0903_090648_2_4Zh1On1lSi   p_999 token, same value           -> 500
 ```
+
+The last five landed within seven seconds of each other on the same handler, differing only in
+the partner id, which makes them a clean set to diff in the logs.
 
 ## What we need
 
@@ -203,10 +242,10 @@ Ruled out already: the namespace (`costaging.site` behaves like `co.site`), a mi
 (as a query parameter and in three header spellings), and whether the domain exists.
 *This is the only blocker.*
 
-**Q1a — Does the `p_54:` token need to match partnerId 71?**
-We were given a `p_54:` token and told the partnerId is 71. If the service resolves partner 54
-from the token and then needs 71, that mismatch could be the entire cause. **Testing it needs a
-`p_71:` token** — please send one, or confirm 54 is correct.
+**Q1a — ~~Does the `p_54:` token need to match partnerId 71?~~ Answered: no.**
+`p_71`, `p_54`, `p_1` and `p_999` all return the same `500`. Since `p_999` is not a real partner
+and still gets past auth, the prefix only satisfies a format check and the handler fails before
+anything partner-specific happens.
 
 **Q2 — Is there a production equivalent of the staging host, and a production partner token?**
 We were given `flockmail-bll.flock-staging.com` with a staging token. `bll.titan.email` returns

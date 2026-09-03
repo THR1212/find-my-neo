@@ -5,6 +5,7 @@ import { handleDomainLookup } from "./api/_lib/domainService.js";
 import { generateNeoSite } from "./api/_lib/neoSite.js";
 import { handleProfile } from "./api/_lib/profileService.js";
 import { handleQuestions } from "./api/_lib/questionService.js";
+import { handleReasons } from "./api/_lib/reasonService.js";
 
 /**
  * Mounts /api/domains on the dev server so `npm run dev` behaves like the deployed build.
@@ -62,6 +63,7 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
       for (const [path, fn] of [
         ["/api/profile", handleProfile],
         ["/api/questions", handleQuestions],
+        ["/api/reasons", handleReasons],
       ] as const) {
         server.middlewares.use(path, async (req, res) => {
         res.setHeader("Content-Type", "application/json");

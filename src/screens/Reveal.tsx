@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import type { DomainOption, RevealContent } from "../lib/session";
 import { availableFromLookup, lookupDomains, type DomainInfo } from "../lib/domains";
-import { pickFeatures, type FeatureSurface } from "../lib/features";
+import { pickFeatures, withReason, type FeatureSurface, type ReasonMap } from "../lib/features";
 import { recommend, CYCLE_LABEL } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
 import NeoSitePreview from "../components/NeoSitePreview";
@@ -42,6 +42,7 @@ export default function Reveal({
   profile,
   businessText,
   neoSite,
+  reasons,
   onRestart,
 }: {
   reveal: RevealContent | null;
@@ -60,6 +61,11 @@ export default function Reveal({
   businessText: string;
   /** Neo's real generated site. Null while it's still generating. */
   neoSite: NeoSite | null;
+  /**
+   * Model-written `because` clauses by feature id. Empty means every line uses its
+   * hand-written string — see withReason. Which features appear is NOT affected by this.
+   */
+  reasons?: ReasonMap;
   onRestart: () => void;
 }) {
   /**
@@ -215,7 +221,15 @@ export default function Reveal({
 
   /* Features are filtered by the tier rules.ts just chose, so we never name something the
      plan printed underneath does not include. Must stay AFTER `recommend`. */
-  const features = pickFeatures(profile, surfaces, 2, rec.sitePlan?.id ?? null, rec.mailPlan.id);
+  const features = pickFeatures(
+    profile,
+    surfaces,
+    2,
+    rec.sitePlan?.id ?? null,
+    rec.mailPlan.id,
+    /* Overlay the generated reason AFTER selection and entitlement filtering, so a generation
+       can change why we say a feature matters but never which feature is shown. */
+  ).map((f) => withReason(f, reasons));
 
   /**
    * The real handoff URL. Neo's funnel takes plain query params — no encoder, no signing —

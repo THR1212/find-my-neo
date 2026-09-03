@@ -10,7 +10,7 @@ import {
   type EngineState,
 } from "./lib/engine";
 import { describePrefill } from "./lib/questions";
-import { buildProfile, fetchQuestionSurface } from "./lib/api";
+import { buildProfile, fetchQuestionSurface, fetchReasons } from "./lib/api";
 import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
@@ -55,6 +55,14 @@ export default function App() {
    * Starting it any later and the reveal would sit waiting on it.
    */
   const [neoSite, setNeoSite] = useState<NeoSite | null>(restored?.neoSite ?? null);
+  /**
+   * Model-written "why this matters to you" clauses, by feature id.
+   *
+   * Needed only at the reveal, so unlike the question surface there is no race to guard: it
+   * has 30s+ to land while Neo's generator runs. Empty means every feature line renders its
+   * hand-written string.
+   */
+  const [reasons, setReasons] = useState<Record<string, string>>(restored?.reasons ?? {});
 
   /**
    * Current stage, readable from inside async callbacks.
@@ -102,6 +110,14 @@ export default function App() {
       /* Question wording, in parallel and deliberately not awaited. It only has to land
          before the FIRST question screen, which is a guess-screen read away, so it never
          gates anything the user is looking at. Neither call blocks the other. */
+      /* Feature reasons. Fired here so it overlaps Neo's generator rather than the questions;
+         nothing on screen waits for it. */
+      if (opts.profile) {
+        void fetchReasons(text).then((r) => {
+          if (Object.keys(r).length) setReasons(r);
+        });
+      }
+
       if (opts.profile) {
         void fetchQuestionSurface(text).then((surface) => {
           if (Object.keys(surface).length === 0) return;
@@ -207,8 +223,8 @@ export default function App() {
 
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
-    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite });
-  }, [stage, engine, rawText, reveal, summary, neoSite]);
+    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, reasons });
+  }, [stage, engine, rawText, reveal, summary, neoSite, reasons]);
 
   /**
    * Apply an answer and decide where to go next.
@@ -248,6 +264,7 @@ export default function App() {
     setReveal(null);
     setSummary(null);
     setNeoSite(null);
+    setReasons({});
     setError(null);
   }, []);
 
@@ -322,6 +339,7 @@ export default function App() {
                 profile={engine.profile}
                 businessText={rawText}
                 neoSite={neoSite}
+                reasons={reasons}
                 onRestart={restart}
               />
             )}

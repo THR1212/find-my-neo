@@ -362,3 +362,21 @@ export function pickFeatures(
 
   return picked.slice(0, limit);
 }
+
+/** Model-written `because` clauses, keyed by feature id. Validated server-side. */
+export type ReasonMap = Record<string, string>;
+
+/**
+ * Overlay a generated reason onto a fixed feature.
+ *
+ * Only `because` is replaceable. `name` is Neo's own and `id`, `matches`, `minMailPlan` and
+ * `minSitePlan` are the contract that decides whether this feature may be shown at all — a
+ * generation that could touch those could put a Max-only feature next to a Starter price.
+ *
+ * Returns the feature unchanged when there is no override, so callers cannot tell the paths
+ * apart and a failed generation degrades to exactly what ships today.
+ */
+export function withReason(f: Feature, reasons?: ReasonMap): Feature {
+  const r = reasons?.[f.id]?.trim();
+  return r ? { ...f, because: r } : f;
+}

@@ -1120,3 +1120,43 @@ mailbox, so that needs an argument, not a feature match.
 
 **Naming:** Pandora's `Titan MCP` is **Neo MCP** for our purposes. It is disabled on every plan,
 so it can never be a reason to buy and must never be rendered.
+
+### The `because` strings are generated now (03 Sep, later)
+
+The last large piece of the reveal that was templated. Feature *names* were Neo's own and the
+*matching* was deterministic, but the clause after the em dash — the only part that is actually
+personalisation — was hand-written and identical for everyone who matched.
+
+`/api/reasons` (`api/_lib/reasonService.ts`), its own route for the same reason
+questionService is one: **latency placement, not tidiness.** `/api/questions` gates the first
+question screen; reasons are not needed until the reveal, 30s+ away and already waiting behind
+Neo's generator. Adding them to the questions call would have delayed a screen someone is
+looking at, to save a round trip nobody is waiting on.
+
+Third instance of the same three-layer pattern, and it is now the house style:
+
+```
+which feature is shown   FIXED       pickFeatures — profile match AND plan entitlement
+the feature NAME         FIXED       Neo's own verbatim heading
+the `because` clause     GENERATED   withReason, applied AFTER both filters
+```
+
+Applying the overlay after entitlement filtering is the part that matters: a generation can
+change why we say a feature matters, but it cannot introduce a feature, rename one, or slip a
+Max-only feature next to a Starter price.
+
+Measured on the florist: 20 of 20 written, none dropped, and specific —
+`site_contact_forms` came back as *"bouquet enquiries stop getting buried in your Instagram
+DMs"* against the fixed meaning *"enquiries arrive in their inbox instead of getting lost in a
+chat thread"*. Same claim, their words.
+
+One prompt fix on the first run: the model prefixed every clause with `"so that"`, which the
+hand-written strings do not carry — so a run where some lines generated and some fell back
+would have read inconsistently. Fixed in the prompt AND stripped in validation. Worth being
+precise that this is **normalisation, not repair**: it fixes the shape of a string whose meaning
+is unchanged, unlike an unknown option id, where guessing intent is exactly what the drop rule
+forbids.
+
+Snapshot version 4. Four features (invoice builder, AI email writer, campaign mode, appointment
+booking) still get reasons written for them and can never be shown while Max is unreachable —
+a few wasted output tokens, kept so the shape stays stable if Max ever becomes reachable.

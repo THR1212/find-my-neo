@@ -164,6 +164,31 @@ function derivedFallback(businessText: string): ProfileResult {
 }
 
 /**
+ * Per-feature "why this matters to you" clauses for this business.
+ *
+ * Fired alongside the other two and never awaited. Its own route because it is needed at the
+ * REVEAL, not before the first question — see api/_lib/reasonService.ts. Never rejects: an
+ * empty map means every feature line renders its hand-written string, which is what shipped
+ * before this existed.
+ */
+export async function fetchReasons(businessText: string): Promise<Record<string, string>> {
+  if (MODE === "replay") return {};
+  try {
+    const res = await fetch("/api/reasons", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-fmn-session": sessionId() },
+      body: JSON.stringify({ businessText }),
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const body = (await res.json()) as { reasons?: Record<string, string> };
+    return body.reasons ?? {};
+  } catch (err) {
+    reportDegraded("reasons", err instanceof Error ? err.message : String(err));
+    return {};
+  }
+}
+
+/**
  * Reworded question wording for this business. Fired alongside buildProfile, never awaited
  * before the guess screen shows.
  *

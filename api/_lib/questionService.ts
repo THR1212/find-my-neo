@@ -55,15 +55,6 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
       site: "I already have a website",
     },
   },
-  client: {
-    prompt: "What do you use for mail right now?",
-    options: {
-      gmail: "Gmail",
-      outlook: "Outlook",
-      apple: "Apple Mail",
-      none: "Nothing set up yet",
-    },
-  },
   team: {
     prompt: "How many email addresses do you need?",
     options: {
@@ -149,7 +140,10 @@ const SCHEMA = {
         properties: {
           questionId: {
             type: "string",
-            enum: ["import", "surface", "channel", "client", "team", "sells", "volume", "extras", "catalogue"],
+            /* Derived, never typed out. This list was hand-written and went stale twice —
+               once stuck at six ids while the bank held nine, and again when `client` was
+               removed. QUESTION_SHAPE is the one place a question is declared here. */
+            enum: Object.keys(QUESTION_SHAPE),
           },
           prompt: { type: "string", description: "The question. Under 60 characters." },
           sub: { type: "string", description: "One clarifying line. Under 90 characters." },

@@ -163,24 +163,19 @@ export const QUESTIONS: Question[] = [
       { id: "site", label: "I already have a website", resolves: { customerChannel: "site" } },
     ],
   },
-  {
-    id: "client",
-    signal: "currentClient",
-    prompt: "What do you use for mail right now?",
-    sub: "Pick all that apply.",
-    /* Was 0.2. `current_email_app` is filled on the same 2,484 orders as the import field
-       and carries the same selection effect, and it feeds no plan or price decision — only
-       two feature bullets. Asked late now, if at all. */
-    weight: 0.15,
-    multi: true,
-    freeText: { placeholder: "Something else? Zoho, Proton, your host's webmail…" },
-    options: [
-      { id: "gmail", label: "Gmail", resolves: { currentClient: "gmail" } },
-      { id: "outlook", label: "Outlook", resolves: { currentClient: "outlook" } },
-      { id: "apple", label: "Apple Mail", resolves: { currentClient: "apple" } },
-      { id: "none", label: "Nothing set up yet", resolves: { currentClient: "none" } },
-    ],
-  },
+  /* THERE IS NO `client` QUESTION, and it was measured out rather than argued out.
+   *
+   * "What do you use for mail right now?" had four options and ONE plan outcome, which was
+   * already known. What settled it: across all 16 import x client combinations the reveal
+   * produced two distinct bullet pairs, and BOTH differences came from `import`. Changing the
+   * client answer changed nothing anyone saw or paid — `gmail_sync` and `imap_pop` are ranked
+   * below `multi_device_support` and never reach the one mail slot the reveal has.
+   *
+   * So it cost a screen and bought nothing. `currentClient` survives as a signal because the
+   * description often states it outright ("we still run everything off one shared Gmail") and
+   * profileService can prefill it for free — which is the right way to learn something that
+   * does not justify asking.
+   */
   {
     id: "team",
     signal: "mailboxCount",

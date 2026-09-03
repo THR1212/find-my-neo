@@ -109,6 +109,62 @@ export const FEATURES: Feature[] = [
   },
   {
     /**
+     * Four features added 03 Sep so a reveal has something SPECIFIC to say.
+     *
+     * The bank had grown around what differentiates tiers, so a Starter or Standard reveal
+     * fell back on floors — "Android and iOS apps", "Custom Domain Email" — while Neo's own
+     * table lists twenty-one things Starter includes and fifteen more Standard adds.
+     *
+     * The constraint on which ones could be added is not the table, it is our SIGNALS: we ask
+     * seven questions, so a feature earns a place only if one of those answers already implies
+     * it. Anything else would have to match always-true, and a second floor is not an
+     * improvement. These four each key off an answer we already hold.
+     *
+     * Tier claims cross-checked against both sources: page and Pandora agree Email Rules and
+     * Shareable Calendar are on every plan. For Turbo Search and Priority Inbox the pricing
+     * page is the only evidence (Starter no, Standard yes) — Pandora neither gates them nor
+     * lists them as every-plan, which is consistent, so `minMailPlan: "standard"` is the safe
+     * reading. If that is ever contradicted, they simply stop showing on Starter.
+     */
+    id: "email_rule",
+    name: "Email Rules",
+    surface: "mail",
+    because: "mail sorts itself into the right address instead of piling into one inbox",
+    /* Only meaningful once there is more than one address to sort INTO. */
+    matches: (p) => Number(p.mailboxCount ?? 0) >= 2,
+    priority: 5,
+  },
+  {
+    id: "shareable_calendar",
+    name: "Shareable Calendar",
+    surface: "mail",
+    because: "the others can see what you have on without asking",
+    /* Headcount, not mailbox count: sharing needs a second PERSON, and §7 is the reason those
+       are different questions — 39-64% of Neo mailboxes are role addresses, not people. */
+    matches: (p) => Number(p.teamSize ?? 0) >= 2,
+    priority: 5,
+  },
+  {
+    id: "turbo_search",
+    minMailPlan: "standard",
+    name: "Turbo Search",
+    surface: "mail",
+    because: "you are bringing years of mail across, and you will want to find things in it",
+    matches: (p) => is(p, "importIntent", "emails") || is(p, "importIntent", "both"),
+    priority: 6,
+  },
+  {
+    id: "priority_inbox",
+    minMailPlan: "standard",
+    name: "Priority Inbox",
+    surface: "mail",
+    because: "the messages that need you first, in a shared inbox several people watch",
+    /* Three or more addresses is where a shared inbox stops being skimmable. */
+    matches: (p) => Number(p.mailboxCount ?? 0) >= 3,
+    priority: 6,
+  },
+  {
+    /**
      * THE FLOOR. Always true, lowest priority, and that combination is the point.
      *
      * A plain mail-only Starter run — mostly messages, phone customers, one address, nothing

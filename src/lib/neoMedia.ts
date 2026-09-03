@@ -200,6 +200,10 @@ export function clipsFor(
  */
 export const FEATURE_ART: Record<string, string> = {
   mobile_apps: `${FEATURES_DIR}/mobile_apps.png`,
+  email_rule: `${FEATURES_DIR}/email_rule.png`,
+  shareable_calendar: `${FEATURES_DIR}/shareable_calender.png`,
+  turbo_search: `${FEATURES_DIR}/turbo_search.png`,
+  priority_inbox: `${FEATURES_DIR}/priority_inbox.png`,
   storage: `${FEATURES_DIR}/storage.png`,
   import_email_contacts: `${FEATURES_DIR}/one_click_import.gif`,
   multi_device_support: `${FEATURES_DIR}/multi_account.gif`,

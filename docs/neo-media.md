@@ -35,6 +35,38 @@ of the neo.space homepage. Template shots are the `template-horizontal-scroll*.w
 | `templates/services.webp` | `…/674db18bf9d959ec7aaf732a_template-horizontal-scroll5.webp` |
 | `templates/hospitality.webp` | `…/674db18b57c47c10cf39c84a_template-horizontal-scroll6.webp` |
 
+### Per-feature artwork — captured 3 Sep 2026, from the PRICING page
+
+The films came from the homepage. The pricing page carries something different and, for the
+reveal, more useful: **one asset per entitlement**, 36 of them, keyed almost the way
+`features.ts` is. Several are animated, and three cover features with no film at all —
+read receipts, multi-account and one-click import — which between them are most of what a
+Starter reveal can honestly show.
+
+All under `https://static.flock.co/meta/plan/feature/images/`. Vendored to
+`public/neo/features/`, consumed via `FEATURE_ART` in `src/lib/neoMedia.ts`.
+
+| Local file | Neo's key | Our feature id |
+|---|---|---|
+| `features/one_click_import.gif` | `one_click_import` | `import_email_contacts` |
+| `features/multi_account.gif` | `multi_account` | `multi_device_support` |
+| `features/read_receipt.png` | `read_receipt` | `read_receipts` |
+| `features/invoice_builder.gif` | `invoice_builder` | `invoice_builder` |
+| `features/smart_write.gif` | `smart_write` | `titan_ai` |
+| `features/email_marketing.gif` | `email_marketing` | `email_marketing` |
+| `features/appointment_booking.gif` | `appointment_booking` | `appointment_booking` |
+| `features/signature_builder.png` | `signature_builder` | `signature_builder` |
+
+Neo's key and ours differ often enough (`smart_write` is `titan_ai`, `multi_account` is
+`multi_device_support`) that the mapping is written out rather than derived.
+
+`gmail_sync`, `imap_pop` and `custom_domain` have no asset in Neo's set. Their cards render
+without a picture, deliberately — a borrowed image would be exactly the claim-about-a-product-
+we-do-not-own that the rule at the top of this file forbids.
+
+There are 28 more assets in that set we do not use (storage, priority_inbox, turbo_search,
+undo_send, two_factor_auth, …). If a feature is ever added to `features.ts`, look there first.
+
 Template shots share the prefix `https://cdn.prod.website-files.com/6380708edae368c5674306ee`.
 
 ## Re-encoding

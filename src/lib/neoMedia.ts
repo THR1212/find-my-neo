@@ -57,6 +57,7 @@ export interface NeoClip {
 
 const VIDEOS = "/neo/videos";
 const TEMPLATES = "/neo/templates";
+const FEATURES_DIR = "/neo/features";
 
 /**
  * The mail-side bundle. Order is the default priority; `clipsFor` re-ranks per profile.
@@ -178,6 +179,40 @@ export function clipsFor(
     })
     .sort((a, b) => score(b) - score(a))
     .slice(0, limit);
+}
+
+/**
+ * Neo's own per-feature artwork, one asset per entitlement.
+ *
+ * Found on the PRICING page (03 Sep) rather than the homepage the films came from — the
+ * feature table there loads `static.flock.co/meta/plan/feature/images/<key>.png|gif|webp`, 36
+ * of them, keyed almost exactly the way `features.ts` is. Several are ANIMATED, and three of
+ * them cover features that had no film at all: read receipts, multi-account and one-click
+ * import — which between them are most of what a Starter reveal can honestly show.
+ *
+ * Same rule as the films and the site generator: this is Neo's real artwork, vendored rather
+ * than hotlinked so a marketing redeploy cannot empty the last screen. Nothing here is drawn
+ * or reinterpreted by us. Provenance in docs/neo-media.md.
+ *
+ * Keyed by OUR feature id, not Neo's file name, because the two differ often enough
+ * (`smart_write` is `titan_ai`, `multi_account` is `multi_device_support`) that the mapping
+ * has to be written down rather than derived.
+ */
+export const FEATURE_ART: Record<string, string> = {
+  import_email_contacts: `${FEATURES_DIR}/one_click_import.gif`,
+  multi_device_support: `${FEATURES_DIR}/multi_account.gif`,
+  read_receipts: `${FEATURES_DIR}/read_receipt.png`,
+  invoice_builder: `${FEATURES_DIR}/invoice_builder.gif`,
+  titan_ai: `${FEATURES_DIR}/smart_write.gif`,
+  email_marketing: `${FEATURES_DIR}/email_marketing.gif`,
+  appointment_booking: `${FEATURES_DIR}/appointment_booking.gif`,
+  signature_builder: `${FEATURES_DIR}/signature_builder.png`,
+};
+
+/** Art for a feature, or null. Null is normal — `gmail_sync`, `imap_pop` and `custom_domain`
+ *  have no asset in Neo's set, and a card without art is better than a borrowed picture. */
+export function featureArt(featureId: string): string | null {
+  return FEATURE_ART[featureId] ?? null;
 }
 
 export interface NeoTemplateShot {

@@ -1,7 +1,7 @@
 import NeoSitePreview from "./NeoSitePreview";
 import NeoSiteGenerating from "./NeoSiteGenerating";
 import NeoProductLoop from "./NeoProductLoop";
-import { clipsFor } from "../lib/neoMedia";
+import { clipsFor, featureArt } from "../lib/neoMedia";
 import { pickHero, type NeoSite } from "../lib/neoSite";
 
 /**
@@ -69,6 +69,14 @@ export default function SetupStory({
           ))}
           {shown.map((f) => (
             <figure key={f.id} className="mail-feature-card">
+              {/* Neo's own artwork for this entitlement, several of which are animated. Null
+                  for the few with no asset in their set — a card with no picture beats a
+                  borrowed one, which is the same rule the site generator follows. */}
+              {featureArt(f.id) && (
+                <div className="mail-feature-art">
+                  <img src={featureArt(f.id)!} alt="" loading="lazy" />
+                </div>
+              )}
               <figcaption>
                 <span className="neo-loop-name">{f.name}</span>
                 <span className="neo-loop-caption">{f.because}</span>

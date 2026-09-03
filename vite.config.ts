@@ -4,6 +4,7 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import { handleDomainLookup } from "./api/_lib/domainService.js";
 import { generateNeoSite } from "./api/_lib/neoSite.js";
 import { handleProfile } from "./api/_lib/profileService.js";
+import { handleQuestions } from "./api/_lib/questionService.js";
 
 /**
  * Mounts /api/domains on the dev server so `npm run dev` behaves like the deployed build.
@@ -56,8 +57,13 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         }
       });
 
-      // The model step. Same handler the Vercel function uses.
-      server.middlewares.use("/api/profile", async (req, res) => {
+      /* The two model steps. Same handlers the Vercel functions use. Separate routes so the
+         guess screen never waits on question generation — see questionService's header. */
+      for (const [path, fn] of [
+        ["/api/profile", handleProfile],
+        ["/api/questions", handleQuestions],
+      ] as const) {
+        server.middlewares.use(path, async (req, res) => {
         res.setHeader("Content-Type", "application/json");
         if (req.method !== "POST") {
           res.statusCode = 405;
@@ -70,7 +76,7 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
           try {
             const { businessText } = JSON.parse(raw || "{}") as { businessText?: unknown };
             const sid = String(req.headers["x-fmn-session"] ?? "none").slice(0, 24);
-            const { status, body } = await handleProfile(businessText, sid);
+            const { status, body } = await fn(businessText, sid);
             res.statusCode = status;
             res.end(JSON.stringify(body));
           } catch (err) {
@@ -78,7 +84,8 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
             res.end(JSON.stringify({ error: String(err) }));
           }
         });
-      });
+        });
+      }
 
       server.middlewares.use("/api/domains", async (req, res) => {
         const url = new URL(req.url ?? "", "http://localhost");

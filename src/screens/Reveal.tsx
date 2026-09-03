@@ -233,6 +233,8 @@ export default function Reveal({
     businessName:
       neoName ?? (profile.brandName as string) ?? domain?.name.split(".")[0] ?? "your business",
     businessDescription: businessText ?? "",
+    /* Neo's own classifier beat ours to it — this is the key their builder actually uses. */
+    neoIndustryKey: neoSite?.industryKey,
   });
 
   return (

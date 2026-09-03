@@ -924,3 +924,37 @@ their own domain will use one.
 offered `.in` with a model-written note about serving customers in India. It is the honest
 consequence of an India-first default and the custom input only mitigates it; locale-aware
 suggestions are the real fix.
+
+---
+
+### 2026-09-02 · Production served the recorded bakery to everyone, and every test passed
+
+After adding the three server env vars to Vercel and redeploying, `/api/profile` answered
+correctly to curl in production: `degraded: false`, real industry, six questions surfaced.
+The site itself still showed "a two-person bakery in Bandra" to every visitor.
+
+**`VITE_LLM_MODE` was never set.** It is a separate, CLIENT-side, BUILD-TIME variable:
+
+    src/lib/api.ts   const MODE = import.meta.env.VITE_LLM_MODE ?? "replay"
+
+Absent, it defaults to `replay`, so the browser served the bundled fixture and **never called
+`/api/profile` at all**. The route was healthy; nothing was reaching it.
+
+The lesson is about the test, not the variable. Curl hit the route directly and so exercised
+everything except the one layer that was broken — a green result from below the fault. The same
+shape as two earlier misses this week: the iframe `load` event firing on a blocked frame, and
+`vercel build` succeeding while the deploy failed. **Test at the layer the user is on.** The
+browser check that would have caught this takes the same thirty seconds as the curl.
+
+Two guards added rather than just the fix:
+
+- `warnIfReplayInProduction()` reports a degradation when a build is in replay mode on any
+  host that is not localhost. On localhost replay is legitimate — it is how you rehearse for
+  free. Anywhere else it means a missing build variable, and nothing else would ever say so.
+- `.env.example` now states that there are TWO mode switches, that one is build-time, and
+  lists all five vars Vercel needs. Half of them being right is the failure mode.
+
+Also confirmed in the same run, and it retroactively justifies preferring Neo's own key: Neo's
+classifier returned `industryKey=ecommerce_retail`, while our hand-built map holds
+`ecommerce_and_retail` for the same meaning. **Different format.** Which of the two the builder
+accepts is now moot — we send back the key Neo itself produced.

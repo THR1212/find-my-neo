@@ -68,9 +68,14 @@ every business, always:  team → surface → channel → sells
 never asked at MAX_QUESTIONS=4:  import, client
 ```
 
-Now the model ranks all six and `engine.ts` consumes that ranking head-first for the whole flow,
-**re-checking every id** against what is genuinely unresolved. The model orders; the engine
-decides. A hallucinated id, a duplicate, or an already-answered one is skipped, not trusted.
+The model now ranks all **nine** questions, and `engine.ts` **re-checks every id** against what
+is genuinely unresolved — a hallucinated id, a duplicate, or an already-answered one is skipped
+rather than trusted.
+
+But the ranking is only a tie-break now. `nextQuestion` selects on **what the answer would
+change**, lexicographically: the price first, then the rest of the reveal, then the
+data-derived weight. See `discrimination` in `src/lib/candidates.ts`. The model orders where
+the arithmetic is indifferent; the engine decides.
 
 ### `prefill` — why we stop asking what you just told us
 
@@ -100,7 +105,7 @@ price, so it has to be visible, or "Not quite" is decorative.
 
 ## Call 2 — `/api/questions` (`api/_lib/questionService.ts`)
 
-Rewrites the six questions for this specific business. **Three layers, and only the middle one
+Rewrites the nine questions for this specific business. **Three layers, and only the middle one
 is generated:**
 
 ```
@@ -291,6 +296,20 @@ like a bug until the trail showed the click had genuinely landed on "More than f
 **Since 03 Sep the run record reads it** — before that it died with the tab.
 
 ---
+
+## The question bank
+
+**Nine questions**, ceiling of 12, and the ceiling almost never binds. `shouldReveal` stops as
+soon as nothing left could change the price, plus at most two more that can still change which
+feature bullets appear (`pickFeatures` renders exactly two, so a third could change nothing
+anyone reads).
+
+Measured flow lengths: heavily prefilled 5, plain mail-only 6, phone-and-walk-in with a site 8.
+
+Three of the nine — `volume`, `extras`, `catalogue` — reach Max and Growth, which no code path
+could return before 03 Sep. They are **never prefillable**: each raises a floor to the most
+expensive tier, and inferring a 4x price rise from a sentence somebody wrote about themselves
+is the wrong kind of guess. Same reasoning as `mailboxCount`.
 
 ## What is still fixed, and known
 

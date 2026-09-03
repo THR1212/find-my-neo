@@ -267,3 +267,41 @@ export const QUESTION_BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]));
 
 /** Total narrowing available, used to normalise the confidence ring. */
 export const TOTAL_WEIGHT = QUESTIONS.reduce((sum, q) => sum + q.weight, 0);
+
+/**
+ * Plain-English lines for the questions the free text already answered.
+ *
+ * Reads the profile back through the SAME option table the question would have shown, so the
+ * words a person sees on the guess screen are the words they would have tapped. Nothing here
+ * is model-written: if the description said "orders come through Instagram DMs", this renders
+ * the fixed label "Social DMs", which is the option `prefill` actually resolved to.
+ *
+ * Deliberately shows the resolved OPTION, not the raw sentence. The point of the line is to
+ * expose what we recorded — the thing that will price them — rather than to flatter them by
+ * repeating their own text back.
+ *
+ * Returns [] when nothing was prefilled, which is the common case and renders nothing.
+ */
+export function describePrefill(
+  profile: Record<string, unknown>,
+  prefilledIds: string[] | undefined,
+  surface?: SurfaceMap,
+): string[] {
+  const lines: string[] = [];
+  for (const id of prefilledIds ?? []) {
+    const q = QUESTION_BY_ID.get(id);
+    if (!q) continue;
+    const shown = withSurface(q, surface);
+    const value = profile[q.signal];
+    const matched = shown.options.filter((o) => {
+      const v = o.resolves[q.signal];
+      if (v === undefined) return false;
+      return Array.isArray(value) ? value.includes(String(v)) : value === v;
+    });
+    if (!matched.length) continue;
+    /* Trailing "?" off the prompt: it is a statement here, not a question. */
+    const label = shown.prompt.replace(/\?+\s*$/, "");
+    lines.push(`${label}: ${matched.map((o) => o.label).join(", ")}`);
+  }
+  return lines;
+}

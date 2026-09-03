@@ -9,6 +9,7 @@ import {
   shouldReveal,
   type EngineState,
 } from "./lib/engine";
+import { describePrefill } from "./lib/questions";
 import { buildProfile, fetchQuestionSurface } from "./lib/api";
 import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
@@ -69,6 +70,12 @@ export default function App() {
   /* The model's ranking now lives inside `engine` (and so is persisted and overruled there),
      rather than in a separate state that was consumed once and thrown away. */
   const current = useMemo(() => nextQuestion(engine), [engine]);
+  /* What the description already answered, in the words the option would have used. Shown on
+     the guess screen so a skipped question is visible and therefore correctable. */
+  const inferred = useMemo(
+    () => describePrefill(engine.profile, engine.prefilled, engine.surface),
+    [engine.profile, engine.prefilled, engine.surface],
+  );
 
   /**
    * Fire the two slow calls for `text`.
@@ -285,6 +292,7 @@ export default function App() {
               <Guess
                 summary={summary}
                 teamSize={engine.profile.teamSize as number | undefined}
+                inferred={inferred}
                 loading={loading}
                 error={error}
                 onConfirm={() => setStage("question")}

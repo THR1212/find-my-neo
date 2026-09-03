@@ -244,7 +244,7 @@ export default function Checkout({
           >
             ×
           </button>
-          <div className="neo-chat-bubble">Hi. Need a…</div>
+          <div className="neo-chat-bubble">Hi. Need any help?</div>
         </div>
       )}
     </div>

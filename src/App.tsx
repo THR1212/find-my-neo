@@ -628,7 +628,7 @@ export default function App() {
                 window.setTimeout(() => {
                   setPaying(false);
                   setStage("success");
-                }, 900);
+                }, 400);
               }}
             />
           )}
@@ -636,7 +636,6 @@ export default function App() {
             <Success
               order={checkoutOrder}
               onBack={() => setStage("checkout")}
-              onRestart={restart}
             />
           )}
         </main>

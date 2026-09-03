@@ -56,14 +56,22 @@ export function businessMailLabel(planName: string): string {
 }
 
 /**
- * Neo's own checkout paints USD. The sheet we price from is INR.
- * 75 is the rate that makes Max × 2 mailboxes × 12 months land on the $191.xx
- * the live checkout shows — not a second price list.
+ * Neo's own checkout paints USD. Max is taken from their live checkout
+ * ($9.99 / $7.99 per mailbox): two boxes yearly is $191.76, SAVE 20%, $48.
+ * Other tiers stay converted from the INR sheet so we do not invent a catalog.
  */
 const INR_PER_USD = 75;
+const NEO_USD: Partial<Record<string, { monthly: number; yearly: number }>> = {
+  max: { monthly: 9.99, yearly: 7.99 },
+};
 
 function usdFromInr(inr: number): number {
   return Math.round((inr / INR_PER_USD) * 100) / 100;
+}
+
+function usdPerMailbox(planId: string, cycle: CheckoutCycle, inr: number): number {
+  const listed = NEO_USD[planId]?.[cycle];
+  return listed ?? usdFromInr(inr);
 }
 
 export function formatUsd(amount: number): string {
@@ -104,13 +112,15 @@ export function totalsForCycle(
       return { amountDueInr: null, savedInr: 0, savePercent: 0, amountDueUsd: null, savedUsd: 0 };
     }
     const amountDueInr = yearly * boxes * 12;
-    const amountDueUsd = usdFromInr(yearly) * boxes * 12;
+    const yearlyUsd = usdPerMailbox(mailPlanId, "yearly", yearly);
+    const amountDueUsd = yearlyUsd * boxes * 12;
     if (monthly == null || monthly <= yearly) {
       return { amountDueInr, savedInr: 0, savePercent: 0, amountDueUsd, savedUsd: 0 };
     }
     const savedInr = (monthly - yearly) * boxes * 12;
-    const savedUsd = (usdFromInr(monthly) - usdFromInr(yearly)) * boxes * 12;
-    const savePercent = Math.round((1 - yearly / monthly) * 100);
+    const monthlyUsd = usdPerMailbox(mailPlanId, "monthly", monthly);
+    const savedUsd = Math.round((monthlyUsd - yearlyUsd) * boxes * 12 * 100) / 100;
+    const savePercent = Math.round((1 - yearlyUsd / monthlyUsd) * 100);
     return { amountDueInr, savedInr, savePercent, amountDueUsd, savedUsd };
   }
 
@@ -121,7 +131,7 @@ export function totalsForCycle(
     amountDueInr: monthly * boxes,
     savedInr: 0,
     savePercent: 0,
-    amountDueUsd: usdFromInr(monthly) * boxes,
+    amountDueUsd: usdPerMailbox(mailPlanId, "monthly", monthly) * boxes,
     savedUsd: 0,
   };
 }
@@ -150,14 +160,22 @@ export function buildCheckoutOrder({
   hasSite: boolean;
 }): CheckoutOrder {
   const host = domain.trim().toLowerCase();
-  const mailboxes = revealMailboxes.map((m, i) => {
-    const local = (m.address.split("@")[0] || "hello").toLowerCase();
-    return {
-      local,
-      address: host ? `${local}@${host}` : local,
-      admin: i === 0,
-    };
+  const locals = revealMailboxes
+    .map((m) => (m.address.split("@")[0] || "").toLowerCase())
+    .filter(Boolean);
+  /* Neo's checkout lists the admin mailbox first (orders), then hello with a trash. */
+  const ordered = [...locals].sort((a, b) => {
+    if (a === "orders") return -1;
+    if (b === "orders") return 1;
+    if (a === "hello") return -1;
+    if (b === "hello") return 1;
+    return 0;
   });
+  const mailboxes = (ordered.length ? ordered : ["hello"]).map((local, i) => ({
+    local,
+    address: host ? `${local}@${host}` : local,
+    admin: i === 0,
+  }));
 
   return {
     domain: host,

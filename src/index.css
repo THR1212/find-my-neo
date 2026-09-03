@@ -2793,6 +2793,8 @@ html.is-funnel .grain {
 
 .neo-success-mail {
   color: #0066ff;
+  font-weight: 700;
+  text-decoration: underline;
 }
 
 .neo-success-primary,

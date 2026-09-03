@@ -1088,7 +1088,7 @@ string, is the obvious next pass and follows the pattern `questionService` alrea
 
 ### Later the same day — Pandora entitlements, and the same bug on the mail side
 
-Hari supplied per-plan feature entitlements verified from the **Pandora backend**. Saved as
+Darrel supplied per-plan feature entitlements verified from the **Pandora backend**. Saved as
 `src/data/plan-features.json`, and it now outranks both other sources: the flock.co config gives
 Neo's verbatim *names* but says nothing about who gets what, and `site-features.json` was read
 off a marketing table.

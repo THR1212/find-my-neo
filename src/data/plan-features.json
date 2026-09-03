@@ -1,5 +1,5 @@
 {
-  "_source": "Pandora backend — per-plan feature entitlements for Neo Mail and Neo Sites, supplied by Hari 03 Sep 2026 and verified against the backend rather than a page.",
+  "_source": "Pandora backend — per-plan feature entitlements for Neo Mail and Neo Sites, verified from the backend by Darrel and supplied 03 Sep 2026. Backend-verified, not read off a page.",
 
   "_authority": "THIS FILE OUTRANKS EVERYTHING ELSE WE HAVE. static.flock.co/meta/plan/feature/config/en-US.json gives Neo's verbatim feature NAMES but says nothing about which plan includes what. src/data/site-features.json was read off the marketing pricing table. Where they disagree, this file wins — it is what the backend actually grants.",
 

@@ -3,7 +3,6 @@ import type { DomainOption, RevealContent } from "../lib/session";
 import {
   availableFromLookup,
   COSITE_SUFFIX,
-  isCoSite,
   lookupDomains,
   type DomainInfo,
 } from "../lib/domains";
@@ -312,18 +311,15 @@ export default function Reveal({
             </p>
           )}
 
-          {/* Moved out of the plan card 03 Sep. It is a statement about the DOMAIN — what
-              happens to the name they picked — and it sat 300px below the fold at the
-              bottom of a card about price, where the person it is addressed to could not
-              see it. Measured: the left column hid 326px of 807px, and this was in it. */}
-          <p className="plan-meta plan-note domain-handoff-note">
-              {!domain
-                ? `Neo's domain purchase is coming, so for now you'll connect a name you own.`
-                : isCoSite(domain.name)
-                  ? `We'll copy ${domain.name} for you — it's Neo's own, free for your first billing cycle, and you can claim it on the next screen.`
-                  : `We'll copy ${domain.name} for you — Neo's domain purchase is coming, so for now you'll connect it under "use a domain I own".`}
-            </p>
-
+          {/* THERE IS NO DOMAIN-HANDOFF NOTE. It read "We'll copy <name> for you — Neo's
+              domain purchase is coming, so for now you'll connect it under 'use a domain I
+              own'." Removed at Hari's call, 03 Sep, and it is worth saying why it went rather
+              than moving again: it explains OUR limitation at the moment someone is deciding,
+              on the one screen that has to be perfect. The .co.site variant was no better —
+              "free for your first billing cycle, claim it on the next screen" is a promise
+              about a screen they have not reached.
+              The handoff itself still carries `bn` and `bd`, so nothing about the flow
+              changes; only the apology for it is gone. */}
           <details className="own-domain">
             <summary className="own-label">Had a different name in mind?</summary>
             <div className="own-row">
@@ -359,7 +355,20 @@ export default function Reveal({
 
           <div className="reveal-block reveal-block-tight">
             <p className="reveal-label">Your mailboxes</p>
-            {reveal.mailboxes.map((m) => (
+            {/**
+              * SLICED TO WHAT THEY ASKED FOR. Run cz3npnaz: they answered "Just one", the plan
+              * priced one, and the screen showed three — hello@, tickets@ and support@ — so
+              * the page contradicted both the answer and the price directly above it.
+              *
+              * The model suggests names from the description before any question is asked, so
+              * `suggestedMailboxes` never knew the count; it was being rendered whole. `rec`
+              * is the authority because it is what we charge for.
+              *
+              * Deliberately no padding when the model returns FEWER than the count. Showing
+              * three real suggestions against a price for five is a gap; inventing a
+              * `mailbox4@` to close it would be us writing their addresses for them.
+              */}
+            {reveal.mailboxes.slice(0, rec.mailboxes).map((m) => (
               <div key={m.address} className="mailbox">
                 <span className="mailbox-address">
                   {m.address.split("@")[0]}

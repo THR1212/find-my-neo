@@ -31,10 +31,24 @@ import AdaptiveQuestion from "./screens/AdaptiveQuestion";
 import Reveal from "./screens/Reveal";
 
 const transition = { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const };
+
+/**
+ * Entry and exit use DIFFERENT easings, and that is the whole fix.
+ *
+ * Both used `[0.16, 1, 0.3, 1]` — a strong ease-OUT, right for arriving: most of the change
+ * happens immediately, so a screen appears to land. Run it backwards on the way out and the
+ * same curve dumps opacity in roughly the first 120ms of a 420ms transition, so the screen
+ * you just submitted vanishes and then 300ms of nothing happens. Hari described it as
+ * disappearing instantly, which is exactly what an ease-out exit does.
+ *
+ * The exit now eases IN: it holds, then leaves. Slightly shorter overall, because a slow
+ * departure delays the answer they are waiting for.
+ */
+const EXIT_EASE = [0.4, 0, 1, 1] as const;
 const variants = {
   enter: { opacity: 0, y: 18 },
   center: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -14 },
+  exit: { opacity: 0, y: -14, transition: { duration: 0.34, ease: EXIT_EASE } },
 };
 
 const emptyEngine: EngineState = { profile: {}, asked: [], freeText: {} };

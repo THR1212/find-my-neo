@@ -33,8 +33,26 @@ import { complete } from "./llm.js";
  * What someone gives up by dropping one tier, from `src/data/plan-features.json`.
  *
  * Supplied to the model rather than left to it, because "what does the cheaper plan lack" is
- * exactly the kind of question a model answers plausibly and wrongly. These are Pandora's
- * entitlements, not a guess.
+ * exactly the kind of question a model answers plausibly and wrongly.
+ *
+ * HAND-MAINTAINED, and the comment used to imply otherwise. Every row was checked against
+ * `plan-features.json` and `site-features.json` on 03 Sep, at Hari's request — "if we are
+ * unsure we shouldn't show this" — and three of the four held exactly:
+ *
+ *   max    -> Standard   invoice_builder / titan_ai / email_marketing are all "MAX ONLY"
+ *   plus   -> Basic      Contact Forms, Testimonials, Remove Neo Branding are all null on basic
+ *   growth -> Plus       products, services, gallery all 500 on plus and Unlimited on growth;
+ *                        Font themes Standard on plus, Premium on growth
+ *
+ * The fourth did not. `standard` claimed "unlimited email templates", and NO email-template
+ * entitlement exists anywhere in the recorded Pandora data — it was plausible and unsourced,
+ * the exact failure this table exists to prevent, sitting inside it. Replaced with
+ * `drive_storage`, which is recorded ("Standard 1,024 and Max 51,200. Absent from Starter")
+ * and is also the stronger line: docs/data-findings.md §5 has storage as the dominant paywall
+ * trigger in every industry.
+ *
+ * If a row is edited, re-check it against the JSON. This is a claim about what someone loses
+ * by spending less, printed while they decide.
  *
  * Darrel's competitor research is why this line exists at all: Cynet recommends one plan and
  * lists the others, and Mailchimp and Rinda both justify the recommendation rather than just
@@ -43,7 +61,7 @@ import { complete } from "./llm.js";
 const CHEAPER_TIER: Record<string, { cheaper: string; loses: string }> = {
   standard: {
     cheaper: "Neo Starter",
-    loses: "the signature designer, company branding, and unlimited email templates",
+    loses: "the signature designer, company branding, and the extra mailbox storage",
   },
   max: {
     cheaper: "Neo Standard",

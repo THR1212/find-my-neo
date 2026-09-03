@@ -1,5 +1,5 @@
 /**
- * Rewrites the six questions for the business someone typed.
+ * Rewrites the nine questions for the business someone typed.
  *
  * SPLIT OUT OF profileService ON PURPOSE — this is a latency fix, not tidying.
  *
@@ -184,6 +184,30 @@ const SCHEMA = {
   },
 } as const;
 
+/* Content words, lowercased. Stopwords go because "you need two" vs "two" is not new information. */
+const STOP = new Set([
+  "a","an","and","are","as","at","by","do","for","from","have","in","is","it","of","on","or",
+  "the","to","with","you","your","yours","own","currently","already","usual","usually","often",
+  "need","needs","use","uses","using","this","that","these","those","only","just","not","no",
+]);
+const words = (t: string) =>
+  new Set(
+    t
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]+/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 1 && !STOP.has(w)),
+  );
+
+/** True when `hint` carries no content word that `context` does not already have. */
+function addsNothing(hint: string, context: string): boolean {
+  const h = words(hint);
+  if (h.size === 0) return true;
+  const c = words(context);
+  for (const w of h) if (!c.has(w)) return false;
+  return true;
+}
+
 const SYSTEM = [
   "You rewrite nine fixed questions for one specific small business, from a short description",
   "of it. You rewrite the question, the clarifying line, the free-text placeholder, and every",
@@ -211,9 +235,14 @@ const SYSTEM = [
   "onto every line — 'Just cinema email', 'cinema mail', 'cinema addresses' reads like a mail",
   "merge; the context is already obvious from the screen. And a hint must ADD something the",
   "label does not already say. 'Gmail' does not need the hint 'you use Gmail'. Return an",
-  "empty hint rather than restating the label.",
+  "empty hint rather than restating the label. Real hints from an earlier run, all of which",
+  "were stripped because they said nothing the screen did not already say:",
+  "  'Two'                     -> 'You need two email addresses'   (the question already asks)",
+  "  'None of these'           -> 'You do not currently do any of these'",
+  "  'Photos and documents'    -> 'You often share images or documents'",
+  "Most options need no hint at all. An empty hint is the normal case, not a failure.",
   "",
-  "These are the six questions and their EXACT ids. Use these ids verbatim. Do not invent an",
+  "These are the nine questions and their EXACT ids. Use these ids verbatim. Do not invent an",
   "id, do not add or drop options, and keep each option meaning what it means now:",
   SHAPE_FOR_PROMPT,
 ].join("\n");
@@ -254,9 +283,22 @@ function validateQuestions(raw: ModelQuestion[] | undefined): {
         dropped.push(`${q.questionId}: duplicate optionId ${o.optionId}`);
         continue;
       }
+      const label = String(o.label ?? "").slice(0, 34);
+      const hint = String(o.hint ?? "").slice(0, 46);
       options[o.optionId] = {
-        label: String(o.label ?? "").slice(0, 34),
-        hint: String(o.hint ?? "").slice(0, 46),
+        label,
+        /**
+         * A hint that introduces no word the label and prompt do not already carry is padding,
+         * and padding on every option is most of why different businesses produced screens that
+         * looked the same. The prompt has always asked for this; nothing enforced it, and a
+         * real run came back with 'Two' hinted as 'You need two email addresses' under the
+         * question "How many email addresses do you need?".
+         *
+         * Deliberately mechanical and deliberately narrow: it only catches a hint that is
+         * strictly redundant, and says nothing about one that merely reads thin. Anything
+         * cleverer would be us deciding what is interesting on the model's behalf.
+         */
+        hint: addsNothing(hint, label + " " + String(q.prompt ?? "")) ? "" : hint,
       };
       kept++;
     }

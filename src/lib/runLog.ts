@@ -56,6 +56,8 @@ export interface RunRecord {
   /** Which feature lines were generated vs fixed, and the words used. */
   reasons: Record<string, string>;
   rationale: { rationale: string; whyNotCheaper: string };
+  /** The model's verified plan verdict. Null when it did not raise, which is the common case. */
+  verdict: unknown;
   degradations: { what: string; detail?: string; at: number }[];
 }
 
@@ -69,6 +71,7 @@ export function buildRunRecord(input: {
   needs: { id: string; because: string; entitlement: string }[];
   reasons: Record<string, string>;
   rationale: { rationale: string; whyNotCheaper: string };
+  verdict?: unknown;
 }): RunRecord {
   const { engine } = input;
   return {
@@ -95,6 +98,7 @@ export function buildRunRecord(input: {
     needs: input.needs,
     reasons: input.reasons,
     rationale: input.rationale,
+    verdict: input.verdict ?? null,
     degradations: collectedDegradations(),
   };
 }

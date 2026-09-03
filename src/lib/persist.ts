@@ -32,7 +32,7 @@ const KEY = "findmyneo.session";
  * the snapshot instead of deserialising yesterday's shape into today's fields, which fails
  * silently and looks like an engine bug.
  */
-const VERSION = 6;
+const VERSION = 7;
 /* v2: EngineState gained `surface` (model-written wording) and `trail` (what was shown).
    Both live inside `engine`, so they ride along in the snapshot automatically — but a v1
    snapshot restored into v2 would have neither, and every question would silently revert to
@@ -51,7 +51,10 @@ const VERSION = 6;
 
    v6: six new question ids and signals, and MAX_QUESTIONS 4 -> 12. This is exactly the case
    the header warns about — a v5 snapshot carries `asked` ids against a different bank and a
-   different ceiling, so restoring it would resume a flow that can no longer happen. */
+   different ceiling, so restoring it would resume a flow that can no longer happen.
+
+   v7: added `verdict` (the model's verified plan raise). A v6 snapshot restored into v7 would
+   simply have none, which is a legitimate state — the bump keeps the rule simple. */
 
 /**
  * RESOLVED 02 Sep — kept because the reasoning still governs the design.
@@ -87,6 +90,8 @@ export interface Snapshot {
   reasons: Record<string, string>;
   /** The two sentences under the price. Empty strings mean the fixed rationale is shown. */
   rationale: { rationale: string; whyNotCheaper: string };
+  /** The model's verified plan verdict, or null when it never raised anything. */
+  verdict: { mailTier: string; siteTier: string; raised: boolean; cites: { entitlement: string; evidence: string }[] } | null;
 }
 
 /** Everything App owns that is worth restoring. `loading` and `error` are deliberately absent. */

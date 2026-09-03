@@ -26,7 +26,8 @@ parallel** and advances the screen immediately without awaiting any of them. A f
 | 1 | `POST /api/profile` | **Node** | free text | the guess screen, immediately | ~5s |
 | 2 | `POST /api/questions` | **Node** | free text | the first question screen | ~14s |
 | 2b | `POST /api/reasons` | **Node** | free text | the reveal | ~15s |
-| 4 | `POST /api/rationale` | **Node** | description + **every answer** + the chosen plan | the reveal | ~8s |
+| 4 | `POST /api/plan` | **Node** | description + **every answer** + the chosen plan | the reveal | ~6s |
+| 5 | `POST /api/rationale` | **Node** | as above, plus the **verified** plan | the reveal | ~8s |
 | 3 | `GET /api/neo-site` | Edge | free text | the reveal | 19–38s |
 | — | `GET /api/domains` | Edge | domain stem | the reveal | ~2s, no model |
 
@@ -167,7 +168,41 @@ not a guess at intent — the reveal renders `Name — {because}` and the fixed 
 
 ---
 
-## Call 4 — `/api/rationale` (`api/_lib/rationaleService.ts`)
+## Call 4 — `/api/plan` (`api/_lib/planService.ts`)
+
+**The only place a model can change what somebody pays**, and its power is deliberately narrow.
+
+`rules.ts` has already computed the cheapest setup satisfying every need, each need a Pandora
+entitlement. The model is handed that plan and asked one question: does anything they said in
+their own words reveal a requirement the fixed questions did not capture? Almost always no —
+and no raise is the correct, common outcome.
+
+Three rules, all enforced server-side:
+
+- **It may raise a tier, never lower one.** Below the solver would mean recommending a plan
+  that provably cannot do something they said they do.
+- **A raise needs a cited entitlement and a quote.** The entitlement is an enum, so it cannot
+  be invented; the floor it implies is looked up in OUR table, never taken from the model; and
+  the quoted evidence must actually appear in what the person wrote.
+- **A tap beats an inference.** If the question owning that entitlement was answered by tapping
+  an option, the citation is rejected outright. The first live test forced this: a video studio
+  whose description mentioned enormous 4K video files had also tapped "Mostly just messages",
+  and the model overrode their explicit answer. Filling gaps is the job; correcting someone
+  about their own business is not.
+
+Fail any check and the deterministic plan stands. Measured live:
+
+```
+tapped "mostly just messages"     -> rejected: they answered "volume" themselves
+volume never asked                -> raised to Max, cites storage
+answered in PROSE, nothing tapped -> raised to Max, cites invoice_builder
+ordinary florist                  -> no raise
+```
+
+That third line is why this exists. A free-text answer used to reach only the rationale, which
+explains rather than decides.
+
+## Call 5 — `/api/rationale` (`api/_lib/rationaleService.ts`)
 
 The only call that sees the whole run, and the only one fired after screen 1 — because it is
 the only one that needs the answers. It writes the two sentences under the price.

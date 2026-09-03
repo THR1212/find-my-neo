@@ -1378,3 +1378,51 @@ already stops on its own. `currentClient` goes unasked once `importIntent` has t
 two bullet slots — `gmail_sync` is priority 7 against `import_email_contacts` at 10, so it
 could never be displayed, so the question scores zero. The measure understands the display it
 is optimising.
+
+### The model can change a price now, and exactly one way
+
+Hari: "can you check if you can make the llm live as well?" -- `api/plan.ts`.
+
+Until this, the model read the description once before a single question was answered and
+everything after was deterministic. `/api/rationale` saw the whole run but only EXPLAINS a
+decision already made, so somebody who typed something revealing into a free-text box changed
+nothing they were charged.
+
+**The power is one-directional: it may raise a floor, never lower one.** `rules.ts` has already
+computed the cheapest setup satisfying every need, and each need is a Pandora entitlement rather
+than an opinion -- going below it would recommend a plan that provably cannot do something they
+said they do. Going above, with a reason, is the case the fixed questions cannot cover: prose.
+
+Three checks, all server-side:
+
+- the entitlement is an **enum**, so constrained decoding makes inventing one impossible;
+- the floor it implies is looked up in **our** table, never taken from the model;
+- the quoted evidence must actually appear in what the person wrote.
+
+**And a fourth, which the first live test forced.** A video studio whose description said
+"enormous 4K video files every single day" had ALSO tapped "Mostly just messages" on the volume
+question -- and the model raised them Starter to Max anyway, reading the description over their
+explicit answer. That is the wrong boundary even when the inference is the better guess:
+overriding a tap tells someone we know their business better than they do, in the direction that
+costs them money. So a citation on a question they answered by tapping is now rejected outright.
+The model fills gaps; it does not correct people about themselves.
+
+Measured live, all four cases:
+
+```
+tapped "mostly just messages"     -> rejected: they answered "volume" themselves
+volume never asked                -> raised to Max, cites storage
+answered in PROSE, nothing tapped -> raised to Max, cites invoice_builder
+ordinary florist                  -> no raise
+```
+
+The third is the point. Free text finally counts for something other than an explanation.
+
+`/api/rationale` now runs after this and is handed the VERIFIED plan -- explaining one the model
+was about to raise would put a sentence on screen describing a different recommendation from the
+price above it. The reveal shows accepted citations as *you said "..."*, quoting them back,
+because the quote is the evidence.
+
+CLAUDE.md rule 2 rewritten to match. It said "the LLM never decides price or plan", which was
+true until today and is now too blunt: the accurate rule is that it never emits a number, may
+only raise, and only with a checked reason. Snapshot v7.

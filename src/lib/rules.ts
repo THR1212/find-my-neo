@@ -11,7 +11,7 @@
  */
 
 import plansData from "../data/plans.json";
-import { has, type Profile } from "./engine";
+import { has, type Profile } from "./profile";
 import { solve, type Candidate, type Need } from "./candidates";
 
 export type BillingCycle = "monthly" | "quarterly" | "yearly" | "twoYearly" | "fourYearly";

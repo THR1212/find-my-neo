@@ -25,6 +25,12 @@ import {
   type SurfaceMap,
 } from "./questions";
 import { discrimination, survivors } from "./candidates";
+import { has, type Profile, type ProfileValue } from "./profile";
+
+/* Re-exported so the many existing `from "./engine"` imports keep working. The definitions
+   live in profile.ts, a leaf module, so candidates.ts can reach features.ts without a cycle. */
+export { has };
+export type { Profile, ProfileValue };
 
 /**
  * Starting universe. 5,318 is not decorative — it is the real number of distinct
@@ -36,28 +42,6 @@ export const STARTING_SETUPS = 5318;
 
 /** Floor, so the counter lands on something concrete rather than 1. */
 const FLOOR_SETUPS = 3;
-
-/**
- * Profile values.
- *
- * A value may be an ARRAY once multi-select questions landed — someone can genuinely take
- * orders on Instagram *and* over the phone. Never compare a profile value with `===` directly;
- * use `has()` below, which handles both shapes.
- */
-export type ProfileValue = string | number | boolean | null | string[];
-export type Profile = Record<string, ProfileValue>;
-
-/**
- * Does this profile hold `value` for `key`?
- *
- * The one place that knows a value might be scalar or array. Every matcher in features.ts and
- * rules.ts goes through this — a stray `p.customerChannel === "social"` silently stops matching
- * the moment that question becomes multi-select, and nothing fails loudly to tell you.
- */
-export function has(p: Profile, key: string, value: unknown): boolean {
-  const v = p[key];
-  return Array.isArray(v) ? v.includes(value as string) : v === value;
-}
 
 /** Free text a person typed on a question screen, keyed by question id. */
 export type FreeTextAnswers = Record<string, string>;
@@ -124,6 +108,15 @@ export interface EngineState {
    * and `client` were unreachable. This is what makes the paths actually differ.
    */
   priority?: string[];
+  /**
+   * How many questions had been asked when the plan stopped moving.
+   *
+   * Everything after this point is asked to improve the feature lines rather than the price,
+   * and `FEATURE_ONLY_BUDGET` caps how many of those there may be. Recorded rather than
+   * recomputed because it is a fact about the run, and recomputing it would mean replaying
+   * every intermediate profile.
+   */
+  planSettledAt?: number;
   /** Anything typed into a question's free-text box, by question id. */
   freeText: FreeTextAnswers;
   /**
@@ -253,15 +246,35 @@ export function nextQuestion(state: EngineState): Question | null {
    * the price. Weight order takes over, and `shouldReveal` still governs when to stop.
    */
   if (!chosen) {
+    /**
+     * Rank lexicographically: what changes the PRICE, then what changes the reveal, then the
+     * data-derived weight.
+     *
+     * A single combined score got this wrong and the probe showed it plainly. `client` scores
+     * 0.67 on the full outcome because it swaps two feature bullets, while `extras` scores
+     * only 0.25 — so a question about which mail app someone uses was asked BEFORE the one
+     * that decides whether they need Max. Feature lines outranking a tier is exactly backwards,
+     * and it also meant the plan never settled early enough for the feature budget to apply.
+     *
+     * Separating the two is what makes "ask what matters first" true rather than approximate.
+     */
+    const score = (q: Question): [number, number, number] => [
+      discrimination(state.profile, q, "plan"),
+      discrimination(state.profile, q),
+      q.weight,
+    ];
     let best = unresolved[0];
-    let bestScore = discrimination(state.profile, best);
+    let bestScore = score(best);
     for (const q of unresolved.slice(1)) {
-      const score = discrimination(state.profile, q);
-      /* Strictly better narrowing wins; equal narrowing falls back to the data-derived
-         weight, so the tie-break is the old ordering rather than array position. */
-      if (score > bestScore + 1e-9 || (Math.abs(score - bestScore) <= 1e-9 && q.weight > best.weight)) {
+      const s2 = score(q);
+      const better =
+        s2[0] > bestScore[0] + 1e-9 ||
+        (Math.abs(s2[0] - bestScore[0]) <= 1e-9 &&
+          (s2[1] > bestScore[1] + 1e-9 ||
+            (Math.abs(s2[1] - bestScore[1]) <= 1e-9 && s2[2] > bestScore[2])));
+      if (better) {
         best = q;
-        bestScore = score;
+        bestScore = s2;
       }
     }
     chosen = best;
@@ -298,6 +311,17 @@ export const MAX_QUESTIONS = 12;
  * it asked.
  */
 const MIN_QUESTIONS = 3;
+
+/**
+ * How many questions may be asked purely to improve the FEATURE lines, once nothing left can
+ * change the plan or the price.
+ *
+ * Two, and the number is not arbitrary: `pickFeatures` renders exactly two bullets, so a third
+ * feature-only question cannot change anything a person reads. Without this bound every flow
+ * ran to eight — three extra questions bought two better lines, which is a poor trade against
+ * the 40-65% quiz completion in docs/competitor-qualification.md.
+ */
+const FEATURE_ONLY_BUDGET = 2;
 
 /**
  * Setups still standing. Exposed so the reveal and the run record can report the real
@@ -338,6 +362,20 @@ export function shouldReveal(state: EngineState): boolean {
   const unresolved = QUESTIONS.filter(
     (q) => !isResolved(state.profile, q.signal) && !state.asked.includes(q.id),
   );
+  /* Anything left that would change the PLAN is always worth asking — that is what they pay. */
+  if (unresolved.some((q) => discrimination(state.profile, q, "plan") > 1e-9)) return false;
+
+  /**
+   * Nothing moves the price any more. What remains can still change which feature lines
+   * appear, which is worth a couple of questions and no more — the reveal shows two bullets,
+   * so a third feature-only answer changes nothing anyone reads.
+   *
+   * `planSettledAt` is where the price stopped moving; everything asked after it was for the
+   * reveal's benefit.
+   */
+  const featureOnlyAsked = state.asked.length - (state.planSettledAt ?? state.asked.length);
+  if (featureOnlyAsked >= FEATURE_ONLY_BUDGET) return true;
+
   return !unresolved.some((q) => discrimination(state.profile, q) > 1e-9);
 }
 
@@ -421,6 +459,16 @@ export function applyAnswer(
     ...state,
     profile,
     asked: [...state.asked, questionId],
+    /* Stamp the moment the price stopped moving, once. */
+    ...(state.planSettledAt === undefined &&
+    !QUESTIONS.some(
+      (q) =>
+        !isResolved(profile, q.signal) &&
+        ![...state.asked, questionId].includes(q.id) &&
+        discrimination(profile, q, "plan") > 1e-9,
+    )
+      ? { planSettledAt: state.asked.length + 1 }
+      : {}),
     ...(answeredInProse ? { prosaic: [...(state.prosaic ?? []), questionId] } : {}),
     freeText: typed ? { ...state.freeText, [questionId]: typed } : state.freeText,
     trail: [...(state.trail ?? []), trace],

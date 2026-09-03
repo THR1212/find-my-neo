@@ -33,7 +33,7 @@
  *   `neo_site`     = "AI-powered site builder"    -> one-page (asset is one_page_site.png)
  */
 
-import { has, type Profile } from "./engine";
+import { has, type Profile } from "./profile";
 
 export type FeatureSurface = "mail" | "site";
 

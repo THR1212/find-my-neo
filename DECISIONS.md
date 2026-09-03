@@ -1339,3 +1339,42 @@ plain business. Two ways out: fold feature selection into the outcome so any que
 changes the reveal scores above zero (principled, needs `has`/`Profile` moved to a leaf module
 to avoid an import cycle), or keep asking a bounded couple of extra questions past
 discrimination-exhaustion (cheap, reintroduces an arbitrary number). Not decided by guesswork.
+
+### "Outcome" has to mean the whole reveal, and price has to rank first
+
+Follow-up to the open question above, resolved rather than left as a trade.
+
+Hari asked what the ranking actually optimises, and the honest answer exposed an
+inconsistency. `discrimination` scored the plan and the mailbox count, so `importIntent` and
+`currentClient` scored 0 — no need reads them, and Pandora puts import and Gmail sync on every
+mail tier, so there is genuinely no plan consequence. But they decide which feature lines
+appear. The flow stopped before asking them and the reveal's "Worth knowing" went generic.
+
+That is the same oversight as the mailbox count, noticed for one signal and not the other:
+**the outcome is everything the reveal renders**, not just the price.
+
+Fixing it needed `Profile` and `has` extracted to `src/lib/profile.ts`, a leaf module — without
+it, candidates -> features -> engine -> candidates is an import cycle. Worth doing rather than
+routing around: neither is an engine concept, they are the vocabulary every module shares.
+
+**Then two further corrections, both from the probe rather than from reading.**
+
+*Every flow ran to eight.* Three extra questions bought two better feature lines, which is a
+poor trade against 40-65% quiz completion. `FEATURE_ONLY_BUDGET = 2` caps questions asked after
+the price has settled, and the number is not arbitrary: `pickFeatures` renders exactly two
+bullets, so a third feature-only answer cannot change anything a person reads.
+
+*Feature lines were outranking tiers.* A single combined score put `client` (0.67, it swaps two
+bullets) ahead of `extras` (0.25, it decides whether they need Max) — so "which mail app do you
+use" was asked before the question that changes the price, and the plan never settled early
+enough for the budget to apply. Ranking is now lexicographic: **what changes the price, then
+what changes the reveal, then the data-derived weight.**
+
+Measured after: plain mail-only 6 questions (plan settled at 5), phone/walk-in with a site 8
+(settled at 7), Max via invoices 6 (settled at 5), florist with prefill 5 (settled at 4).
+
+Neat consequence worth recording: the budget rarely binds, because the feature-aware measure
+already stops on its own. `currentClient` goes unasked once `importIntent` has taken one of the
+two bullet slots — `gmail_sync` is priority 7 against `import_email_contacts` at 10, so it
+could never be displayed, so the question scores zero. The measure understands the display it
+is optimising.

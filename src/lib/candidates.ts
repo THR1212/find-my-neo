@@ -34,7 +34,8 @@
  */
 
 import plansData from "../data/plans.json";
-import { has, type Profile } from "./engine";
+import { has, type Profile } from "./profile";
+import { pickFeatures, type FeatureSurface } from "./features";
 
 export type MailTier = "starter" | "standard" | "max";
 export type SiteTier = "none" | "basic" | "plus" | "growth";
@@ -318,9 +319,9 @@ export function solve(profile: Profile, mailboxes: number, cycle: string): Solut
 }
 
 /**
- * Would asking this question change what we recommend?
+ * Would asking this question change anything we show them?
  *
- * The measure is **how many different recommendations the answers lead to**, normalised:
+ * The measure is **how many different outcomes the answers lead to**, normalised:
  *
  *     score = (distinct recommended setups across the options - 1) / (options - 1)
  *
@@ -352,6 +353,12 @@ export function solve(profile: Profile, mailboxes: number, cycle: string): Solut
 export function discrimination(
   profile: Profile,
   question: { id: string; signal: string; options: { resolves: Record<string, unknown> }[] },
+  /**
+   * "plan" ignores the feature lines, so it answers the narrower question: would this change
+   * what they PAY? Used for the stopping rule, where the two must be separated — see
+   * `shouldReveal`. Ordering always uses the full outcome.
+   */
+  scope: "outcome" | "plan" = "outcome",
 ): number {
   const opts = question.options;
   if (opts.length < 2) return 0;
@@ -377,7 +384,35 @@ export function discrimination(
     const mailboxes =
       Number(hypothetical.mailboxCount) || Number(hypothetical.teamSize) || 2;
     const best = solve(hypothetical, mailboxes, cycle).candidate;
-    outcomes.add(`${best.mail}/${best.site}/${mailboxes}`);
+
+    /**
+     * THE OUTCOME IS THE WHOLE REVEAL, not just the plan.
+     *
+     * Scoring the plan alone made `importIntent` and `currentClient` worth zero, because no
+     * need reads them — Pandora puts import and Gmail sync on every mail tier, so there is
+     * genuinely no plan consequence. But they decide which feature lines appear, and a
+     * question that changes what someone READS is informative even when it changes nothing
+     * they PAY. Stopping before them left the reveal's "Worth knowing" block generic.
+     *
+     * The same oversight as the mailbox count above, noticed for one signal and not the
+     * other: "outcome" has to mean everything the reveal renders.
+     */
+    const surfaces: FeatureSurface[] = best.site === "none" ? ["mail"] : ["mail", "site"];
+    const features = pickFeatures(
+      hypothetical,
+      surfaces,
+      2,
+      best.site === "none" ? null : best.site,
+      best.mail,
+    )
+      .map((f) => f.id)
+      .join(",");
+
+    outcomes.add(
+      scope === "plan"
+        ? `${best.mail}/${best.site}/${mailboxes}`
+        : `${best.mail}/${best.site}/${mailboxes}/${features}`,
+    );
   }
 
   return (outcomes.size - 1) / (opts.length - 1);

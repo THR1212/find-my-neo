@@ -215,6 +215,23 @@ export function buildRationale(
   return `${who} on your own domain.`;
 }
 
+/**
+ * What Neo charges for the `.co.site` subdomain in the FIRST billing cycle, per month.
+ *
+ * Darrel's, restored 03 Sep when .co.site came back in. Read from `plans.json` rather than
+ * hardcoded as "free", because it is free only on some cycles: 0/mo monthly and yearly, but
+ * Rs25/mo two-yearly and Rs37.50/mo four-yearly. `chooseCycle` returns only monthly or yearly
+ * today, so the answer is always 0 right now — which is exactly why it is derived. The day
+ * the engine recommends a two-year commitment, the reveal stops saying "Free" by itself,
+ * not because someone remembered to change a string.
+ *
+ * Null when the sheet has no figure for that cycle: unknown, so claim nothing.
+ */
+export function domainFirstCycleInr(cycle: BillingCycle): number | null {
+  const promo = plansData.domain.promoInrPerMonth as Partial<Record<BillingCycle, number>>;
+  return promo[cycle] ?? null;
+}
+
 export const CYCLE_LABEL: Record<BillingCycle, string> = {
   monthly: "billed monthly",
   quarterly: "billed quarterly",

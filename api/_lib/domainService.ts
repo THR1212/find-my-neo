@@ -22,6 +22,8 @@
  * └────────────────────────────────────────────────────────────────────────────────┘
  */
 
+import { checkCoSite, COSITE_SUFFIX } from "./cositeService.js";
+
 const BASE = "https://domscan.net/v1";
 
 /**
@@ -60,6 +62,14 @@ export interface DomainInfo {
   priceInr: number | null;
   /** Cheapest registrar we saw, for honesty in the docs/deck. Not rendered. */
   priceSource: string | null;
+  /**
+   * Neo gives this name away for the first billing cycle. True only for `.co.site`.
+   *
+   * Separate from `priceInr` on purpose: `priceInr: 0` would render "~\u20b90/yr", which is both
+   * ugly and wrong — free-then-renews is not a price of zero. The reveal reads this flag and
+   * prints "Free" with its own caveat instead.
+   */
+  free?: boolean;
 }
 
 /** Hard cap on TLDs per request. Three is a real design choice, not just thrift: more than
@@ -124,10 +134,22 @@ function cheapestUsd(prices: any[]): { usd: number; registrar: string } | null {
  * concurrently — pricing failing must never stop availability rendering, so they settle
  * independently rather than sharing a try/catch.
  */
-export async function lookupDomains(stem: string, tlds: string[]): Promise<DomainInfo[]> {
+export async function lookupDomains(
+  stem: string,
+  tlds: string[],
+  /** Manual "check a domain I typed" request. Only this opts into the Partner Panel rung. */
+  allowPanel = false,
+): Promise<DomainInfo[]> {
+  /* `.co.site` is Neo's own namespace, not a registrable TLD, so it goes to its own checker.
+     Sending it to DomScan would ask about `co.site` itself — which IS registered, so every
+     stem would come back taken. See cositeService.ts. It costs no DomScan credit either, so
+     it is deliberately not counted against MAX_TLDS. */
+  const wantsCoSite = tlds.includes(COSITE_SUFFIX);
+  const registrable = tlds.filter((t) => t !== COSITE_SUFFIX);
+
   // Only ask for what isn't already cached. On a rehearsal run this drops to zero calls.
-  const needPrices = tlds.filter((t) => fresh(priceCache.get(t), PRICE_TTL_MS) === undefined);
-  const needAvail = tlds.filter(
+  const needPrices = registrable.filter((t) => fresh(priceCache.get(t), PRICE_TTL_MS) === undefined);
+  const needAvail = registrable.filter(
     (t) => fresh(availCache.get(`${stem}.${t}`), AVAIL_TTL_MS) === undefined,
   );
 
@@ -143,8 +165,12 @@ export async function lookupDomains(stem: string, tlds: string[]): Promise<Domai
       : Promise.resolve(null),
   ];
 
-  // Settled, not all: a pricing failure must never stop availability from rendering.
-  const [statusRes, pricesRes] = await Promise.allSettled(calls);
+  /* Settled, not all: a pricing failure must never stop availability from rendering, and the
+     co.site check must never stop either — it reaches a different host entirely. */
+  const [statusRes, pricesRes, coSiteRes] = await Promise.allSettled([
+    ...calls,
+    wantsCoSite ? checkCoSite(stem, { allowPanel }) : Promise.resolve(null),
+  ]);
 
   if (statusRes.status === "fulfilled" && statusRes.value) {
     for (const r of statusRes.value?.results ?? []) {
@@ -172,14 +198,14 @@ export async function lookupDomains(stem: string, tlds: string[]): Promise<Domai
 
   const availByDomain = new Map<string, { available: boolean; confidence: string | null }>();
   const priceByTld = new Map<string, { inr: number; registrar: string }>();
-  for (const tld of tlds) {
+  for (const tld of registrable) {
     const a = fresh(availCache.get(`${stem}.${tld}`), AVAIL_TTL_MS);
     if (a) availByDomain.set(`${stem}.${tld}`, a);
     const p = fresh(priceCache.get(tld), PRICE_TTL_MS);
     if (p) priceByTld.set(tld, p);
   }
 
-  return tlds.map((tld) => {
+  const rows: DomainInfo[] = registrable.map((tld) => {
     const domain = `${stem}.${tld}`;
     const a = availByDomain.get(domain);
     const p = priceByTld.get(tld);
@@ -192,28 +218,73 @@ export async function lookupDomains(stem: string, tlds: string[]): Promise<Domai
       priceSource: p?.registrar ?? null,
     };
   });
+
+  if (wantsCoSite) {
+    const co = coSiteRes.status === "fulfilled" ? coSiteRes.value : null;
+    rows.push({
+      domain: `${stem}.${COSITE_SUFFIX}`,
+      tld: COSITE_SUFFIX,
+      available: co?.available ?? null,
+      /* Authoritative only for the sources that read Neo's own ORDER records: the
+         purpose-built check, and the Partner Panel bundle lookup on the manual path. The HTTP
+         probe sees published sites only — about a fifth of orders — so it can prove a name is
+         taken but never that it is free, and must not claim authority for either. */
+      confidence: co?.source === "neo" || co?.source === "panel" ? "authoritative" : null,
+      /* No price: it is free now and Neo has not published the renewal figure, so any number
+         here would be invented. `free` carries the whole story. */
+      priceInr: null,
+      priceSource: null,
+      free: true,
+    });
+  }
+
+  /* Restore the caller's order so `co.site` sits wherever they asked for it, not always last. */
+  const byTld = new Map(rows.map((r) => [r.tld, r]));
+  return tlds.map((t) => byTld.get(t)).filter((r): r is DomainInfo => r !== undefined);
 }
 
 /** Shared request handler. Framework-agnostic so Vite and Vercel can both mount it. */
 export async function handleDomainLookup(
   stemRaw: string | null,
   tldsRaw: string | null,
+  /**
+   * `manual=1` on the query string: the person typed a name and pressed Check.
+   *
+   * It opts into the Partner Panel rung in cositeService. It is NOT a security boundary — the
+   * client controls it, so anyone can set it. What it actually guarantees is that the reveal's
+   * own batch lookup, which fires on every page view, never touches an admin-session endpoint.
+   * The rate limit in cositeService is the real brake. Said plainly here because a flag like
+   * this invites being mistaken for a gate.
+   */
+  manualRaw: string | null = null,
 ): Promise<{ status: number; body: unknown }> {
   const stem = (stemRaw ?? "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
   if (!stem) return { status: 400, body: { error: "missing or invalid `name`" } };
 
-  const tlds = (tldsRaw ?? "com,in,co")
+  const all = (tldsRaw ?? `com,in,co,${COSITE_SUFFIX}`)
     .split(",")
     /* Dots are allowed: multi-label TLDs are real (co.uk, com.au) and someone checking a
        domain of their own will type one. Stripping them turned co.uk into "couk", which
        DomScan answers for a TLD that does not exist. Leading/trailing dots are trimmed so
        the sanitiser cannot emit ".com" or "com.". */
     .map((t) => t.trim().toLowerCase().replace(/[^a-z0-9.]/g, "").replace(/^\.+|\.+$/g, ""))
-    .filter(Boolean)
-    .slice(0, MAX_TLDS);
+    .filter(Boolean);
+
+  /* MAX_TLDS bounds what one crafted query can spend at DomScan. `.co.site` spends nothing
+     there — it is answered by cositeService — so capping it would only mean the free option
+     we most want to show is the one that falls off the end of the list. Exempt it, cap the
+     rest, and put it back where the caller asked for it. */
+  const coSiteAt = all.indexOf(COSITE_SUFFIX);
+  const capped = all.filter((t) => t !== COSITE_SUFFIX).slice(0, MAX_TLDS);
+  const tlds =
+    coSiteAt === -1
+      ? capped
+      : [...capped.slice(0, coSiteAt), COSITE_SUFFIX, ...capped.slice(coSiteAt)];
+
+  const allowPanel = manualRaw === "1" || manualRaw === "true";
 
   try {
-    return { status: 200, body: { domains: await lookupDomains(stem, tlds) } };
+    return { status: 200, body: { domains: await lookupDomains(stem, tlds, allowPanel) } };
   } catch (err) {
     return { status: 502, body: { error: err instanceof Error ? err.message : String(err) } };
   }

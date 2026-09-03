@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import type { DomainOption, RevealContent } from "../lib/session";
 import {
   availableFromLookup,
+  COSITE_SUFFIX,
+  isCoSite,
   lookupDomains,
   type DomainInfo,
 } from "../lib/domains";
 import { pickFeatures, withReason, type FeatureSurface, type ReasonMap } from "../lib/features";
-import { recommend, CYCLE_LABEL } from "../lib/rules";
+import { recommend, CYCLE_LABEL, domainFirstCycleInr } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
 import SetupStory from "../components/SetupStory";
 import { block as blockData, type NeoSite } from "../lib/neoSite";
@@ -17,8 +19,11 @@ import { playSetupReady, playSound, unlockSound } from "../sound";
  * Locked-viewport reveal. Squarespace Blueprint / Wix ADI / Linear-settings pattern:
  * the page does not scroll; left is the recommendation, right is a live preview pane.
  * Taken domains never appear — availableFromLookup drops them (Darrel, 3 Sep).
- * `.co.site` is deliberately absent — Hari ruled Neo's own namespace out, and the check
- * behind it minted a Titan Partner session from a real login. See DECISIONS 03 Sep.
+ * `.co.site` is the fourth recommended name — Neo's own namespace, and the one thing the
+ * domain step can actually sell today. Its availability comes from cositeService, which
+ * answers `null` (unknown) unless NEO_COSITE_CHECK_URL is wired, and null renders NO
+ * badge. The admin-session lookup that could answer properly lives in tools/, not here:
+ * a public function behind it is an enumeration oracle. Darrel's call, 03 Sep.
  */
 
 export default function Reveal({
@@ -123,12 +128,14 @@ export default function Reveal({
       ? lookedUp.map((row, i) => ({
           name: row.domain,
           available: row.available,
+          free: row.free,
           priceInr: row.priceInr,
             note: notesByName[row.domain],
           recommended: i === 0,
         }))
       : reveal.domains
   );
+  const coSiteTaken = live[`${stem}.${COSITE_SUFFIX}`]?.available === false;
   const allDomains = [...suggested, ...extraDomains.filter((d) => !suggested.some((s) => s.name === d.name))];
   const domain = allDomains.find((d) => d.name === chosenName) ?? allDomains[0];
 
@@ -189,6 +196,10 @@ export default function Reveal({
     mailboxCount,
     verdict?.raised ? { mail: verdict.mailTier, site: verdict.siteTier } : null,
   );
+
+  /* First-cycle price for a .co.site name — 0 today, but derived, so a two-year cycle
+     stops it saying "Free" without anyone remembering to. */
+  const firstCycle = domainFirstCycleInr(rec.cycle);
   const features = pickFeatures(
     profile,
     surfaces,
@@ -228,11 +239,22 @@ export default function Reveal({
               <span className="domain-name">{domain.name}</span>
               {liveAvail === true && <span className="badge">Available</span>}
               {liveAvail === false && <span className="badge badge-taken">Taken</span>}
-              {livePrice !== null && (
-                <span className="domain-price">
-                  ~₹{livePrice.toLocaleString("en-IN")}/yr
-                  <span className="price-caveat">approx</span>
+              {domain.free ? (
+                <span className="domain-price domain-free">
+                  {firstCycle === 0
+                    ? "Free"
+                    : firstCycle != null
+                      ? `₹${firstCycle.toLocaleString("en-IN")}/mo`
+                      : "Free"}
+                  <span className="price-caveat">first billing cycle</span>
                 </span>
+              ) : (
+                livePrice !== null && (
+                  <span className="domain-price">
+                    ~₹{livePrice.toLocaleString("en-IN")}/yr
+                    <span className="price-caveat">approx</span>
+                  </span>
+                )
               )}
             </div>
           ) : (
@@ -258,8 +280,18 @@ export default function Reveal({
                     aria-pressed={active}
                   >
                     <span className="alt-name">{d.name}</span>
-                    {price !== null && (
-                      <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
+                    {d.free ? (
+                      <span className="alt-price alt-free">
+                        {firstCycle === 0
+                          ? "Free"
+                          : firstCycle != null
+                            ? `₹${firstCycle.toLocaleString("en-IN")}`
+                            : "Free"}
+                      </span>
+                    ) : (
+                      price !== null && (
+                        <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
+                      )
                     )}
                     {taken && <span className="alt-taken">taken</span>}
                   </button>
@@ -268,6 +300,15 @@ export default function Reveal({
             </div>
           )}
 
+
+          {coSiteTaken && (
+            <p className="domain-note domain-note-taken">
+              <strong>
+                {stem}.{COSITE_SUFFIX}
+              </strong>{" "}
+              is already in use on Neo — the free subdomain needs a different name.
+            </p>
+          )}
 
           <details className="own-domain">
             <summary className="own-label">Had a different name in mind?</summary>
@@ -399,7 +440,9 @@ export default function Reveal({
             <p className="plan-meta plan-note">
               {!domain
                 ? `Neo's domain purchase is coming, so for now you'll connect a name you own.`
-                : `We'll copy ${domain.name} for you — Neo's domain purchase is coming, so for now you'll connect it under "use a domain I own".`}
+                : isCoSite(domain.name)
+                  ? `We'll copy ${domain.name} for you — it's Neo's own, free for your first billing cycle, and you can claim it on the next screen.`
+                  : `We'll copy ${domain.name} for you — Neo's domain purchase is coming, so for now you'll connect it under "use a domain I own".`}
             </p>
           </div>
           </div>

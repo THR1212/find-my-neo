@@ -25,7 +25,27 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
       // loadEnv doesn't populate process.env, and the services read from there.
       if (env.DOMSCAN_API_KEY) process.env.DOMSCAN_API_KEY = env.DOMSCAN_API_KEY;
       // Same for the model seam. These stay inside the dev server — never the client bundle.
-      for (const k of ["LLM_MODE", "LLM_MODEL", "LLM_API_KEY", "LLM_BASE_URL"]) {
+      for (const k of [
+        "LLM_MODE",
+        "LLM_MODEL",
+        "LLM_API_KEY",
+        "LLM_BASE_URL",
+        /* .co.site availability. All optional: with none of these set, cositeService falls
+           through to its HTTP probe, which can only ever answer "taken" or "unknown" — never
+           "free" — and the reveal renders no badge. Unconfigured is a deployment state, not
+           a broken one. */
+        "NEO_COSITE_CHECK_URL",
+        "NEO_COSITE_CHECK_TOKEN",
+        "NEO_COSITE_AUTH_HEADER",
+        "NEO_COSITE_TOKEN_URL",
+        "NEO_PARTNER_EMAIL",
+        "NEO_PARTNER_PASSWORD",
+        "NEO_PARTNER_ORIGIN",
+        "NEO_PARTNER_IID",
+        "NEO_PARTNER_SESSION",
+        "NEO_PARTNER_PANEL_URL",
+        "NEO_PARTNER_PANEL_UA",
+      ]) {
         if (env[k]) process.env[k] = env[k];
       }
 

@@ -236,23 +236,31 @@ async function partnerToken(forceRefresh = false): Promise<string | null> {
 /**
  * Neo's real check.
  *
- *   GET https://bll.titan.email/internal/neo/v2/check-domain-availability
- *   x-auth-token: <session from mintToken>
+ *   GET https://bll.titan.email/internal/neo/check-domain-availability?domainName=<domain>
  *
- * `NEO_COSITE_CHECK_URL` may contain `{stem}` or `{domain}`; with neither, the domain is
- * appended as `?domain=`. **The query parameter name is a guess** — Titan supplied the path
- * but not the parameter — so put the real one in the env var as a template rather than
- * relying on the default.
+ * Both halves of that were recovered by reading the API's own error codes, because the path as
+ * supplied did not work. `bll` distinguishes its failures usefully, and the sequence was:
  *
- * As of 2026-09-03 this path answers `{"error":"UnRegisteredEndpoint","statusCode":404}` from
- * the public internet, while `/internal/ip-to-country` on the same host answers 200. So the
- * route is not exposed on the public edge, and no token will change that — see the note in
- * `.env.example`. The ladder in `checkCoSite` means a 404 here degrades to the probe rather
- * than breaking the reveal, which is why this can ship before the access question is settled.
+ *   /internal/neo/v2/check-domain-availability -> 404 `UnRegisteredEndpoint`  (no such route)
+ *   /internal/neo/check-domain-availability    -> 400 `BAD_REQUEST`           (route EXISTS)
+ *     ...whose body says: "domainName or domainNames is required"
+ *   ?domainName=<domain>                       -> 401 "Auth header missing"   (param accepted)
+ *     ...with `Authorization` present          -> 404 "Hosting server not found"
  *
- * Response reading is deliberately loose: the shape has not been supplied either, so accept
- * the spellings this kind of endpoint normally uses rather than guess one and fail closed on
- * all the others.
+ * So **there is no `v2`**, and the parameter is `domainName` (or `domainNames`, which implies
+ * batch support worth using later — one call for the whole reveal instead of one per stem).
+ *
+ * ┌──────────────────────────────────────────────────────────────────────────────────────────┐
+ * │ IT STILL CANNOT ANSWER FROM OUTSIDE TITAN'S NETWORK.                                     │
+ * │ Every domain returns `NOT_FOUND / "Hosting server not found"` — including `titan.email`   │
+ * │ and `neo.space`, which certainly exist. So that is a blanket downstream failure, not an   │
+ * │ availability answer, and it must never be read as "free". A garbage `Authorization` value │
+ * │ produces the identical response, so this edge is not validating credentials either: we    │
+ * │ are reaching the service past its gateway, and nothing it says here is trustworthy.       │
+ * └──────────────────────────────────────────────────────────────────────────────────────────┘
+ *
+ * The ladder in `checkCoSite` degrades all of it to the probe, so the reveal stays correct.
+ * Response reading is deliberately loose: the success shape has still never been observed.
  */
 async function askNeo(stem: string, domain: string): Promise<CoSiteResult | null> {
   const template = process.env.NEO_COSITE_CHECK_URL;
@@ -268,9 +276,18 @@ async function askNeo(stem: string, domain: string): Promise<CoSiteResult | null
     withTimeout(url, {
       headers: {
         Accept: "application/json",
-        /* Titan's Partner Panel reads `x-auth-token`. An earlier version of this file sent
-           `Authorization: Bearer` — the near-universal convention, and wrong here. */
-        ...(token ? { [headerName]: token } : {}),
+        /* The session goes in BOTH headers, deliberately, because the two sources of truth
+           disagree and we cannot yet tell which is right in production:
+
+           - Titan's documentation says Partner Panel APIs read `x-auth-token`.
+           - This route, measured 2026-09-03, answers `401 "Auth header missing"` when ONLY
+             `x-auth-token` is set, and gets past that gate when `Authorization` is present.
+
+           Same secret, same host, same TLS connection, so sending both costs nothing and
+           removes a guess. It is not belt-and-braces sloppiness: picking one would be a coin
+           flip, and picking wrong looks identical to "no access" — the failure mode that has
+           already cost time here. Set NEO_COSITE_AUTH_HEADER to pin one once Titan confirms. */
+        ...(token ? { [headerName]: token, Authorization: `Bearer ${token}` } : {}),
         origin: process.env.NEO_PARTNER_ORIGIN ?? TOKEN_ORIGIN_DEFAULT,
       },
     });

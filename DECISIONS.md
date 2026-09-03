@@ -1697,3 +1697,51 @@ because the quote is the evidence.
 CLAUDE.md rule 2 rewritten to match. It said "the LLM never decides price or plan", which was
 true until today and is now too blunt: the accurate rule is that it never emits a number, may
 only raise, and only with a checked reason. Snapshot v7.
+
+---
+
+### 2026-09-03 · The path has no `v2` and the parameter is `domainName` — recovered from bll's own error codes
+
+"None of the bll endpoints working" turned out to be wrong in a useful way. `bll` distinguishes
+its failure modes precisely, and reading them in sequence recovered two things the supplied
+spec had wrong.
+
+**bll is mostly healthy.** `/internal/ip-to-country` → 200. `/external/cello/reward-details` →
+200. `/partner/token/generate` → 401 `UNAUTHENTICATED` — which is a route that *exists* and
+wants auth, not a missing one.
+
+**That contrast is the whole diagnostic.** `UnRegisteredEndpoint` means no such route;
+`UNAUTHENTICATED` / `BAD_REQUEST` mean the route is there. So:
+
+    /internal/neo/v2/check-domain-availability  -> 404 UnRegisteredEndpoint   (no such route)
+    /internal/neo/check-domain-availability     -> 400 BAD_REQUEST            (route EXISTS)
+      body: {"attrs":{"detail":"domainName or domainNames is required"}}
+    ...?domainName=<domain>                     -> 401 "Auth header missing"  (param accepted)
+    ...with an Authorization header present     -> 404 "Hosting server not found"
+
+**There is no `v2`**, and the parameter is **`domainName`** — the API named it itself. The
+plural `domainNames` implies batch support, which is worth using later: one call for the whole
+reveal rather than one per stem.
+
+**It still cannot answer from outside Titan's network, and this is now certain rather than
+inferred.** With the correct path, the correct parameter and a real session, *every* domain
+returns `NOT_FOUND / "Hosting server not found"` — including `titan.email` and `neo.space`,
+which certainly exist. A blanket downstream failure, not an availability answer, and it must
+never be read as "free".
+
+**And this edge is not validating credentials at all.** `Authorization: total-garbage` returns
+byte-for-byte the same response as a real session. So we are reaching the service past its
+gateway; nothing it says here is trustworthy, and that is where probing stopped. Poking at an
+internal service that is not enforcing auth is not something to continue doing to learn a
+response shape.
+
+**One consequence for the code:** the session is now sent in **both** `x-auth-token` and
+`Authorization: Bearer`, because the two sources of truth disagree — Titan's docs say
+`x-auth-token`, and this route answers "Auth header missing" when only that is set. Same
+secret, same host, same connection, so sending both costs nothing and removes a coin flip whose
+wrong side looks exactly like "no access" — the failure mode that has already cost time here.
+`NEO_COSITE_AUTH_HEADER` pins it once Titan confirms.
+
+**What is actually still needed:** how a Vercel function should reach this service *through* its
+gateway. That is the only remaining blocker; the path, the parameter and the login are all
+solved.

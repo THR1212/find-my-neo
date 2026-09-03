@@ -371,8 +371,12 @@ QUESTIONS.push(
     weight: 0.22,
     options: [
       {
+        /* Deliberately says nothing about a site. It read "No, just email and a site", which
+           offered a site to someone who had already answered "Just email" one screen earlier —
+           run cz3npnaz, where they picked mail-only and were then shown a site anyway. This
+           question is asked on both surfaces, so its labels must work on both. */
         id: "no",
-        label: "No, just email and a site",
+        label: "No, not right now",
         hint: "You can add these later",
         resolves: { inboxTools: false },
       },

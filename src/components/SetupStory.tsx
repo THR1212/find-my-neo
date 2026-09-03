@@ -18,6 +18,7 @@ export default function SetupStory({
   profile = {},
   mailPlanId = null,
   mailPlanName = null,
+  features = [],
   chosenTemplate = null,
   onChooseTemplate,
 }: {
@@ -28,6 +29,8 @@ export default function SetupStory({
   profile?: Record<string, unknown>;
   mailPlanId?: string | null;
   mailPlanName?: string | null;
+  /** The bullets the reveal is already showing, so the mail pane can echo them. */
+  features?: { id: string; name: string; because: string }[];
   /** `templateKey` of the pane they picked, or null while neither is chosen. */
   chosenTemplate?: string | null;
   onChooseTemplate?: (templateKey: string) => void;
@@ -35,12 +38,36 @@ export default function SetupStory({
   if (!showSite) {
     const clips = clipsFor(profile, mailPlanId, 3);
     const planLabel = mailPlanName ?? "your plan";
+    /**
+     * FILL THE REST WITH THE FEATURES WE ACTUALLY HIGHLIGHTED.
+     *
+     * `MAIL_CLIPS` holds five films and FOUR are gated at Standard or Max, so `clipsFor`
+     * legitimately returns exactly one on Starter — and the pane rendered that single clip at
+     * full height. A mail-only Starter reveal was one enormous phone animation next to a
+     * ₹149 plan, which is the cheapest plan getting the loudest pane.
+     *
+     * The entitlement filter is right and must stay: a Max-only film beside a Starter price
+     * promises something they have not bought. The gap is in the footage, not the rule. So
+     * the remaining slots take the same feature bullets the plan card is showing — real,
+     * plan-correct, and already on screen in text.
+     *
+     * Any clip that exists still wins its slot; this only fills what would otherwise stretch.
+     */
+    const shown = features.filter((f) => !clips.some((c) => c.id === f.id)).slice(0, 3 - clips.length);
     return (
       <aside className="setup-story setup-story-mail" aria-label="What comes with your mail">
         <p className="story-kicker">On {planLabel}</p>
-        <div className={`loop-stack loop-stack-${clips.length}`}>
+        <div className={`loop-stack loop-stack-${Math.max(1, clips.length + shown.length)}`}>
           {clips.map((clip) => (
             <NeoProductLoop key={clip.id} clip={clip} />
+          ))}
+          {shown.map((f) => (
+            <figure key={f.id} className="mail-feature-card">
+              <figcaption>
+                <span className="neo-loop-name">{f.name}</span>
+                <span className="neo-loop-caption">{f.because}</span>
+              </figcaption>
+            </figure>
           ))}
         </div>
       </aside>

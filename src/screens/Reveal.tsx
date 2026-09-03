@@ -564,6 +564,9 @@ export default function Reveal({
           profile={profile}
           mailPlanId={rec.mailPlan.id}
           mailPlanName={rec.mailPlan.name}
+          /* The same bullets the plan card shows. On a mail-only Starter only one film is
+             entitlement-legal, and these fill the pane rather than stretching that one. */
+          features={features.map((f) => ({ id: f.id, name: f.name, because: f.because }))}
           chosenTemplate={chosenTemplate}
           onChooseTemplate={(key) => {
             unlockSound();

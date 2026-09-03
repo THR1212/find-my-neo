@@ -83,7 +83,7 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
   inbox: {
     prompt: "Should Neo run any of this for you?",
     options: {
-      no: "No, just email and a site",
+      no: "No, not right now",
       yes: "Yes, that would save me time",
     },
   },

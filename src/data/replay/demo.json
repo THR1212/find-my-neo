@@ -15,7 +15,7 @@
   "nextQuestionId": "channel",
 
   "reveal": {
-    "_domainsNote": "Availability and price are overridden at runtime by the live DomScan lookup (/api/domains). These values are the FALLBACK shown only when that call fails. They are set to the measured live figures rather than invented ones, so the fallback path can never contradict the happy path in front of an audience. The stem must match domainStem above — the lookup keys off it.",
+    "_domainsNote": "Availability and price are overridden at runtime by the live DomScan lookup (/api/domains). These values are the FALLBACK shown only when that call fails. The .co.site row is the exception \u2014 see its own _note. They are set to the measured live figures rather than invented ones, so the fallback path can never contradict the happy path in front of an audience. The stem must match domainStem above — the lookup keys off it.",
 
     "domains": [
       {
@@ -36,6 +36,14 @@
         "available": true,
         "priceInr": 1390,
         "note": "Shorter, if you want room to grow beyond cakes"
+      },
+      {
+        "_note": "Neo's own subdomain, and the only one of the four Neo can actually sell today. available stays null on purpose: unlike the three above, this one is checked by api/_lib/cositeService.ts, which needs no API key and so answers even on the replay path — baking a value here would be overwritten within a second, and would be a claim about a live namespace in the meantime.",
+        "name": "proofandbutter.co.site",
+        "available": null,
+        "priceInr": null,
+        "free": true,
+        "note": "Free for your first billing cycle — Neo's own, and live today"
       }
     ],
     "mailboxes": [

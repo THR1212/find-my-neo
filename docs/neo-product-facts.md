@@ -518,6 +518,32 @@ project exists at all.
 **Do not substitute `.co.site` to make the flow complete.** A free subdomain is not the product
 being recommended, and swapping it in would quietly change what the tool claims to do.
 
+> **Amended 2026-09-03 — `.co.site` is now shown, as a fourth option, never as a substitute.**
+>
+> Darrel's call, and the distinction the paragraph above was protecting still holds: nothing
+> was swapped. The reveal recommends the same three registrable names in the same order, and
+> `.co.site` is appended in a fourth, reserved slot — labelled **Free**, for the first billing
+> cycle, which is what Neo's own sheet says (`plans.json` → `domain.promoInrPerMonth` is ₹0/mo
+> on monthly and yearly). It never takes the hero slot, including when the DomScan lookup
+> fails; see the ranking comment in `src/lib/domains.ts`.
+>
+> What changed is the reasoning. The paragraph above reads as "don't paper over the gap", and
+> that is right — but it was also leaving the flow's one **working** option off a screen whose
+> whole job is to land someone on a domain. Neo can sell `.co.site` today. Showing it costs no
+> DomScan credit, and it turns "here is what this does the day you turn custom domains on"
+> into "…and here is the one you can claim right now", which is a stronger position, not a
+> weaker one. The custom-domain caveat is still on screen, now branched so it appears only on
+> the names it is actually true of.
+>
+> Availability for it comes from `api/_lib/cositeService.ts`, not DomScan — DomScan checks
+> registrations and `foo.co.site` is not one. Two things measured that day, both of which rule
+> out the cheap approaches: **`*.co.site` is a DNS wildcard** (`zzqx7v9nonexistentstem.co.site`
+> resolves to the same four A records as `co.site` itself), and **a 404 does not mean free** —
+> the host returns an identical 404 for an unclaimed stem and for a claimed-but-unpublished
+> one, and §9 of `docs/data-findings.md` found 31,545 of 44,581 site orders never published.
+> So the fallback probe proves "taken" only, and `NEO_COSITE_CHECK_URL` is the seam for Neo's
+> real endpoint.
+
 ### Handoff limitations, tested
 
 - **No query param prefills Neo's domain search box.** Tested `domain`, `domainName`, `q`,

@@ -1,9 +1,15 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import type { DomainOption, RevealContent } from "../lib/session";
-import { availableFromLookup, lookupDomains, type DomainInfo } from "../lib/domains";
+import {
+  availableFromLookup,
+  COSITE_SUFFIX,
+  isCoSite,
+  lookupDomains,
+  type DomainInfo,
+} from "../lib/domains";
 import { pickFeatures, type FeatureSurface } from "../lib/features";
-import { recommend, CYCLE_LABEL } from "../lib/rules";
+import { recommend, CYCLE_LABEL, domainFirstCycleInr } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
 import NeoSitePreview from "../components/NeoSitePreview";
 import NeoSiteGenerating from "../components/NeoSiteGenerating";
@@ -145,11 +151,29 @@ export default function Reveal({
     name: row.domain,
     available: row.available,
     priceInr: row.priceInr,
+    /* Carry `free` through, or the .co.site row arrives on screen priced like a custom
+       domain — which is to say priced at nothing at all, since its priceInr is null. */
+    free: row.free,
     note: notesByName[row.domain],
     recommended: i === 0,
   }));
   const allDomains = [...suggested, ...extraDomains];
   const domain = allDomains.find((d) => d.name === chosenName) ?? allDomains[0];
+
+  /**
+   * The `.co.site` name is already in use.
+   *
+   * Say so, rather than letting it disappear. `availableFromLookup` drops taken names from
+   * the recommendations and that is right — a taken name is not an option — but silence is
+   * the wrong treatment for THIS one. A taken `.com` is one of two hundred million and not
+   * news. A taken `.co.site` means the stem is gone inside Neo, on the exact screen the CTA
+   * is about to hand off to, so the person finds out in thirty seconds either way. Better
+   * from us, next to the input that lets them do something about it.
+   *
+   * Only ever true when the check is confident: `available` is `false` here, and the
+   * fallback probe answers `null` unless it actually found a published site.
+   */
+  const coSiteTaken = live[`${stem}.${COSITE_SUFFIX}`]?.available === false;
 
   /**
    * Check a domain the person typed.
@@ -196,7 +220,13 @@ export default function Reveal({
     }
     setExtraDomains((prev) => [
       ...prev,
-      { name: row.domain, available: true, priceInr: row.priceInr, note: "Your own idea" },
+      {
+        name: row.domain,
+        available: true,
+        priceInr: row.priceInr,
+        free: row.free,
+        note: "Your own idea",
+      },
     ]);
     setChosenName(row.domain);
     setOwnInput("");
@@ -260,19 +290,32 @@ export default function Reveal({
             {(live[domain.name]?.available ?? domain.available) === true && (
               <span className="badge">Available</span>
             )}
-            {/* Price stays labelled "approx" — it is a third-party registrar's USD list price
-                converted at a fixed rate, not Neo's.
-                DO NOT claim the domain is free until someone verifies who that discount applies
-                to. Neo's sheet shows a 100% domain discount on monthly/yearly billing, but that
-                is very likely the free `co.site` SUBDOMAIN, not a registrable custom domain —
-                co.site is Neo's own namespace. Claiming "free custom domain" to the people who
-                set Neo's prices, and being wrong, would cost more than the claim is worth.
-                Tracked in CLAUDE.md open questions. */}
-            {(live[domain.name]?.priceInr ?? domain.priceInr) !== null && (
-              <span className="domain-price">
-                ~₹{(live[domain.name]?.priceInr ?? domain.priceInr)!.toLocaleString("en-IN")}/yr
-                <span className="price-caveat">approx</span>
+            {/* Two different price claims, and the difference is the whole point.
+
+                REGISTRABLE names are labelled "approx" — a third-party registrar's USD list
+                price converted at a fixed rate, not Neo's, and not a name Neo sells today.
+
+                `.co.site` is the opposite: Neo's own namespace, Neo's own price, and free for
+                the first billing cycle. The old comment here said DO NOT claim free "until
+                someone verifies who that discount applies to" — that verification happened
+                (docs/neo-product-facts.md, funnel walked 28 Aug: the 100% domain discount IS
+                the .co.site subdomain), so the claim is now made for .co.site alone and still
+                withheld from every custom TLD. `domainFirstCycleInr` reads the figure from
+                plans.json per cycle rather than asserting zero — see rules.ts. */}
+            {domain.free ? (
+              <span className="domain-price domain-free">
+                {domainFirstCycleInr(rec.cycle) === 0
+                  ? "Free"
+                  : `₹${domainFirstCycleInr(rec.cycle)!.toLocaleString("en-IN")}/mo`}
+                <span className="price-caveat">first billing cycle</span>
               </span>
+            ) : (
+              (live[domain.name]?.priceInr ?? domain.priceInr) !== null && (
+                <span className="domain-price">
+                  ~₹{(live[domain.name]?.priceInr ?? domain.priceInr)!.toLocaleString("en-IN")}/yr
+                  <span className="price-caveat">approx</span>
+                </span>
+              )
             )}
           </div>
         ) : (
@@ -298,14 +341,29 @@ export default function Reveal({
                   aria-pressed={active}
                 >
                   <span className="alt-name">{d.name}</span>
-                  {price !== null && (
-                    <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
+                  {d.free ? (
+                    <span className="alt-price alt-free">
+                      {domainFirstCycleInr(rec.cycle) === 0
+                        ? "Free"
+                        : `₹${domainFirstCycleInr(rec.cycle)!.toLocaleString("en-IN")}`}
+                    </span>
+                  ) : (
+                    price !== null && (
+                      <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
+                    )
                   )}
                 </button>
               );
             })}
           </div>
         )}
+        {coSiteTaken && (
+          <p className="domain-note domain-note-taken">
+            <strong>{stem}.{COSITE_SUFFIX}</strong> is already in use on Neo — the free
+            subdomain needs a different name.
+          </p>
+        )}
+
         {/* The escape hatch. Our three come from one stem the model guessed; when that guess
             is wrong, or every TLD is taken, this is the only way forward that is not "start
             over". Same live lookup, so a name they type is verified as strictly as ours. */}
@@ -418,14 +476,22 @@ export default function Reveal({
             {rec.rationale} {CYCLE_LABEL[rec.cycle]} · cancel anytime · you finish the site in
             Neo's builder
           </div>
-          {/* Neo does not sell custom domains yet — the only live options are the free
-              .co.site subdomain or connecting one you already own. This recommender is built
-              for the service that hasn't shipped. Saying so is stronger than hiding it: it is
-              the reason the project exists. */}
+          {/* Neo does not sell custom domains yet. The line has to branch, because the two
+              cases are genuinely different and one sentence covering both would be wrong in
+              whichever direction it leaned:
+
+              - a `.co.site` name IS live today, claimable in one click at the other end. No
+                caveat belongs on it, and attaching one would talk a person out of the only
+                option that actually works.
+              - a custom TLD is the service that hasn't shipped. Saying so is stronger than
+                hiding it — it is the reason the project exists — and the honest next step is
+                "use a domain I own". */}
           <div className="plan-meta plan-note">
-            {domain
-              ? `We'll copy ${domain.name} for you — Neo's domain purchase is coming, so for now you'll connect it under "use a domain I own".`
-              : `Neo's domain purchase is coming, so for now you'll connect a name you own.`}
+            {!domain
+              ? `Neo's domain purchase is coming, so for now you'll connect a name you own.`
+              : isCoSite(domain.name)
+                ? `We'll copy ${domain.name} for you — it's Neo's own, free for your first billing cycle, and you can claim it on the next screen.`
+                : `We'll copy ${domain.name} for you — Neo's domain purchase is coming, so for now you'll connect it under "use a domain I own".`}
           </div>
         </div>
         <div className="row" style={{ marginTop: 0 }}>

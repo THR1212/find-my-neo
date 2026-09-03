@@ -958,3 +958,80 @@ Also confirmed in the same run, and it retroactively justifies preferring Neo's 
 classifier returned `industryKey=ecommerce_retail`, while our hand-built map holds
 `ecommerce_and_retail` for the same meaning. **Different format.** Which of the two the builder
 accepts is now moot — we send back the key Neo itself produced.
+
+---
+
+### 2026-09-03 · `.co.site` joins the domain recommendations, checked by its own endpoint
+
+**Decided.** The reveal now recommends **four** names: the model's three registrable TLDs
+exactly as before, plus `<stem>.co.site` in a fourth, reserved slot, labelled **Free** for the
+first billing cycle. Availability for it comes from a new `api/_lib/cositeService.ts`, folded
+into the existing `/api/domains` response rather than given a route of its own.
+
+**Why.** `.co.site` is the only thing on Neo's domain step Neo can actually sell today
+(`docs/neo-product-facts.md`), and it is free for the first cycle — `plans.json` →
+`domain.promoInrPerMonth` is ₹0/mo on monthly and yearly. Leaving it off a screen whose entire
+job is to land someone on a domain meant the flow's one *working* option was the one we didn't
+show. The custom-domain caveat is still on screen; it is now branched so it appears only on the
+names it is true of.
+
+This overrides `docs/neo-product-facts.md`'s "do not substitute `.co.site` to make the flow
+complete" — and the word doing the work is *substitute*. Nothing was swapped: the three
+registrable names keep their ranking, and `.co.site` is appended. Amended in place there rather
+than left to contradict this file.
+
+**Why a separate checker, and not DomScan.** DomScan checks **registrations**. `foo.co.site`
+is not a registration — it is a record inside a domain Neo already owns — so DomScan answers
+about `co.site` itself, which *is* registered. Every stem would come back taken. It also costs
+nothing to check separately, so `.co.site` is deliberately exempt from `MAX_TLDS`.
+
+**Two things measured that day, both of which kill the cheap approach:**
+
+1. **`*.co.site` is a DNS wildcard.** `zzqx7v9nonexistentstem.co.site` resolves to the same
+   four A records as `co.site` itself (18.161.125.17/.26/.113/.128). A DNS-over-HTTPS lookup —
+   the keyless check you reach for first — says "exists" for every stem in the universe. Do not
+   reintroduce it.
+2. **A 404 does not mean free.** The host returns an identical 404 (18,725 bytes) for an
+   unclaimed stem *and* for a claimed-but-never-published one — and `docs/data-findings.md` §9
+   found **31,545 of 44,581 site orders never published**, so most claimed names are invisible
+   to an HTTP probe. Reading 404 as "available" would put a green badge on a name a person can
+   find taken one keystroke later: the same class of bug as the florist shown
+   "thistletwine.com Available" (fixed in `src/lib/session.ts`).
+
+So the fallback probe answers **taken (200) or unknown (anything else), never free**, and
+`NEO_COSITE_CHECK_URL` is the seam for Neo's real endpoint. Unknown renders no badge, per rule
+4 — the name is still recommended and still shown as free, we just do not claim availability.
+No traffic goes to Neo's production domain **search** (rule 5); this fetches a published page
+from the site host, once per stem per session, behind a 10-minute cache.
+
+**Two ranking traps, both hit and both fixed** (`src/lib/domains.ts`):
+
+- Ranking `.co.site` *with* the others loses it. Its usual answer is `available: null`, which
+  sorts behind every confirmed-free `.net`/`.org`/`.shop` from the same batch — the one name Neo
+  can sell would be the one pushed off the end of a four-item list.
+- Ranking it *first* hands it the hero slot whenever the DomScan lookup fails, because then
+  everything is unknown and nothing outranks it. A degraded third-party call is not a reason to
+  headline a free subdomain instead of the name the person came for.
+
+Hence a reserved last slot: three contested registrable slots, `.co.site` appended.
+
+**"Free" is derived, not asserted.** `domainFirstCycleInr(cycle)` in `rules.ts` reads
+`plans.json` per cycle, because the promo is ₹0/mo only on monthly and yearly — it is ₹25/mo on
+two-yearly and ₹37.50/mo on four-yearly. `chooseCycle` returns only monthly or yearly today, so
+the answer is always ₹0 right now, which is exactly why it should be computed. The day someone
+makes the engine recommend a two-year commitment, the reveal stops saying "Free" on its own.
+
+**A taken `.co.site` is stated, not hidden.** `availableFromLookup` still drops taken names from
+the recommendations, but the reveal adds a note naming the one that's gone. A taken `.com` is one
+of two hundred million and not news; a taken `.co.site` means the stem is gone *inside Neo*, on
+the exact screen the CTA hands off to, so they find out in thirty seconds either way.
+
+**Reverse if:** Neo ships custom-domain purchase, at which point the three registrable names
+stop being aspirational and the fourth slot is worth re-arguing. Or if Neo's real availability
+endpoint turns out to be unavailable to us indefinitely — the probe is honest but it is mostly
+silent, and a permanently unanswerable badge may be worth removing rather than explaining.
+
+**Not verified:** no live `.co.site` returning 200 was found to confirm the taken path against
+production. It is covered by unit test (stubbed `fetch`, eleven cases) and by construction, not
+by observation. Nine stems were probed, all 404 — consistent with them simply being unclaimed,
+but it means the 200 branch has never fired for real.

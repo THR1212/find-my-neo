@@ -560,10 +560,45 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
+/* `.co.site` is free for the first billing cycle, and it is the only price on this screen
+   that is Neo's own rather than a converted third-party estimate. So it gets the affirmative
+   treatment the "~\u20b9980/yr approx" figures deliberately do not: the same green as the
+   Available badge, heavier, and a touch larger than the name it sits beside is small.
+   The caveat underneath keeps it honest — "Free" alone would read as free forever. */
+.domain-free {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ok);
+  letter-spacing: -0.01em;
+}
+
+/* Stacked, not inline: "first billing cycle" is four words, and trailing it after "Free" on
+   one line pushes the row into a wrap on narrow screens right where the eye lands. */
+.domain-free .price-caveat {
+  display: block;
+  margin-left: 0;
+  margin-top: 1px;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
 .domain-note {
   margin: 8px 0 0;
   font-size: 13px;
   color: var(--text-faint);
+}
+
+/* Not an error — the name is gone, which is ordinary. Slightly darker than a plain note so
+   it is not missed, but deliberately not red: nothing has failed and nobody did anything
+   wrong. --warn would overstate it. */
+.domain-note-taken {
+  margin-top: 12px;
+  color: var(--text-dim);
+}
+
+.domain-note-taken strong {
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .alts {
@@ -615,10 +650,25 @@ h1 {
   color: rgba(255, 255, 255, 0.78);
 }
 
+/* On the filled pill the green fails contrast against --accent, so the selected free option
+   goes white like every other selected value. It has already done its job by then. */
+.alt-active .alt-free {
+  color: #ffffff;
+}
+
 .alt-price {
   font-size: 12px;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
+}
+
+/* Same green in the pill, so the free option is findable in the row without reading it. */
+.alt-free {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ok);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .mailbox-domain {
@@ -889,6 +939,10 @@ h1 {
 
   .domain-price {
     font-size: 13px;
+  }
+
+  .domain-free {
+    font-size: 15px;
   }
 }
 

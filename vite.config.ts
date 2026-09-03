@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 
 import { handleDomainLookup } from "./api/_lib/domainService.js";
-import { generateNeoSite } from "./api/_lib/neoSite.js";
+import { generateNeoSites } from "./api/_lib/neoSite.js";
 import { handleProfile } from "./api/_lib/profileService.js";
 import { handleQuestions } from "./api/_lib/questionService.js";
 import { handleReasons } from "./api/_lib/reasonService.js";
@@ -107,8 +107,8 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
             return;
           }
           try {
-            const site = await generateNeoSite(bn, bd, ik);
-            res.end(JSON.stringify({ site }));
+            const sites = await generateNeoSites(bn, bd, ik, 2);
+            res.end(JSON.stringify({ site: sites[0] ?? null, sites }));
           } catch (err) {
             res.end(JSON.stringify({ site: null, error: String(err) }));
           }

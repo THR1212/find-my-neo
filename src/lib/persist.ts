@@ -86,6 +86,8 @@ export interface Snapshot {
   reveal: RevealContent | null;
   summary: string | null;
   neoSite: NeoSite | null;
+  /** Second generator snapshot, when the email+site pair received two templates. */
+  neoSiteAlt?: NeoSite | null;
   /** Model-written feature reasons, by feature id. Empty is a valid, complete state. */
   reasons: Record<string, string>;
   /** The two sentences under the price. Empty strings mean the fixed rationale is shown. */

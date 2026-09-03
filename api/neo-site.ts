@@ -7,7 +7,7 @@
  * fails — the client then decides whether the bakery fixture is allowed.
  */
 
-import { generateNeoSite } from "./_lib/neoSite.js";
+import { generateNeoSites } from "./_lib/neoSite.js";
 
 /**
  * Edge runtime, deliberately.
@@ -56,8 +56,8 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   try {
-    const site = await generateNeoSite(bn, bd, ik);
-    return Response.json({ site }, { headers: NO_STORE });
+    const sites = await generateNeoSites(bn, bd, ik, 2);
+    return Response.json({ site: sites[0] ?? null, sites }, { headers: NO_STORE });
   } catch (err) {
     return Response.json(
       { site: null, error: err instanceof Error ? err.message : String(err) },

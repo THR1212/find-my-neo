@@ -60,6 +60,15 @@ export async function fetchNeoSite(
   description: string,
   industryKey = "",
 ): Promise<NeoSite | null> {
+  const sites = await fetchNeoSites(businessName, description, industryKey);
+  return sites[0] ?? null;
+}
+
+export async function fetchNeoSites(
+  businessName: string,
+  description: string,
+  industryKey = "",
+): Promise<NeoSite[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -76,22 +85,26 @@ export async function fetchNeoSite(
     });
     if (!res.ok) {
       reportDegraded("neo-site http", String(res.status));
-      return fallbackSite(description);
+      return fallbackSites(description);
     }
-    const body = (await res.json()) as { site: NeoSite | null; error?: string };
-    if (!body.site) {
+    const body = (await res.json()) as { site: NeoSite | null; sites?: NeoSite[]; error?: string };
+    const raw = (body.sites?.length ? body.sites : body.site ? [body.site] : []).filter(Boolean);
+    if (!raw.length) {
       reportDegraded("neo-site empty", body.error);
-      return fallbackSite(description);
+      return fallbackSites(description);
     }
-    return { ...body.site, source: "live" };
+    return raw.map((site) => ({ ...site, source: "live" as const }));
   } catch (err) {
-    /* Includes the timeout. Worth knowing: if this fires for everyone, Neo's generator is
-       down or has changed. Do not paint the bakery over a cinema. */
     reportDegraded("neo-site unreachable", err instanceof Error ? err.message : String(err));
-    return fallbackSite(description);
+    return fallbackSites(description);
   } finally {
     clearTimeout(timer);
   }
+}
+
+function fallbackSites(description: string): NeoSite[] {
+  const site = fallbackSite(description);
+  return site ? [site] : [];
 }
 
 /* ---------- Reading Neo's block format ---------- */

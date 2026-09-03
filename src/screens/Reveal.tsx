@@ -31,6 +31,7 @@ export default function Reveal({
   profile,
   businessText,
   neoSite,
+  neoSiteAlt = null,
   reasons,
   rationale,
   verdict,
@@ -44,6 +45,7 @@ export default function Reveal({
   profile: Profile;
   businessText: string;
   neoSite: NeoSite | null;
+  neoSiteAlt?: NeoSite | null;
   reasons?: ReasonMap;
   rationale?: { rationale: string; whyNotCheaper: string };
   verdict?: {
@@ -403,6 +405,7 @@ export default function Reveal({
           domain={domainName}
           showSite={showSite}
           neoSite={neoSite}
+          neoSiteAlt={neoSiteAlt}
           profile={profile}
           mailPlanId={rec.mailPlan.id}
           mailPlanName={rec.mailPlan.name}

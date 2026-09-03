@@ -1689,7 +1689,7 @@ a.btn {
 }
 
 .stage-reveal:has(.tpl-pair) .screen-wide {
-  width: min(1440px, 100%);
+  width: min(1320px, 100%);
 }
 
 .screen-wait {
@@ -1742,12 +1742,6 @@ a.btn {
   overflow: hidden;
 }
 
-/* Email+site: the visual is two full site cards. Cap the recommendation column so
-   those two generator outputs get the leftover width. */
-.reveal-split:has(.tpl-pair) {
-  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
-}
-
 .reveal-setup,
 .setup-story {
   min-width: 0;
@@ -1767,7 +1761,7 @@ a.btn {
    does grow past the viewport — the overflow lands above the scroll origin and is unreachable.
    Same reason `.stage` uses it. */
 .reveal-setup {
-  overflow-y: auto;
+  overflow: hidden;
   justify-content: center;
   justify-content: safe center;
   gap: clamp(14px, 2.2vh, 22px);
@@ -1851,13 +1845,13 @@ a.btn {
 }
 
 .tpl-pair {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
-  align-items: stretch;
+  align-items: start;
   overflow: hidden;
 }
 
@@ -1866,7 +1860,7 @@ a.btn {
   width: 100%;
   margin: 0;
   min-height: 0;
-  height: 100%;
+  height: auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1877,9 +1871,9 @@ a.btn {
 
 .tpl-pane .neo-site,
 .tpl-pane .neo-gen {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
-  height: 100%;
+  height: auto;
   margin: 0;
   border: 0;
   border-radius: 0;
@@ -1888,77 +1882,33 @@ a.btn {
   overflow: hidden;
 }
 
-.tpl-pane-generated .neo-site-hero {
-  flex: 0 1 auto;
-  aspect-ratio: 16 / 9;
-  max-height: 38%;
+.neo-site-compact .neo-site-hero {
+  flex: 0 0 auto;
+  aspect-ratio: 16 / 10;
   height: auto;
-  min-height: 0;
+  max-height: none;
 }
 
-.tpl-pane-generated .neo-site-hero img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top center;
-  display: block;
+.neo-site-compact .neo-site-body {
+  flex: 0 0 auto;
+  padding: 14px 16px 16px;
 }
 
-.tpl-pane-generated .neo-site-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-  padding: 12px 14px 10px;
-}
-
-.tpl-pane-generated .neo-site-heading {
+.neo-site-compact .neo-site-heading {
   font-size: clamp(15px, 1vw + 12px, 18px);
 }
 
-.tpl-pane-generated .neo-site-desc {
+.neo-site-compact .neo-site-desc {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.tpl-pane-generated .neo-site-cta {
+.neo-site-compact .neo-site-cta {
   margin-top: 10px;
-  padding: 6px 12px;
-  font-size: 12px;
-}
-
-.tpl-pane-generated .neo-site-products {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.tpl-pane-generated .neo-product img {
-  aspect-ratio: 4 / 3;
-  min-height: 0;
-  height: auto;
-}
-
-.tpl-look-page {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-  background: var(--bg-sunken);
-}
-
-.tpl-look-page img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top center;
-  display: block;
-}
-
-.tpl-pane .neo-site-chrome,
-.tpl-pane .neo-site-foot {
-  flex: 0 0 auto;
+  padding: 7px 14px;
+  font-size: 12.5px;
 }
 
 .story-kicker {
@@ -2137,13 +2087,8 @@ a.btn {
     gap: 8px;
   }
 
-  .tpl-pane-generated .neo-site-desc,
-  .tpl-pane-generated .neo-site-cta {
-    display: none;
-  }
-
-  .tpl-pane-generated .neo-product span {
-    display: none;
+  .neo-site-compact .neo-site-desc {
+    -webkit-line-clamp: 2;
   }
 
   .product-wait-stage {

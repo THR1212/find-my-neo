@@ -1,7 +1,6 @@
 import NeoSitePreview from "./NeoSitePreview";
 import NeoSiteGenerating from "./NeoSiteGenerating";
 import NeoProductLoop from "./NeoProductLoop";
-import NeoTemplateShots from "./NeoTemplateShots";
 import type { NeoSite } from "../lib/neoSite";
 import { clipsFor } from "../lib/neoMedia";
 
@@ -9,17 +8,16 @@ import { clipsFor } from "../lib/neoMedia";
  * Right pane.
  *
  * Two different jobs, decided by what they asked for:
- *   site + mail -> two full generator cards side by side: Neo's generated site
- *                 (chrome, hero, copy, products) and one other template look
+ *   site + mail -> two compact snapshots from Neo's site generator, this business only
  *   mail only   -> product films for features THIS mail plan actually includes
  *
- * The films used to rank by profile only, so a Starter recommendation could loop Invoice
- * Builder (Max-only). Entitlement is now the hard filter — see clipsFor / plan-features.json.
+ * Marketing-reel stills (other shops) never appear here. If the generator only returned
+ * one site, the second card is the products look from that same site.
  */
 export default function SetupStory({
-  domain,
   showSite,
   neoSite,
+  neoSiteAlt = null,
   profile = {},
   mailPlanId = null,
   mailPlanName = null,
@@ -27,6 +25,7 @@ export default function SetupStory({
   domain: string;
   showSite: boolean;
   neoSite: NeoSite | null;
+  neoSiteAlt?: NeoSite | null;
   profile?: Record<string, unknown>;
   mailPlanId?: string | null;
   mailPlanName?: string | null;
@@ -46,15 +45,28 @@ export default function SetupStory({
     );
   }
 
+  const pair: { site: NeoSite; look: "landing" | "shop" }[] = [];
+  if (neoSite) pair.push({ site: neoSite, look: "landing" });
+  if (neoSiteAlt) pair.push({ site: neoSiteAlt, look: "landing" });
+  else if (neoSite) pair.push({ site: neoSite, look: "shop" });
+
   return (
     <aside className="setup-story setup-story-site" aria-label="Site preview">
       <p className="story-kicker">AI-powered site builder</p>
       <div className="tpl-pair">
-        <div className="tpl-pane tpl-pane-generated">
-          {neoSite ? <NeoSitePreview site={neoSite} delay={0} /> : <NeoSiteGenerating />}
+        <div className="tpl-pane">
+          {pair[0] ? (
+            <NeoSitePreview site={pair[0].site} look={pair[0].look} delay={0} />
+          ) : (
+            <NeoSiteGenerating />
+          )}
         </div>
-        <div className="tpl-pane tpl-pane-shot">
-          <NeoTemplateShots seed={domain} />
+        <div className="tpl-pane">
+          {pair[1] ? (
+            <NeoSitePreview site={pair[1].site} look={pair[1].look} delay={0.08} />
+          ) : (
+            <NeoSiteGenerating />
+          )}
         </div>
       </div>
     </aside>

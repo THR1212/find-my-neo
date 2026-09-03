@@ -19,7 +19,7 @@ import {
   type PlanVerdict,
 } from "./lib/api";
 import { recommend } from "./lib/rules";
-import { fetchNeoSite, fixtureFitsDescription, type NeoSite } from "./lib/neoSite";
+import { fetchNeoSites, fixtureFitsDescription, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
 
@@ -66,6 +66,14 @@ export default function App() {
    */
   const [neoSite, setNeoSite] = useState<NeoSite | null>(() => {
     const restoredSite = restored?.neoSite ?? null;
+    if (!restoredSite) return null;
+    if (restoredSite.source === "fixture" && !fixtureFitsDescription(restored?.rawText ?? "")) {
+      return null;
+    }
+    return restoredSite;
+  });
+  const [neoSiteAlt, setNeoSiteAlt] = useState<NeoSite | null>(() => {
+    const restoredSite = restored?.neoSiteAlt ?? null;
     if (!restoredSite) return null;
     if (restoredSite.source === "fixture" && !fixtureFitsDescription(restored?.rawText ?? "")) {
       return null;
@@ -145,6 +153,7 @@ export default function App() {
     (text: string, opts: { profile: boolean; site: boolean; seedNextQuestion: boolean }) => {
       if (opts.site) {
         setNeoSite(null);
+        setNeoSiteAlt(null);
         const gen = ++siteSeq.current;
         const bn = text
           .replace(/[^a-zA-Z0-9\s]/g, " ")
@@ -153,9 +162,10 @@ export default function App() {
           .slice(0, 4)
           .join(" ")
           .slice(0, 55);
-        void fetchNeoSite(bn, text, "").then((site) => {
+        void fetchNeoSites(bn, text, "").then((sites) => {
           if (siteSeq.current !== gen) return;
-          if (site) setNeoSite(site);
+          if (sites[0]) setNeoSite(sites[0]);
+          if (sites[1]) setNeoSiteAlt(sites[1]);
         });
       }
 
@@ -322,8 +332,8 @@ export default function App() {
 
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
-    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, reasons, rationale, verdict });
-  }, [stage, engine, rawText, reveal, summary, neoSite, reasons, rationale, verdict]);
+    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict });
+  }, [stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("is-reveal", stage === "reveal");
@@ -419,6 +429,7 @@ export default function App() {
        so keeping it means the reveal can show the PREVIOUS business's site until the new
        generation lands — the same wrong-content failure the 90s timeout exists to avoid. */
     setNeoSite(null);
+    setNeoSiteAlt(null);
   }, []);
 
   const restart = useCallback(() => {
@@ -431,6 +442,7 @@ export default function App() {
     setReveal(null);
     setSummary(null);
     setNeoSite(null);
+    setNeoSiteAlt(null);
     setReasons({});
     setRationale({ rationale: "", whyNotCheaper: "" });
     setVerdict(null);
@@ -579,6 +591,7 @@ export default function App() {
                 profile={engine.profile}
                 businessText={rawText}
                 neoSite={neoSite}
+                neoSiteAlt={neoSiteAlt}
                 reasons={reasons}
                 rationale={rationale}
                 verdict={verdict}

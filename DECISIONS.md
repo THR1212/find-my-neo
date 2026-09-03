@@ -1777,13 +1777,29 @@ scroll.
 
 ---
 
+### 2026-09-03 · Email+site pair is two Neo generator snapshots, compact
+
+The second card was a still from Neo's marketing template reel — other businesses
+(copywriters, logistics firms). That is not this person's generated site. The pair is now
+two snapshots from `/api/neo-site`: one classify, two content passes with different
+template keys, both tagged `neotest`. If only one site lands, the second card is the
+products look from that same generation. Marketing-reel webps stay off the reveal.
+
+Cards are compact (chrome, hero, headline, copy, CTA) so the recommendation column keeps
+its width and does not scroll. Stretching them to fill the right column was what squeezed
+the left side off-screen.
+
+**Reverse if:** Neo's generator is no longer willing to take two `sc` calls per session.
+
+---
+
 ### 2026-09-03 · Profile wait is a product reel, not three dots
 
 The guess held on "Working it out…" for the ~10s profile call. That is the first pause in
-the flow and it was empty. `ProductWait` loops Neo's own mail films plus a two-template
-beat — the same vendored assets the reveal already shows — so the wait is a look at the
-product. It loops because we do not know when the profile will land (unlike the site
+the flow and it was empty. `ProductWait` loops Neo's own mail films so the wait is a look
+at the product. It loops because we do not know when the profile will land (unlike the site
 generator loader, which must not loop). `prefers-reduced-motion` holds on the first beat.
+Marketing-reel shots of other shops are not used here either.
 
 **Reverse if:** the profile call is consistently under ~2s, at which point the reel would
 feel slower than the thing it is covering.

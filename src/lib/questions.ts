@@ -1,4 +1,4 @@
-import type { Profile } from "./profile";
+import { has, type Profile } from "./profile";
 
 /**
  * The question bank.
@@ -211,6 +211,20 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: "sells",
+    /**
+     * NOT ASKED ON A MAIL-ONLY RUN.
+     *
+     * "Do people pay you online?" is a question about a website, and it was being put to
+     * someone who had answered "Just email" two screens earlier. The only need it feeds,
+     * `show_what_you_sell`, is site-guarded, so on mail-only it could not move the price
+     * either — it read as a non-sequitur and bought nothing.
+     *
+     * It did move ONE feature bullet, through `read_receipts` matching on
+     * `sellsOnline === false`, and that clause goes with it below: "does not sell online" is
+     * a strange reason to want read receipts. Its real signals are ticking receipts and
+     * moving off a personal address, both of which survive.
+     */
+    askOnly: (p) => !has(p, "surface", "mail"),
     signal: "sellsOnline",
     prompt: "Do people pay you online?",
     sub: "Changes what your site needs to do.",

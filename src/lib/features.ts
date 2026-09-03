@@ -146,10 +146,12 @@ export const FEATURES: Feature[] = [
     name: "Read Receipts",
     surface: "mail",
     because: "you can tell whether a quote was actually opened",
-    matches: (p) =>
-      is(p, "extras", "receipts") ||
-      is(p, "sellsOnline", false) ||
-      is(p, "customerChannel", "personal_email"),
+    /* `sellsOnline === false` was here and has gone: "does not sell online" is a strange
+       reason to want read receipts, and it was the loosest matcher in the bank — it fired for
+       most people and pushed this to the top of nearly every Starter reveal. What is left is
+       the two signals that actually mean it: they said they check whether mail was opened,
+       or they are moving off a personal address where they never could. */
+    matches: (p) => is(p, "extras", "receipts") || is(p, "customerChannel", "personal_email"),
     priority: 8,
   },
   {

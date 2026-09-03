@@ -1035,3 +1035,59 @@ silent, and a permanently unanswerable badge may be worth removing rather than e
 production. It is covered by unit test (stubbed `fetch`, eleven cases) and by construction, not
 by observation. Nine stems were probed, all 404 — consistent with them simply being unclaimed,
 but it means the 200 branch has never fired for real.
+
+---
+
+### 2026-09-03 · The `.co.site` check runs on a minted Titan partner token
+
+**Decided.** `api/_lib/cositeService.ts` now mints a short-lived token from
+`POST https://bll.titan.email/partner/token/generate` and sends it as `Authorization: Bearer`
+to the availability check. Darrel supplied the mint endpoint; the check endpoint itself is
+still outstanding, so `NEO_COSITE_CHECK_URL` remains the seam and the probe remains the
+fallback.
+
+**Two credentials, and conflating them is the easy mistake.** `NEO_PARTNER_AUTH` is the
+partner credential *we hold*, used only to mint. The token it returns is what the check sees.
+An empty POST to the mint endpoint returned
+`{"code":"UNAUTHENTICATED","attrs":{"detail":"Auth header missing"}}` — so the mint call is
+itself authenticated. We stopped probing there rather than guess header names, which is
+credential-probing shaped; `NEO_PARTNER_AUTH_HEADER` is configurable for exactly that reason.
+
+Neither value is logged, echoed into an error, or returned to the caller. Mint failures raise
+the **status code only** — the body of a failed auth response can contain the credential it
+rejected, and a token in a `reportDegraded` string reaches the browser console and from there
+anywhere.
+
+**Three bugs this turned up, all found by running it rather than reading it:**
+
+1. **A flat 60s refresh skew made the cache a load generator.** With a token whose lifetime is
+   shorter than the skew, every cached token looks already-expired, so every request re-mints —
+   pointed at an auth endpoint. A stub issuing 2-second tokens produced three mints for three
+   requests and never once hit the cache. The skew is now `min(60s, lifetime/2)`.
+2. **`askNeo(...) ?? probe(...)` inside one try/catch was not a fallback chain.** A throw from
+   `askNeo` skipped the `??` entirely and landed in the catch, so a 500 or an expired
+   credential degraded straight past the probe to "unknown". The probe is weaker but not
+   useless — it can still prove a name is taken — so the two rungs are now separate
+   try/catches and only the bottom gives up.
+3. **A hard failure was cached for the full ten minutes.** A transient blip pinned "unknown"
+   on a stem long past recovery, and the reveal's own lookup never re-asks. Errors now get a
+   30-second penalty box instead of the 10-minute TTL.
+
+**Retry policy.** One retry with a freshly minted token on a 401/403 from the check, and only
+when the token was minted. A static `NEO_COSITE_CHECK_TOKEN` that is rejected will be rejected
+again, so retrying it doubles latency for nothing. A cached token expiring between two requests
+in the same instance is a routine race, not an incident — verified: invalidating tokens
+server-side produced `check 401 → mint → check OK` with no visible failure.
+
+**Verified against a stub that behaves like a real partner API:** one mint serves three
+requests (cache hit); rotating tokens server-side triggers exactly one re-mint; a wrong partner
+credential and a missing partner credential both degrade to a rendered reveal rather than an
+error; and five ladder cases assert each rung, including that the probe is NOT consulted when
+the check answers.
+
+**Still outstanding, and the last thing needed:** the availability check's own URL, method and
+response shape, and the mint call's auth header name. Until `NEO_COSITE_CHECK_URL` is set the
+code takes the probe path, which can prove "taken" but never "free".
+
+**Reverse if:** Titan exposes an availability check that needs no token exchange — then
+`NEO_COSITE_CHECK_TOKEN` (or no auth at all) is simpler and the minting layer is dead weight.

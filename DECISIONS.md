@@ -1548,3 +1548,152 @@ authoritative results with `determinacy_rate: 1`. So the availability badge rend
 the registrable TLDs. Nothing was changed on our side — it was an upstream outage, and the code
 degraded correctly throughout, which is the useful part. Worth re-checking before the demo
 rather than assuming either state.
+
+---
+
+### Max and Growth are reachable, and "discrimination" took three attempts to define
+
+Six new questions, collapsed to three screens. `MAX_QUESTIONS` 4 -> 12 at Hari's call — the
+same decision as making Max reachable, because a 4x price jump cannot be justified on four
+answers.
+
+**Why these questions.** §5 is the most directly useful thing we have: it records which paywall
+someone clicked before paying. `Storage Banner` dominates in EVERY industry at 32-52% of
+conversions; `Read Receipt` is second at 8-12%; everything else is low single digits. So
+storage leads, receipts follow, and the rest are here only because Pandora gates them
+unambiguously.
+
+**Every option describes what they do TODAY.** "Do you send quotes or invoices?" is a fact;
+"would you like to send invoices?" is a feature pitch, and §9 measured people saying yes to
+features they never use — 3.5% of orders ever build an order form.
+
+**Four Max gates became one multi-select, and the probe is why.** As separate yes/no questions,
+a "yes" settled the plan and killed further discrimination while a "no" left every tier open —
+so a plain business answering no to everything was asked SEVEN questions and a consultant who
+invoices was asked THREE. The longest flow went to the people most likely to abandon. Four
+consecutive "do you do X" screens also read as a feature checklist, which is the form feeling
+the whole flow exists to avoid. As one checklist it clears in a single tap on "None of these".
+
+#### The definition of discrimination, wrong twice
+
+1. **Gini impurity of the partition.** Measures how EVENLY a question splits the field, not how
+   much it shrinks it. A question that discriminates not at all leaves every option holding the
+   full set — perfectly even — and scored highest. `import` and `client` outranked `surface`.
+2. **Expected reduction in surviving candidates.** Right in one direction, blind in the other.
+   Learning someone is phone-only REMOVES the contact-form floor, so the set GROWS, expected
+   reduction goes negative and clamps to zero. Result: a phone-and-walk-in business was never
+   asked how customers reach them and was billed **₹657 for Plus instead of ₹567 for Basic**.
+   An engine optimising for a smaller set rather than a better answer.
+3. **Distinct recommendations across the options.** Scores the DECISION, not the set: does the
+   answer change what we recommend, in either direction? Set size was always a proxy, and a
+   proxy that disagreed with the goal.
+
+**And the outcome had to include the mailbox count.** Scoring only the tier pair made `team`
+worth zero — count deliberately does not select a tier — so the engine stopped asking it and
+the largest multiplier on the bill fell back to a default of 2. The recommendation is "Starter,
+two mailboxes, ₹298"; the count is part of it.
+
+**The confidence backstop is gone.** With it, `shouldReveal` fell through to `confidence >= 0.82`
+whenever something still discriminated, which silenced the phone/walk-in question above. A
+threshold that can suppress a question capable of changing the price is not a backstop. The
+stopping rules are now: nothing to ask, nothing worth asking, or the ceiling.
+
+Flow lengths measured after all of it: plain mail-only 5, phone/walk-in with a site 7, Max via
+invoices 5, Growth via catalogue 6. Nine questions in the bank, ceiling of 12, and it does not
+bind.
+
+**Open, and a product call rather than a technical one.** Discrimination is scored over the
+plan and the mailbox count, so `import` and `client` score 0 — they change no price. But they
+DO decide which feature lines appear (one-click import, Add Gmail Account, POP/IMAP), and the
+flow now stops before asking them, so the reveal's "Worth knowing" section is thinner for a
+plain business. Two ways out: fold feature selection into the outcome so any question that
+changes the reveal scores above zero (principled, needs `has`/`Profile` moved to a leaf module
+to avoid an import cycle), or keep asking a bounded couple of extra questions past
+discrimination-exhaustion (cheap, reintroduces an arbitrary number). Not decided by guesswork.
+
+### "Outcome" has to mean the whole reveal, and price has to rank first
+
+Follow-up to the open question above, resolved rather than left as a trade.
+
+Hari asked what the ranking actually optimises, and the honest answer exposed an
+inconsistency. `discrimination` scored the plan and the mailbox count, so `importIntent` and
+`currentClient` scored 0 — no need reads them, and Pandora puts import and Gmail sync on every
+mail tier, so there is genuinely no plan consequence. But they decide which feature lines
+appear. The flow stopped before asking them and the reveal's "Worth knowing" went generic.
+
+That is the same oversight as the mailbox count, noticed for one signal and not the other:
+**the outcome is everything the reveal renders**, not just the price.
+
+Fixing it needed `Profile` and `has` extracted to `src/lib/profile.ts`, a leaf module — without
+it, candidates -> features -> engine -> candidates is an import cycle. Worth doing rather than
+routing around: neither is an engine concept, they are the vocabulary every module shares.
+
+**Then two further corrections, both from the probe rather than from reading.**
+
+*Every flow ran to eight.* Three extra questions bought two better feature lines, which is a
+poor trade against 40-65% quiz completion. `FEATURE_ONLY_BUDGET = 2` caps questions asked after
+the price has settled, and the number is not arbitrary: `pickFeatures` renders exactly two
+bullets, so a third feature-only answer cannot change anything a person reads.
+
+*Feature lines were outranking tiers.* A single combined score put `client` (0.67, it swaps two
+bullets) ahead of `extras` (0.25, it decides whether they need Max) — so "which mail app do you
+use" was asked before the question that changes the price, and the plan never settled early
+enough for the budget to apply. Ranking is now lexicographic: **what changes the price, then
+what changes the reveal, then the data-derived weight.**
+
+Measured after: plain mail-only 6 questions (plan settled at 5), phone/walk-in with a site 8
+(settled at 7), Max via invoices 6 (settled at 5), florist with prefill 5 (settled at 4).
+
+Neat consequence worth recording: the budget rarely binds, because the feature-aware measure
+already stops on its own. `currentClient` goes unasked once `importIntent` has taken one of the
+two bullet slots — `gmail_sync` is priority 7 against `import_email_contacts` at 10, so it
+could never be displayed, so the question scores zero. The measure understands the display it
+is optimising.
+
+### The model can change a price now, and exactly one way
+
+Hari: "can you check if you can make the llm live as well?" -- `api/plan.ts`.
+
+Until this, the model read the description once before a single question was answered and
+everything after was deterministic. `/api/rationale` saw the whole run but only EXPLAINS a
+decision already made, so somebody who typed something revealing into a free-text box changed
+nothing they were charged.
+
+**The power is one-directional: it may raise a floor, never lower one.** `rules.ts` has already
+computed the cheapest setup satisfying every need, and each need is a Pandora entitlement rather
+than an opinion -- going below it would recommend a plan that provably cannot do something they
+said they do. Going above, with a reason, is the case the fixed questions cannot cover: prose.
+
+Three checks, all server-side:
+
+- the entitlement is an **enum**, so constrained decoding makes inventing one impossible;
+- the floor it implies is looked up in **our** table, never taken from the model;
+- the quoted evidence must actually appear in what the person wrote.
+
+**And a fourth, which the first live test forced.** A video studio whose description said
+"enormous 4K video files every single day" had ALSO tapped "Mostly just messages" on the volume
+question -- and the model raised them Starter to Max anyway, reading the description over their
+explicit answer. That is the wrong boundary even when the inference is the better guess:
+overriding a tap tells someone we know their business better than they do, in the direction that
+costs them money. So a citation on a question they answered by tapping is now rejected outright.
+The model fills gaps; it does not correct people about themselves.
+
+Measured live, all four cases:
+
+```
+tapped "mostly just messages"     -> rejected: they answered "volume" themselves
+volume never asked                -> raised to Max, cites storage
+answered in PROSE, nothing tapped -> raised to Max, cites invoice_builder
+ordinary florist                  -> no raise
+```
+
+The third is the point. Free text finally counts for something other than an explanation.
+
+`/api/rationale` now runs after this and is handed the VERIFIED plan -- explaining one the model
+was about to raise would put a sentence on screen describing a different recommendation from the
+price above it. The reveal shows accepted citations as *you said "..."*, quoting them back,
+because the quote is the evidence.
+
+CLAUDE.md rule 2 rewritten to match. It said "the LLM never decides price or plan", which was
+true until today and is now too blunt: the accurate rule is that it never emits a number, may
+only raise, and only with a checked reason. Snapshot v7.

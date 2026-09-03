@@ -11,7 +11,7 @@
  */
 
 import plansData from "../data/plans.json";
-import { has, type Profile } from "./engine";
+import { has, type Profile } from "./profile";
 import { solve, type Candidate, type Need } from "./candidates";
 
 export type BillingCycle = "monthly" | "quarterly" | "yearly" | "twoYearly" | "fourYearly";
@@ -93,7 +93,19 @@ function chooseCycle(profile: Profile): BillingCycle {
  * justification the reveal shows.
  */
 
-export function recommend(profile: Profile, suggestedMailboxes: number): Recommendation {
+export function recommend(
+  profile: Profile,
+  suggestedMailboxes: number,
+  /**
+   * Tiers the model raised to, already verified server-side (api/_lib/planService.ts).
+   *
+   * Applied AFTER the solver, never instead of it: `solve` still computes the floors and the
+   * needs that bound, and this can only sit at or above that answer. The verification lives on
+   * the server, but the shape of the power is enforced here too — a verdict that tried to go
+   * lower is ignored rather than trusted, because two cheap checks beat one.
+   */
+  override?: { mail: string; site: string } | null,
+): Recommendation {
   /* `mailboxCount` first: it is what the question actually asks for. `teamSize` is the
      model's headcount read of the free text and only stands in when the mailbox question
      never got asked — it under-counts, because most Neo domains run role addresses on top
@@ -105,9 +117,19 @@ export function recommend(profile: Profile, suggestedMailboxes: number): Recomme
   const cycle = chooseCycle(profile);
   const solution = solve(profile, mailboxes, cycle);
 
-  const mailPlan = byId(MAIL, solution.candidate.mail);
-  const sitePlan =
-    solution.candidate.site === "none" ? null : byId(SITE, solution.candidate.site);
+  const RANK_MAIL: Record<string, number> = { starter: 0, standard: 1, max: 2 };
+  const RANK_SITE: Record<string, number> = { none: 0, basic: 1, plus: 2, growth: 3 };
+  const chosenMail =
+    override && (RANK_MAIL[override.mail] ?? -1) > RANK_MAIL[solution.candidate.mail]
+      ? override.mail
+      : solution.candidate.mail;
+  const chosenSite =
+    override && (RANK_SITE[override.site] ?? -1) > RANK_SITE[solution.candidate.site]
+      ? override.site
+      : solution.candidate.site;
+
+  const mailPlan = byId(MAIL, chosenMail);
+  const sitePlan = chosenSite === "none" ? null : byId(SITE, chosenSite);
 
   const mailUnit = mailPlan.inr[cycle] ?? mailPlan.inr.monthly ?? null;
   const siteUnit = sitePlan ? (sitePlan.inr[cycle] ?? sitePlan.inr.monthly ?? null) : 0;

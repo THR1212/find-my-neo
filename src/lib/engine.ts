@@ -25,6 +25,12 @@ import {
   type SurfaceMap,
 } from "./questions";
 import { discrimination, survivors } from "./candidates";
+import { has, type Profile, type ProfileValue } from "./profile";
+
+/* Re-exported so the many existing `from "./engine"` imports keep working. The definitions
+   live in profile.ts, a leaf module, so candidates.ts can reach features.ts without a cycle. */
+export { has };
+export type { Profile, ProfileValue };
 
 /**
  * Starting universe. 5,318 is not decorative — it is the real number of distinct
@@ -36,28 +42,6 @@ export const STARTING_SETUPS = 5318;
 
 /** Floor, so the counter lands on something concrete rather than 1. */
 const FLOOR_SETUPS = 3;
-
-/**
- * Profile values.
- *
- * A value may be an ARRAY once multi-select questions landed — someone can genuinely take
- * orders on Instagram *and* over the phone. Never compare a profile value with `===` directly;
- * use `has()` below, which handles both shapes.
- */
-export type ProfileValue = string | number | boolean | null | string[];
-export type Profile = Record<string, ProfileValue>;
-
-/**
- * Does this profile hold `value` for `key`?
- *
- * The one place that knows a value might be scalar or array. Every matcher in features.ts and
- * rules.ts goes through this — a stray `p.customerChannel === "social"` silently stops matching
- * the moment that question becomes multi-select, and nothing fails loudly to tell you.
- */
-export function has(p: Profile, key: string, value: unknown): boolean {
-  const v = p[key];
-  return Array.isArray(v) ? v.includes(value as string) : v === value;
-}
 
 /** Free text a person typed on a question screen, keyed by question id. */
 export type FreeTextAnswers = Record<string, string>;
@@ -124,6 +108,15 @@ export interface EngineState {
    * and `client` were unreachable. This is what makes the paths actually differ.
    */
   priority?: string[];
+  /**
+   * How many questions had been asked when the plan stopped moving.
+   *
+   * Everything after this point is asked to improve the feature lines rather than the price,
+   * and `FEATURE_ONLY_BUDGET` caps how many of those there may be. Recorded rather than
+   * recomputed because it is a fact about the run, and recomputing it would mean replaying
+   * every intermediate profile.
+   */
+  planSettledAt?: number;
   /** Anything typed into a question's free-text box, by question id. */
   freeText: FreeTextAnswers;
   /**
@@ -253,15 +246,35 @@ export function nextQuestion(state: EngineState): Question | null {
    * the price. Weight order takes over, and `shouldReveal` still governs when to stop.
    */
   if (!chosen) {
+    /**
+     * Rank lexicographically: what changes the PRICE, then what changes the reveal, then the
+     * data-derived weight.
+     *
+     * A single combined score got this wrong and the probe showed it plainly. `client` scores
+     * 0.67 on the full outcome because it swaps two feature bullets, while `extras` scores
+     * only 0.25 — so a question about which mail app someone uses was asked BEFORE the one
+     * that decides whether they need Max. Feature lines outranking a tier is exactly backwards,
+     * and it also meant the plan never settled early enough for the feature budget to apply.
+     *
+     * Separating the two is what makes "ask what matters first" true rather than approximate.
+     */
+    const score = (q: Question): [number, number, number] => [
+      discrimination(state.profile, q, "plan"),
+      discrimination(state.profile, q),
+      q.weight,
+    ];
     let best = unresolved[0];
-    let bestScore = discrimination(state.profile, best);
+    let bestScore = score(best);
     for (const q of unresolved.slice(1)) {
-      const score = discrimination(state.profile, q);
-      /* Strictly better narrowing wins; equal narrowing falls back to the data-derived
-         weight, so the tie-break is the old ordering rather than array position. */
-      if (score > bestScore + 1e-9 || (Math.abs(score - bestScore) <= 1e-9 && q.weight > best.weight)) {
+      const s2 = score(q);
+      const better =
+        s2[0] > bestScore[0] + 1e-9 ||
+        (Math.abs(s2[0] - bestScore[0]) <= 1e-9 &&
+          (s2[1] > bestScore[1] + 1e-9 ||
+            (Math.abs(s2[1] - bestScore[1]) <= 1e-9 && s2[2] > bestScore[2])));
+      if (better) {
         best = q;
-        bestScore = score;
+        bestScore = s2;
       }
     }
     chosen = best;
@@ -271,24 +284,44 @@ export function nextQuestion(state: EngineState): Question | null {
 }
 
 /**
- * When to stop asking.
+ * The hard ceiling. Nobody is asked more than this, whatever the engine wants.
  *
- * Ceiling, not a target. Every question on a pre-purchase page is a place to drop off, so we
- * stop as soon as we know enough rather than marching to a fixed count — which is also more
- * faithful to the idea: it stops when it's got you, not when it runs out of script.
+ * Raised from 4 to 12 on 03 Sep, at Hari's call, alongside the six questions that make Max
+ * and Growth reachable — the two decisions are really one, because a 4x price jump cannot be
+ * justified on four answers.
  *
- * Four rather than three: three leaves half the six-question bank unresolved, so the plan,
- * domain and feature picks rest on less than they could, and the narrowing — the whole
- * mechanic — is over in one big jump. Four is the most we can ask before it reads as a form.
- * Keep HOOK_COPY in brand.ts in step with this number.
+ * **It is a ceiling and should almost never bind.** `shouldReveal` stops as soon as no
+ * remaining question could change the recommendation, so a clear-cut business finishes in
+ * three or four and only a genuinely ambiguous one walks further. Prefill removes questions
+ * someone already answered in prose before we start.
+ *
+ * The risk this accepts, stated plainly: docs/competitor-qualification.md puts quiz completion
+ * at **40-65%**, Mailchimp asks 4, Rinda 3, and Microsoft's chooser 7 — so 12 is above
+ * everything observed anywhere. That is why the run record exists. Per-question drop-off is
+ * now measurable in runs.jsonl, and this number should be revisited against that data rather
+ * than against anyone's instinct.
  */
-export const MAX_QUESTIONS = 4;
+export const MAX_QUESTIONS = 12;
 
 /**
- * Early exit. Above this we have enough signal that another question would be asking for
- * the sake of it — the recommendation wouldn't change.
+ * Never reveal before this many, even if nothing discriminates.
+ *
+ * Two is too few: one answer after the free text reads as a guess rather than a diagnosis, and
+ * the whole premise is that we worked it out. Three is the floor at which the flow feels like
+ * it asked.
  */
-const CONFIDENT_ENOUGH = 0.82;
+const MIN_QUESTIONS = 3;
+
+/**
+ * How many questions may be asked purely to improve the FEATURE lines, once nothing left can
+ * change the plan or the price.
+ *
+ * Two, and the number is not arbitrary: `pickFeatures` renders exactly two bullets, so a third
+ * feature-only question cannot change anything a person reads. Without this bound every flow
+ * ran to eight — three extra questions bought two better lines, which is a poor trade against
+ * the 40-65% quiz completion in docs/competitor-qualification.md.
+ */
+const FEATURE_ONLY_BUDGET = 2;
 
 /**
  * Setups still standing. Exposed so the reveal and the run record can report the real
@@ -298,16 +331,52 @@ export function viableSetups(state: EngineState): number {
   return survivors(state.profile).length;
 }
 
+/**
+ * When to stop asking.
+ *
+ * The rule that matters is the middle one: **stop when no remaining question could change the
+ * recommendation.** That is a statement about the outcome, which is what someone actually
+ * cares about, and it replaced a confidence threshold that only measured how much we happened
+ * to have asked. With twelve questions in the bank it is also what keeps the flow short — a
+ * business where three answers settle the plan is not walked through nine more.
+ *
+ * THE CONFIDENCE BACKSTOP WAS REMOVED, and the probe is why. With it, the rule fell through
+ * to `confidence >= 0.82` whenever something still discriminated — so a phone-and-walk-in
+ * business was revealed at five questions **without ever being asked how customers reach
+ * them**, which is the one answer that decides Basic against Plus. It got Plus and a ₹90/month
+ * surcharge because we stopped early on a number that measured how much we had asked rather
+ * than whether the answer could still move.
+ *
+ * A threshold that can silence a question capable of changing the price is not a backstop, it
+ * is a bug. The only stopping rules left are: nothing to ask, nothing worth asking, or the
+ * hard ceiling. The bank holds nine questions, so the worst case is bounded well under
+ * MAX_QUESTIONS anyway.
+ */
 export function shouldReveal(state: EngineState): boolean {
-  /* Covers both "nothing left to ask" and "nothing left worth asking" — nextQuestion returns
-     null when no remaining question could change the recommendation. */
   if (nextQuestion(state) === null) return true;
   if (state.asked.length >= MAX_QUESTIONS) return true;
-  // Never cut it off before two — one answer after the free text feels like it guessed.
-  return (
-    state.asked.length >= 2 &&
-    confidence(state.profile, state.prefilled, state.prosaic) >= CONFIDENT_ENOUGH
+  if (state.asked.length < MIN_QUESTIONS) return false;
+
+  /* Nothing left that would move the plan. Anything still unasked only colours the reveal, so
+     asking it is drop-off we caused for no change in what we recommend. */
+  const unresolved = QUESTIONS.filter(
+    (q) => !isResolved(state.profile, q.signal) && !state.asked.includes(q.id),
   );
+  /* Anything left that would change the PLAN is always worth asking — that is what they pay. */
+  if (unresolved.some((q) => discrimination(state.profile, q, "plan") > 1e-9)) return false;
+
+  /**
+   * Nothing moves the price any more. What remains can still change which feature lines
+   * appear, which is worth a couple of questions and no more — the reveal shows two bullets,
+   * so a third feature-only answer changes nothing anyone reads.
+   *
+   * `planSettledAt` is where the price stopped moving; everything asked after it was for the
+   * reveal's benefit.
+   */
+  const featureOnlyAsked = state.asked.length - (state.planSettledAt ?? state.asked.length);
+  if (featureOnlyAsked >= FEATURE_ONLY_BUDGET) return true;
+
+  return !unresolved.some((q) => discrimination(state.profile, q) > 1e-9);
 }
 
 /**
@@ -390,6 +459,16 @@ export function applyAnswer(
     ...state,
     profile,
     asked: [...state.asked, questionId],
+    /* Stamp the moment the price stopped moving, once. */
+    ...(state.planSettledAt === undefined &&
+    !QUESTIONS.some(
+      (q) =>
+        !isResolved(profile, q.signal) &&
+        ![...state.asked, questionId].includes(q.id) &&
+        discrimination(profile, q, "plan") > 1e-9,
+    )
+      ? { planSettledAt: state.asked.length + 1 }
+      : {}),
     ...(answeredInProse ? { prosaic: [...(state.prosaic ?? []), questionId] } : {}),
     freeText: typed ? { ...state.freeText, [questionId]: typed } : state.freeText,
     trail: [...(state.trail ?? []), trace],

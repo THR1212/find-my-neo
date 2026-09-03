@@ -11,7 +11,14 @@ import {
 } from "./lib/engine";
 import { describePrefill } from "./lib/questions";
 import { buildRunRecord, postRun, downloadRun, debugEnabled } from "./lib/runLog";
-import { buildProfile, fetchQuestionSurface, fetchReasons, fetchRationale } from "./lib/api";
+import {
+  buildProfile,
+  fetchQuestionSurface,
+  fetchReasons,
+  fetchRationale,
+  fetchPlanVerdict,
+  type PlanVerdict,
+} from "./lib/api";
 import { recommend } from "./lib/rules";
 import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
@@ -74,6 +81,12 @@ export default function App() {
   const [rationale, setRationale] = useState<{ rationale: string; whyNotCheaper: string }>(
     restored?.rationale ?? { rationale: "", whyNotCheaper: "" },
   );
+  /**
+   * The model's verified verdict on the plan — the one place a model can change what someone
+   * pays. Null until it lands, and null forever if it fails, in which case the deterministic
+   * recommendation stands unchanged.
+   */
+  const [verdict, setVerdict] = useState<PlanVerdict | null>(restored?.verdict ?? null);
 
   /**
    * Current stage, readable from inside async callbacks.
@@ -265,16 +278,17 @@ export default function App() {
           needs: rec.needs.map((n) => ({ id: n.id, because: n.because, entitlement: n.entitlement })),
           reasons,
           rationale,
+          verdict,
         }),
       );
     }, 12000);
     return () => clearTimeout(timer);
-  }, [stage, rawText, reveal, engine, reasons, rationale]);
+  }, [stage, rawText, reveal, engine, reasons, rationale, verdict]);
 
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
-    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, reasons, rationale });
-  }, [stage, engine, rawText, reveal, summary, neoSite, reasons, rationale]);
+    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, reasons, rationale, verdict });
+  }, [stage, engine, rawText, reveal, summary, neoSite, reasons, rationale, verdict]);
 
   /**
    * Apply an answer and decide where to go next.
@@ -304,23 +318,53 @@ export default function App() {
         const rec = recommend(next.profile, reveal?.mailboxes.length ?? 2);
         const answers = (next.trail ?? []).map((t) => ({
           question: t.prompt,
+          /* Free text is the answer when nothing was tapped — and it is the whole reason this
+             call exists, since no fixed rule can read it. */
           answer:
             t.options
               .filter((o) => t.pickedOptionIds.includes(o.id))
               .map((o) => o.label)
               .join(", ") || (t.freeText ?? ""),
         }));
-        void fetchRationale({
+
+        /**
+         * Plan first, then the explanation of whatever the plan turned out to be.
+         *
+         * Sequential on purpose: `/api/rationale` is handed the plan as a FACT, so it must be
+         * handed the FINAL one. Explaining a plan the model was about to raise would put a
+         * sentence on screen describing a different recommendation from the price above it.
+         * Both fit inside Neo's 22-38s generator, so nothing on screen waits.
+         */
+        void fetchPlanVerdict({
           businessText: rawText,
           answers,
-          mailPlanId: rec.mailPlan.id,
-          mailPlanName: rec.mailPlan.name,
-          sitePlanId: rec.sitePlan?.id ?? null,
-          sitePlanName: rec.sitePlan?.name ?? null,
-          mailboxes: rec.mailboxes,
+          mailTier: rec.mailPlan.id,
+          siteTier: rec.sitePlan?.id ?? "none",
+          /* Only questions where an option was actually tapped. A question answered in prose
+             is exactly what the model is FOR, so those are deliberately absent. */
+          answeredByTap: (next.trail ?? [])
+            .filter((t) => t.pickedOptionIds.length > 0)
+            .map((t) => t.id),
+        }).then((v) => {
+          if (v?.raised) setVerdict(v);
+          const finalRec = recommend(
+            next.profile,
+            reveal?.mailboxes.length ?? 2,
+            v?.raised ? { mail: v.mailTier, site: v.siteTier } : null,
+          );
+          return fetchRationale({
+            businessText: rawText,
+            answers,
+            mailPlanId: finalRec.mailPlan.id,
+            mailPlanName: finalRec.mailPlan.name,
+            sitePlanId: finalRec.sitePlan?.id ?? null,
+            sitePlanName: finalRec.sitePlan?.name ?? null,
+            mailboxes: finalRec.mailboxes,
+          });
         }).then((r) => {
-          if (r.rationale || r.whyNotCheaper) setRationale(r);
+          if (r && (r.rationale || r.whyNotCheaper)) setRationale(r);
         });
+
       }
     },
     [engine, rawText, reveal],
@@ -350,6 +394,7 @@ export default function App() {
     setNeoSite(null);
     setReasons({});
     setRationale({ rationale: "", whyNotCheaper: "" });
+    setVerdict(null);
     setError(null);
   }, []);
 
@@ -380,9 +425,10 @@ export default function App() {
         needs: rec.needs.map((n) => ({ id: n.id, because: n.because, entitlement: n.entitlement })),
         reasons,
         rationale,
+        verdict,
       }),
     );
-  }, [engine, rawText, reveal, reasons, rationale]);
+  }, [engine, rawText, reveal, reasons, rationale, verdict]);
 
   const showMeter = stage === "guess" || stage === "question" || stage === "reveal";
   const stepNumber = engine.asked.length + 1;
@@ -464,6 +510,7 @@ export default function App() {
                 neoSite={neoSite}
                 reasons={reasons}
                 rationale={rationale}
+                verdict={verdict}
                 onRestart={restart}
               />
             )}

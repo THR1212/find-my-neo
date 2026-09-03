@@ -1358,3 +1358,8 @@ a.btn {
   position: absolute;
   left: -12px;
 }
+
+/* A need the model found in someone's own words rather than in an option they picked. */
+.need-from-words {
+  font-style: italic;
+}

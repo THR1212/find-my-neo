@@ -50,6 +50,7 @@ export default function Reveal({
   neoSite,
   reasons,
   rationale,
+  verdict,
   onRestart,
 }: {
   reveal: RevealContent | null;
@@ -81,6 +82,16 @@ export default function Reveal({
    * which rules.ts always computes; `whyNotCheaper` has no fallback and simply does not render.
    */
   rationale?: { rationale: string; whyNotCheaper: string };
+  /**
+   * The model's verified verdict, when it raised a tier on something the fixed questions could
+   * not capture. Null in the ordinary case, which is most of the time and is correct.
+   */
+  verdict?: {
+    mailTier: string;
+    siteTier: string;
+    raised: boolean;
+    cites: { entitlement: string; evidence: string }[];
+  } | null;
   onRestart: () => void;
 }) {
   /**
@@ -256,7 +267,12 @@ export default function Reveal({
   const surfaces: FeatureSurface[] = showSite ? ["mail", "site"] : ["mail"];
 
   /** Plan choice + price. Deterministic — see rules.ts. */
-  const rec = recommend(profile, mailboxCount);
+  /* The verdict can only ever RAISE, and `recommend` re-checks that rather than trusting it. */
+  const rec = recommend(
+    profile,
+    mailboxCount,
+    verdict?.raised ? { mail: verdict.mailTier, site: verdict.siteTier } : null,
+  );
 
   /* Features are filtered by the tier rules.ts just chose, so we never name something the
      plan printed underneath does not include. Must stay AFTER `recommend`. */
@@ -514,11 +530,20 @@ export default function Reveal({
               the recommendation showing its working, not copy. Empty when the baseline was
               enough, which is worth its own sentence: "Starter is genuinely all you need" is
               a trust-building thing to be able to say. */}
-          {rec.needs.length > 0 && (
+          {(rec.needs.length > 0 || verdict?.raised) && (
             <ul className="plan-needs">
               {rec.needs.map((n) => (
                 <li key={n.id}>{n.because}</li>
               ))}
+              {/* What the model found in their own words that no option asked about. Quoted
+                  back, because the quote is the evidence — and the server only accepted it
+                  after finding those words in what this person actually wrote. */}
+              {verdict?.raised &&
+                verdict.cites.map((c) => (
+                  <li key={c.entitlement} className="need-from-words">
+                    you said “{c.evidence}”
+                  </li>
+                ))}
             </ul>
           )}
           {rationale?.whyNotCheaper && (

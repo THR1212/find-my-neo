@@ -31,7 +31,14 @@ Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
 1. **Shipped name is "Find My Neo"** — defined once in `src/lib/brand.ts` as `PRODUCT_NAME`,
    never hardcoded in a component. "Akinator" is a trademark (Elokence SAS): internal shorthand
    and repo name only, never on screen, in the deck, or in a page title. See `docs/naming.md`.
-2. **The LLM never decides price or plan.** It emits a structured profile object only.
+2. **The LLM never emits a price, and may only ever RAISE a plan — with a checked reason.**
+   Rewritten 03 Sep, when `api/plan.ts` gave the model a say for the first time. `rules.ts`
+   still computes the recommendation deterministically from Pandora entitlements; the model
+   may raise a tier only by citing an entitlement (an enum, so it cannot be invented) and
+   quoting words the server finds in what the person actually wrote. It may never lower a
+   tier, never contradict an option someone tapped, and never produce a number — the floor
+   for each entitlement is looked up in our table, not taken from the model. Fail any check
+   and the deterministic answer stands. What it emits otherwise is a structured profile only.
    `src/lib/rules.ts` maps profile → plan deterministically. Pricing lives in `src/data/plans.json`.
    Same for features: `src/lib/features.ts` is a fixed bank using Neo's own verbatim names.
    **The pricing sheet is not the offering.** Neo Lite is in the sheet and Neo does not sell it;

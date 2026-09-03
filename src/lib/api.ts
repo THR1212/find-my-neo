@@ -163,6 +163,50 @@ function derivedFallback(businessText: string): ProfileResult {
   };
 }
 
+export interface PlanVerdict {
+  mailTier: string;
+  siteTier: string;
+  /** True when a cited entitlement moved a tier above the deterministic answer. */
+  raised: boolean;
+  cites: { entitlement: string; evidence: string }[];
+  /** Citations that failed verification. Logged, never shown. */
+  rejected?: string[];
+}
+
+/**
+ * Ask the model whether anything they SAID reveals a requirement the fixed questions missed.
+ *
+ * The only call that can change what someone pays, and it can only ever raise a tier — with a
+ * cited entitlement and a quote the server finds in their own words. Everything else about the
+ * plan is deterministic. See api/_lib/planService.ts.
+ *
+ * Never rejects: on any failure the caller keeps the deterministic recommendation, which is
+ * already correct — this call exists to catch what the options could not express, not to
+ * decide the ordinary case.
+ */
+export async function fetchPlanVerdict(input: {
+  businessText: string;
+  answers: { question: string; answer: string }[];
+  mailTier: string;
+  siteTier: string;
+  /** Question ids answered by tapping. The model may not contradict these. */
+  answeredByTap: string[];
+}): Promise<PlanVerdict | null> {
+  if (MODE === "replay") return null;
+  try {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-fmn-session": sessionId() },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    return (await res.json()) as PlanVerdict;
+  } catch (err) {
+    reportDegraded("plan", err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
 export interface RationaleResult {
   /** Replaces buildRationale's line. Empty means keep the fixed one. */
   rationale: string;

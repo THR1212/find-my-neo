@@ -61,7 +61,20 @@ export const INDUSTRIES = [
 ] as const;
 
 /** Real question ids from src/lib/questions.ts. The engine overrules a bad pick anyway. */
-const QUESTION_IDS = ["import", "surface", "channel", "client", "team", "sells"] as const;
+const QUESTION_IDS = [
+  "import",
+  "surface",
+  "channel",
+  "client",
+  "team",
+  "sells",
+  /* The three that reach Max and Growth. Omitting them here does not merely lose a feature —
+     `questionPriority` is enum-constrained, so the model could not RANK them at all, and the
+     adaptivity built around them would have been half-disabled while looking fine. */
+  "volume",
+  "extras",
+  "catalogue",
+] as const;
 
 /**
  * Signals the model may read straight out of the free text, and the ONLY values it may use.
@@ -76,6 +89,21 @@ const QUESTION_IDS = ["import", "surface", "channel", "client", "team", "sells"]
  * up first?". They had already answered both, in their own words, on screen one. The engine
  * had no way to know: `kickOff` seeded only industry, brandName and teamSize, so all six
  * question signals stayed unresolved no matter what the text said.
+ *
+ * FOUR SIGNALS ARE DELIBERATELY ABSENT, and it is the same argument each time: never infer a
+ * price increase from prose.
+ *
+ * `attachmentVolume`, `extras` and `catalogueSize` each raise a floor to Max or Growth — a 4x
+ * jump on mail, 2.5x on site. A description mentioning a photography studio invites "large
+ * files often", and one mentioning quotes invites "sends invoices", but both would be us
+ * deciding somebody needs the most expensive plan on the strength of a sentence they wrote
+ * about themselves. These are behavioural questions and they are always asked. The guess
+ * screen shows prefills so they are correctable, but a wrong prefill on these is a wrong PRICE,
+ * and the asymmetry is not worth the saved tap.
+ *
+ * A consequence worth stating: `MAX_PREFILL = 3` can never bind against the current bank,
+ * because only four signals are prefillable at all. The cap stays as a guard for when the bank
+ * grows again.
  *
  * `mailboxCount` IS DELIBERATELY ABSENT and must stay absent. It is the heaviest signal and a
  * straight multiplier on price, and the only thing free text ever offers is headcount —
@@ -221,8 +249,8 @@ const SCHEMA = {
     },
     questionPriority: {
       type: "array",
-      minItems: 6,
-      maxItems: 6,
+      minItems: 9,
+      maxItems: 9,
       items: { type: "string", enum: [...QUESTION_IDS] },
       description:
         "All six question ids, each exactly once, ordered by how much asking it would tell " +
@@ -301,13 +329,16 @@ const SYSTEM = [
   "return, because asking someone a question they just answered in their own words is the",
   "fastest way to look like nothing was read.",
   "",
-  "questionPriority ranks all six questions, most worth asking first. The six are:",
+  "questionPriority ranks all nine questions, most worth asking first. The nine are:",
   "  import  - are they bringing existing mail or contacts across",
   "  surface - do they need email only, or email and a website",
   "  channel - where customers reach them today",
   "  client  - which mail app they use now",
   "  team    - how many email addresses they need",
   "  sells   - do people pay them online",
+  "  volume  - what they send: messages, documents, or large files (drives storage)",
+  "  extras  - whether they invoice, run campaigns, take bookings, or track opens",
+  "  catalogue - how many products or services they would list on a site",
   "Rank by what the description leaves OPEN. A question whose answer is already in the text",
   "goes last. A question whose answer would change what this specific business needs goes",
   "first. Do not use a fixed order; a bakery and a law firm should not be ranked the same.",

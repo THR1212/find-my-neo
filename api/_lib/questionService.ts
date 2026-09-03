@@ -77,6 +77,32 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
     prompt: "Do people pay you online?",
     options: { yes: "Yes, I take orders or payments", enquiry: "No, they enquire, then we arrange it" },
   },
+  /* Added 03 Sep with the questions that make Max and Growth reachable. Leaving them out of
+     this mirror does not break anything — validation drops what it does not recognise — it
+     just silently costs the generated wording, so three of nine screens would have read from
+     the fixed bank forever while the other six were personalised. */
+  volume: {
+    prompt: "What do you send people?",
+    options: {
+      text: "Mostly just messages",
+      docs: "Photos and documents",
+      heavy: "Large files, often",
+    },
+  },
+  extras: {
+    prompt: "Do you do any of these today?",
+    options: {
+      invoices: "Send quotes or invoices",
+      campaigns: "Message past customers as a group",
+      bookings: "Book people in for a time",
+      receipts: "Check whether mail was opened",
+      none: "None of these",
+    },
+  },
+  catalogue: {
+    prompt: "How much would you list on the site?",
+    options: { few: "A handful", dozens: "Dozens", hundreds: "Hundreds" },
+  },
 };
 
 /**
@@ -114,8 +140,8 @@ const SCHEMA = {
   properties: {
     questions: {
       type: "array",
-      minItems: 6,
-      maxItems: 6,
+      minItems: 9,
+      maxItems: 9,
       items: {
         type: "object",
         additionalProperties: false,
@@ -123,7 +149,7 @@ const SCHEMA = {
         properties: {
           questionId: {
             type: "string",
-            enum: ["import", "surface", "channel", "client", "team", "sells"],
+            enum: ["import", "surface", "channel", "client", "team", "sells", "volume", "extras", "catalogue"],
           },
           prompt: { type: "string", description: "The question. Under 60 characters." },
           sub: { type: "string", description: "One clarifying line. Under 90 characters." },
@@ -137,7 +163,7 @@ const SCHEMA = {
           options: {
             type: "array",
             minItems: 2,
-            maxItems: 4,
+            maxItems: 5,
             items: {
               type: "object",
               additionalProperties: false,
@@ -159,7 +185,7 @@ const SCHEMA = {
 } as const;
 
 const SYSTEM = [
-  "You rewrite six fixed questions for one specific small business, from a short description",
+  "You rewrite nine fixed questions for one specific small business, from a short description",
   "of it. You rewrite the question, the clarifying line, the free-text placeholder, and every",
   "option's label and hint.",
   "",
@@ -270,7 +296,9 @@ export async function handleQuestions(
       user: businessText,
       schema: SCHEMA as unknown as Record<string, unknown>,
       schemaName: "question_surface",
-      maxOutputTokens: 2600,
+      /* Nine questions now, not six. Raised with the bank; llm.ts reports truncation rather
+         than letting it surface as a JSON parse error. */
+      maxOutputTokens: 3800,
     });
     questions = out.questions;
   } catch (err) {

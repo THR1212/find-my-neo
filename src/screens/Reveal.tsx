@@ -325,10 +325,57 @@ export default function Reveal({
               )}
             </div>
             <p className="plan-why">{rationale?.rationale || rec.rationale}</p>
+
+            {/**
+             * What the total is made of.
+             *
+             * The single figure above hides the one thing that most often explains it: mail is
+             * priced PER MAILBOX, so "three to five addresses" quietly multiplies the tier.
+             * The needs list cannot say this, because the multiplication is not a need — it is
+             * arithmetic, and until now it was arithmetic nobody was shown.
+             */}
+            {rec.monthlyInr !== null && (
+              <table className="plan-breakdown">
+                <tbody>
+                  {rec.lines.map((l) => (
+                    <tr key={l.label}>
+                      <th scope="row">{l.label}</th>
+                      <td className="bd-qty">
+                        {l.qty > 1 && l.each !== null
+                          ? `${l.qty} × ₹${l.each.toLocaleString("en-IN")}`
+                          : ""}
+                      </td>
+                      <td className="bd-total">
+                        {l.totalInr !== null ? `₹${l.totalInr.toLocaleString("en-IN")}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th scope="row">Total</th>
+                    <td className="bd-qty">{CYCLE_LABEL[rec.cycle]}</td>
+                    <td className="bd-total">
+                      ₹{rec.monthlyInr.toLocaleString("en-IN")}/mo
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+
+            {/* Features WITH their reason. Moin's version joined the names with " · ", which
+                drops the personalisation — "Invoice Builder" alone is a catalogue entry;
+                "Invoice Builder — you can make repair quotes from the inbox" is why we picked
+                this plan for them. The reason is what makes the screen a justification. */}
             {features.length > 0 && (
-              <p className="plan-meta">
-                {features.map((f) => f.name).join(" · ")}
-              </p>
+              <ul className="plan-features">
+                {features.map((f) => (
+                  <li key={f.id}>
+                    <span className="feature-name">{f.name}</span>
+                    <span className="feature-because"> — {f.because}</span>
+                  </li>
+                ))}
+              </ul>
             )}
             {(rec.needs.length > 0 || verdict?.raised) && (
               <ul className="plan-needs">

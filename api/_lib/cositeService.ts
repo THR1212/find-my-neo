@@ -209,6 +209,27 @@ const TOKEN_FALLBACK_TTL_MS = 30 * 60 * 1000;
 let tokenCache: { token: string; expiresAt: number; skewMs: number } | null = null;
 
 /**
+ * The mint in flight, if there is one.
+ *
+ * Without it, N concurrent checks that all see a 401 each fire their own login — a thundering
+ * herd against a production login endpoint, from a function that scales out precisely when it
+ * is busiest. Sharing the promise makes it one login per instance per expiry, which is what
+ * the cache was always meant to mean.
+ */
+let mintInFlight: Promise<string | null> | null = null;
+
+/**
+ * When a failed mint may be retried.
+ *
+ * A dead or rate-limiting login endpoint would otherwise be re-hit by every manual check.
+ * Nothing here loops — each request tries once and degrades — but "once per request" against
+ * something already failing is still a stampede at the wrong moment. After a failure the
+ * ladder falls to the probe for this long without asking again.
+ */
+let mintBlockedUntil = 0;
+const MINT_COOLDOWN_MS = 60 * 1000;
+
+/**
  * Read `exp` out of a JWT payload without verifying the signature.
  *
  * Reading is the only thing happening: nothing here authorises anything, so an unverified
@@ -272,12 +293,38 @@ async function mintToken(): Promise<string | null> {
   return token;
 }
 
+/**
+ * A cached session, or one fresh login — never two at once, and never a retry storm.
+ *
+ * NOTHING HERE WRITES TO THE ENVIRONMENT, and that is a deliberate difference from
+ * zephyr-support, which PATCHes the new token into Heroku config vars. That works there
+ * because a dyno restart is cheap; the Vercel equivalent is a redeploy, which would tear down
+ * the very request that triggered it and is far worse than simply re-minting. The token lives
+ * in this module and dies with the instance.
+ */
 async function partnerToken(forceRefresh = false): Promise<string | null> {
   if (!forceRefresh && tokenCache && Date.now() < tokenCache.expiresAt - tokenCache.skewMs) {
     return tokenCache.token;
   }
+  /* A recent failure. Fall through to the probe rather than queue behind a broken endpoint. */
+  if (Date.now() < mintBlockedUntil) return null;
+  /* Someone else is already logging in — wait for theirs instead of starting a second. */
+  if (mintInFlight) return mintInFlight;
+
   tokenCache = null;
-  return mintToken();
+  mintInFlight = mintToken()
+    .catch((err) => {
+      mintBlockedUntil = Date.now() + MINT_COOLDOWN_MS;
+      /* Swallowed on purpose: an unmintable session is a degradation, not an incident, and
+         CLAUDE.md rule 4 says the reveal renders regardless. The caller sees null and the
+         ladder falls to the probe. */
+      console.error("[cosite] partner session mint failed:", String(err));
+      return null;
+    })
+    .finally(() => {
+      mintInFlight = null;
+    });
+  return mintInFlight;
 }
 
 /**
@@ -395,31 +442,74 @@ async function askNeo(stem: string, domain: string): Promise<CoSiteResult | null
  * │ for the co.site TLD. Keep it that way.                                                   │
  * └──────────────────────────────────────────────────────────────────────────────────────────┘
  *
- * The session is a static `NEO_PARTNER_SESSION` and expires. Minting one needs
- * `POST /partner-panel/login` with a human email and password, which is not something a
- * serverless function should do on cold start — so when it expires this returns null, the
- * ladder falls through to the probe, and the reveal goes quiet rather than wrong.
+ * ## The session, and what changed on 03 Sep
+ *
+ * This took a static `NEO_PARTNER_SESSION` alone — a token pasted by a person, which expires
+ * mid-demo and then leaves the check silent. The note here said minting one in code was not
+ * something a serverless function should do on cold start.
+ *
+ * That was overstated, and Hari was right to push back. `zephyr-support` has done exactly this
+ * in production for months: `Services/token_service.py:17` logs in on a 401 and even persists
+ * the result through the Heroku config-vars API. The pattern is proven, not novel.
+ *
+ * So `partnerToken()` now backs this up when the static session is absent or has expired.
+ * WHAT THAT DOES NOT CHANGE, and must not:
+ *
+ *   - Only the MANUAL path reaches here. The reveal's batch of four suggestions does not, so
+ *     the volume is one lookup per person who types a name, not four per page view.
+ *   - `PANEL_MAX_PER_WINDOW` still caps it. A credential that refreshes itself makes the rate
+ *     limit MORE important, not less: expiry used to be a natural ceiling and now is not, so
+ *     the counter is the only thing bounding the blast radius.
+ *   - Status code only, never the body. See the banner above.
+ *
+ * The difference from zephyr, and the reason for those three: zephyr's endpoint is internal.
+ * This one sits behind a page anyone can open, and a public function backed by a support
+ * session is an enumeration oracle — status codes alone tell you which domains exist in
+ * Titan's system. A working `check-domain-availability` is still the right fix (rung 1, which
+ * wins the moment its 500 is repaired); this is what we have while that is broken.
  */
 async function askPartnerPanel(domain: string): Promise<CoSiteResult | null> {
-  const session = process.env.NEO_PARTNER_SESSION;
+  /* A pasted session wins when present: it costs no login, and it is what someone debugging
+     with tools/cosite-check.mjs already has to hand. Minting is the fallback, not the norm. */
+  const pasted = process.env.NEO_PARTNER_SESSION;
+  const session = pasted ?? (await partnerToken());
   if (!session) return null;
+
+  /* Budget checked AFTER we have a session but BEFORE the first call, so a run that cannot
+     ask anything never spends a login on it either. */
   if (!panelBudgetAvailable()) return null;
 
   const base = process.env.NEO_PARTNER_PANEL_URL ?? PANEL_URL_DEFAULT;
-  const res = await withTimeout(`${base}?query=${encodeURIComponent(domain)}`, {
-    headers: {
-      "x-auth-token": session,
-      "x-user-agent": process.env.NEO_PARTNER_PANEL_UA ?? PANEL_UA_DEFAULT,
-      Accept: "application/json",
-    },
-  });
+  const call = (token: string) =>
+    withTimeout(`${base}?query=${encodeURIComponent(domain)}`, {
+      headers: {
+        "x-auth-token": token,
+        "x-user-agent": process.env.NEO_PARTNER_PANEL_UA ?? PANEL_UA_DEFAULT,
+        Accept: "application/json",
+      },
+    });
+
+  let res = await call(session);
+
+  /**
+   * One re-mint on an expired session, and only when we minted it ourselves.
+   *
+   * Two conditions, both deliberate. A pasted `NEO_PARTNER_SESSION` that has expired is a
+   * person's to replace — logging in behind it would hide the fact that the pasted value is
+   * dead, and they would never know to update it. And the retry is capped at one: an
+   * unconditional loop against a login endpoint is a bad habit whatever the status code.
+   */
+  if (res.status === 401 && !pasted && process.env.NEO_PARTNER_EMAIL) {
+    const fresh = await partnerToken(true);
+    if (fresh) res = await call(fresh);
+  }
 
   /* Status only. See the banner above — do not add body parsing. */
   if (res.status === 200) return { domain, available: false, source: "panel" };
   if (res.status === 404) return { domain, available: true, source: "panel" };
 
-  /* 401 session expired, 403, 5xx: say nothing. An expired admin session must never read as
-     "this domain is free". */
+  /* 403, 5xx, or a 401 we could not refresh: say nothing. An expired admin session must never
+     read as "this domain is free". */
   return null;
 }
 

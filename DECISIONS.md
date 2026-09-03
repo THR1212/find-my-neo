@@ -958,3 +958,53 @@ Also confirmed in the same run, and it retroactively justifies preferring Neo's 
 classifier returned `industryKey=ecommerce_retail`, while our hand-built map holds
 `ecommerce_and_retail` for the same meaning. **Different format.** Which of the two the builder
 accepts is now moot — we send back the key Neo itself produced.
+
+---
+
+### 2026-09-03 · The email-only reveal shows Neo's own product films
+
+**The hole.** `surface: "mail"` skips the site generator, and the right half of a
+locked-viewport reveal held a three-line text card. Someone who asked for email only — the
+person actually buying the mail plan — got a visibly emptier page than someone who asked for
+a site. That reads as "we built the site half and bolted email on".
+
+**What fills it.** Neo's own looping product videos, hotlinked from their CDN
+(`src/lib/neoMedia.ts`). The URLs are the exact ones neo.space loads in its "Small business
+bundle" section, captured 3 Sep 2026 from the homepage markup:
+
+    static.flock.co/neo/website/videos/{Neo_IB_final,Appointment_Booking,Signature-Builder,ED}.mp4
+    cdn.prod.website-files.com/…/Fast Apps 02-transcode.mp4
+
+Same rule as the site generator: **show Neo's real output, not our impression of it.** A
+mock-up of Invoice Builder that we drew would be a claim about a product we do not own.
+
+They are MP4s, not GIFs, which is what the marketing site actually ships — an MP4 of the same
+loop is roughly a tenth of the bytes and does not block the main thread. `muted` +
+`playsInline` are load-bearing: without both, autoplay is refused and the card sits on a black
+frame. Which three appear is ranked from the profile by `clipsFor()`, deterministically, the
+same way `pickFeatures` works — takes payments gets Invoice Builder, enquiries-first gets
+Bookings.
+
+**Also added:** two real template screenshots under the generated site
+(`template-horizontal-scroll*.webp`, the same reel neo.space shows). Neo's generator picks a
+template non-deterministically — six different ones for one description across runs — so
+implying the single card above is final would be wrong.
+
+**Reverse if:** Neo objects to the hotlinks, or the CDN paths rot. Both fail soft — the video
+element removes itself on error and the layout closes up.
+
+---
+
+### 2026-09-03 · No product video on the question screens
+
+Asked whether the loops should also play while someone answers questions. They should not.
+
+A question screen has a decision on it. A looping video beside the options competes with the
+thing we are asking the person to do, and the eye goes to the motion — which is exactly what
+autoplay loops are good at and exactly what is wrong here. It also puts three video fetches on
+the critical path of a screen that must feel instant.
+
+What went there instead is motion *about them*: `SetupTray`, four slots under the options that
+fill in as answers resolve — domain, mailboxes, mail-vs-site, what they're bringing across.
+Nothing is predicted; a slot stays empty until the answer earns it. The narrowing becomes
+visible on the page rather than only in the meter.

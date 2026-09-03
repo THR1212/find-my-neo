@@ -1,0 +1,254 @@
+{
+  "_source": "neo site order data.xlsx, sheet athena site data",
+  "_computedOn": "2026-09-03",
+  "_computedBy": "analysis/scripts/site_usage.py",
+  "_caveats": [
+    "Only 723 of 44,581 orders are on a paid site plan (basic 322, plus 279, growth 122); plan-level numbers are directional.",
+    "freeplan_site is 97.8% published and 93.5% retained - it looks granted AFTER publishing, so it cannot be read as a plan that causes retention.",
+    "used_external_links duplicates used_site_published (differ on 2 of 44,581 rows). One signal, not two.",
+    "used_dns_record is constant 0 and dropped.",
+    "Retention is a 3-way status flag on a different population from the other datasets - compare orderings, not levels.",
+    "5,589 orders published without generating may include orders predating the generator; the generate-vs-publish comparison is not a clean experiment."
+  ],
+  "orders": 44581,
+  "domains": 44330,
+  "baselineRetained": 0.5525,
+  "planMix": {
+    "site_beta": 28907,
+    "free_site": 8771,
+    "freeplan_site": 6180,
+    "basic": 322,
+    "plus": 279,
+    "growth": 122
+  },
+  "retentionStatusMix": {
+    "retained": 24630,
+    "churned": 17364,
+    "at_risk": 2587
+  },
+  "featureAdoption": {
+    "used_site_builder": 0.4616,
+    "used_site_app": 0.4571,
+    "used_image_upload": 0.2363,
+    "used_image": 0.2166,
+    "used_site_published": 0.2046,
+    "used_external_links": 0.2046,
+    "used_site_generated": 0.167,
+    "used_site_preview": 0.1533,
+    "used_change_theme": 0.1121,
+    "used_build_with_ai": 0.1043,
+    "used_change_font": 0.0751,
+    "used_section": 0.0619,
+    "used_ai_text": 0.0592,
+    "used_order_form": 0.0353,
+    "used_seo_setup": 0.0155,
+    "used_connect_domain": 0.0038
+  },
+  "featureRetentionLift": [
+    {
+      "feature": "used_site_app",
+      "usedRetained": 0.6695,
+      "notUsedRetained": 0.4539,
+      "liftPt": 21.6,
+      "nUsed": 20379,
+      "adoption": 0.4571
+    },
+    {
+      "feature": "used_site_builder",
+      "usedRetained": 0.6665,
+      "notUsedRetained": 0.4548,
+      "liftPt": 21.2,
+      "nUsed": 20577,
+      "adoption": 0.4616
+    },
+    {
+      "feature": "used_site_published",
+      "usedRetained": 0.8075,
+      "notUsedRetained": 0.4869,
+      "liftPt": 32.1,
+      "nUsed": 9121,
+      "adoption": 0.2046
+    },
+    {
+      "feature": "used_build_with_ai",
+      "usedRetained": 0.6889,
+      "notUsedRetained": 0.5366,
+      "liftPt": 15.2,
+      "nUsed": 4651,
+      "adoption": 0.1043
+    },
+    {
+      "feature": "used_site_generated",
+      "usedRetained": 0.5934,
+      "notUsedRetained": 0.5443,
+      "liftPt": 4.9,
+      "nUsed": 7447,
+      "adoption": 0.167
+    },
+    {
+      "feature": "used_ai_text",
+      "usedRetained": 0.7055,
+      "notUsedRetained": 0.5429,
+      "liftPt": 16.3,
+      "nUsed": 2638,
+      "adoption": 0.0592
+    },
+    {
+      "feature": "used_section",
+      "usedRetained": 0.7532,
+      "notUsedRetained": 0.5392,
+      "liftPt": 21.4,
+      "nUsed": 2759,
+      "adoption": 0.0619
+    },
+    {
+      "feature": "used_image",
+      "usedRetained": 0.7225,
+      "notUsedRetained": 0.5055,
+      "liftPt": 21.7,
+      "nUsed": 9658,
+      "adoption": 0.2166
+    },
+    {
+      "feature": "used_image_upload",
+      "usedRetained": 0.7157,
+      "notUsedRetained": 0.502,
+      "liftPt": 21.4,
+      "nUsed": 10535,
+      "adoption": 0.2363
+    },
+    {
+      "feature": "used_change_font",
+      "usedRetained": 0.7349,
+      "notUsedRetained": 0.5377,
+      "liftPt": 19.7,
+      "nUsed": 3346,
+      "adoption": 0.0751
+    },
+    {
+      "feature": "used_change_theme",
+      "usedRetained": 0.7313,
+      "notUsedRetained": 0.5299,
+      "liftPt": 20.1,
+      "nUsed": 4999,
+      "adoption": 0.1121
+    },
+    {
+      "feature": "used_seo_setup",
+      "usedRetained": 0.7673,
+      "notUsedRetained": 0.5491,
+      "liftPt": 21.8,
+      "nUsed": 692,
+      "adoption": 0.0155
+    },
+    {
+      "feature": "used_external_links",
+      "usedRetained": 0.8074,
+      "notUsedRetained": 0.4869,
+      "liftPt": 32.0,
+      "nUsed": 9121,
+      "adoption": 0.2046
+    },
+    {
+      "feature": "used_order_form",
+      "usedRetained": 0.6955,
+      "notUsedRetained": 0.5472,
+      "liftPt": 14.8,
+      "nUsed": 1573,
+      "adoption": 0.0353
+    },
+    {
+      "feature": "used_site_preview",
+      "usedRetained": 0.7128,
+      "notUsedRetained": 0.5235,
+      "liftPt": 18.9,
+      "nUsed": 6834,
+      "adoption": 0.1533
+    },
+    {
+      "feature": "used_connect_domain",
+      "usedRetained": 0.6901,
+      "notUsedRetained": 0.5519,
+      "liftPt": 13.8,
+      "nUsed": 171,
+      "adoption": 0.0038
+    }
+  ],
+  "generateVsPublish": {
+    "cells": [
+      {
+        "generated": false,
+        "published": false,
+        "n": 31545,
+        "retained": 0.4783
+      },
+      {
+        "generated": false,
+        "published": true,
+        "n": 5589,
+        "retained": 0.9166
+      },
+      {
+        "generated": true,
+        "published": false,
+        "n": 3915,
+        "retained": 0.5561
+      },
+      {
+        "generated": true,
+        "published": true,
+        "n": 3532,
+        "retained": 0.6348
+      }
+    ],
+    "publishLiftPt": 32.1,
+    "generateLiftPt": 4.9
+  },
+  "paidPlanUsage": [
+    {
+      "plan": "basic",
+      "n": 322,
+      "orderForm": 0.1584,
+      "published": 0.8168,
+      "retained": 0.4099
+    },
+    {
+      "plan": "plus",
+      "n": 279,
+      "orderForm": 0.3118,
+      "published": 0.8244,
+      "retained": 0.6344
+    },
+    {
+      "plan": "growth",
+      "n": 122,
+      "orderForm": 0.2541,
+      "published": 0.7869,
+      "retained": 0.4508
+    }
+  ],
+  "orderFormOverallAdoption": 0.0353,
+  "domainOwnership": [
+    {
+      "verified": false,
+      "n": 33129,
+      "retained": 0.5109
+    },
+    {
+      "verified": true,
+      "n": 11452,
+      "retained": 0.6726
+    }
+  ],
+  "freeTextIndustry": {
+    "distinct": 8016,
+    "rows": 17527,
+    "distinctShare": 0.4574,
+    "normalisedDistinct": 7011,
+    "collapsedByCaseOrWhitespace": 1005,
+    "appearingOnce": 5814,
+    "appearingOnceShare": 0.8293,
+    "taxonomyIndustryValues": 17,
+    "taxonomySubIndustryValues": 104
+  }
+}

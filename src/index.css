@@ -1773,8 +1773,13 @@ a.btn {
    only, where the right column would otherwise be empty. */
 
 .setup-story-mail {
-  gap: 8px;
+  gap: 6px;
   overflow: hidden;
+}
+
+.setup-story-mail > .story-kicker {
+  flex: 0 0 auto;
+  margin-bottom: 0;
 }
 
 .loop-stack {
@@ -1837,15 +1842,22 @@ a.btn {
 
 /* --- Template snapshots under the generated site ------------------------- */
 
+/* Fixed height, not flexible: the pane above is `flex: 1`, so anything auto-sized down here
+   gets squeezed off the bottom of a locked viewport instead of shrinking the preview. */
 .tpl-shots {
   flex: 0 0 auto;
+  height: 92px;
+  display: flex;
+  flex-direction: column;
 }
 
 .tpl-shots .story-kicker {
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 .tpl-shots-row {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
@@ -1853,6 +1865,9 @@ a.btn {
 
 .tpl-shot {
   margin: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--neo-border);
   border-radius: var(--neo-radius);
   overflow: hidden;
@@ -1860,16 +1875,18 @@ a.btn {
 }
 
 .tpl-shot img {
+  flex: 1;
   width: 100%;
-  height: 62px;
+  min-height: 0;
   object-fit: cover;
   object-position: top center;
   display: block;
 }
 
 .tpl-shot figcaption {
-  padding: 4px 7px 5px;
-  font-size: 10.5px;
+  flex: 0 0 auto;
+  padding: 3px 7px 4px;
+  font-size: 10px;
   color: var(--neo-text-muted);
 }
 

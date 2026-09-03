@@ -209,10 +209,13 @@ export default function Reveal({
    * failure available to this demo.
    */
   const surfaces: FeatureSurface[] = showSite ? ["mail", "site"] : ["mail"];
-  const features = pickFeatures(profile, surfaces);
 
   /** Plan choice + price. Deterministic — see rules.ts. */
   const rec = recommend(profile, mailboxCount);
+
+  /* Features are filtered by the tier rules.ts just chose, so we never name something the
+     plan printed underneath does not include. Must stay AFTER `recommend`. */
+  const features = pickFeatures(profile, surfaces, 2, rec.sitePlan?.id ?? null);
 
   /**
    * The real handoff URL. Neo's funnel takes plain query params — no encoder, no signing —

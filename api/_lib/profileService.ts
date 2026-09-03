@@ -100,15 +100,24 @@ const SIGNAL_TO_QUESTION: Record<string, string> = {
 };
 
 /**
- * At most two signals may be prefilled, however much the text says.
+ * At most three signals may be prefilled, however much the text says.
  *
- * Not a safety limit — a pacing one. Six signals, `MAX_QUESTIONS = 4`, and no cap means a
- * chatty description could resolve four of them and leave a two-question flow, which reads as
- * the product giving up rather than being clever. Capped at two, four questions still get
- * asked; they are just four questions the person has not already answered. Same length,
- * strictly more information — which is the actual complaint being fixed.
+ * Not a safety limit — a pacing one. Six signals and `MAX_QUESTIONS = 4`: prefilling three
+ * still leaves three to ask, and every signal ends up resolved either way. Prefilling four
+ * would leave a two-question flow, which reads as the product giving up rather than being
+ * clever.
+ *
+ * Was 2, which was too tight and lost real information. A florist who wrote "orders come
+ * through Instagram DMs and we take payment online" had `surface` and `customerChannel`
+ * prefilled, and `sellsOnline` — which the model HAD extracted — silently discarded by the
+ * cap. The model then ranked `sells` last, reasonably, because it believed it had already
+ * answered it. So the signal was dropped by the cap and deprioritised by the ranking, and the
+ * reveal recommended a site plan without knowing they take payments.
+ *
+ * Anything the cap does drop is now recorded, because a signal lost this way is invisible
+ * otherwise — it looks identical to a signal the text never mentioned.
  */
-const MAX_PREFILL = 2;
+const MAX_PREFILL = 3;
 
 /** Matches src/lib/domains.ts TLDS. The stem is the model's; the TLDs are not its business. */
 const TLDS = ["com", "in", "co"] as const;
@@ -372,9 +381,15 @@ function validatePrefill(raw: Prefill | undefined): {
   const order = ["surface", "customerChannel", "sellsOnline", "importIntent", "currentClient"];
 
   for (const signal of order) {
-    if (skip.length >= MAX_PREFILL) break;
     const value = p[signal as keyof Prefill];
     if (value === null || value === undefined) continue;
+    /* Cap reached, but the model DID extract this. Record it: dropped-by-cap and
+       never-mentioned are the same silence otherwise, and only one of them is a design
+       choice. The question stays askable, so the fact is deferred, not lost. */
+    if (skip.length >= MAX_PREFILL) {
+      dropped.push(`${signal}: over MAX_PREFILL, asking instead`);
+      continue;
+    }
 
     if (signal === "sellsOnline") {
       if (typeof value !== "boolean") {

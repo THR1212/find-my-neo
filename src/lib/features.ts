@@ -49,6 +49,18 @@ export interface Feature {
    * generic benefit copy is exactly what we're trying to beat.
    */
   because: string;
+  /**
+   * Lowest site plan that actually includes this, per `src/data/site-features.json`.
+   *
+   * Absent means every tier has it (or it is a mail feature, where our plans do not gate the
+   * ones we surface). This exists because relevance and availability are different questions,
+   * and answering only the first produced a real contradiction: a phone-and-walk-ins bike shop
+   * matched `Contact Forms` on relevance, was correctly recommended **Basic** on price — and
+   * Basic has no contact forms. We would have printed a feature the plan underneath it does
+   * not include, which is the exact "promise we cannot keep" failure the verbatim-names rule
+   * exists to prevent.
+   */
+  minSitePlan?: "basic" | "plus" | "growth";
   /** True when this person's profile makes the feature genuinely relevant. */
   matches: (p: Profile) => boolean;
   /** Tie-break when several match. Higher wins. */
@@ -162,6 +174,7 @@ export const FEATURES: Feature[] = [
    */
   {
     id: "site_contact_forms",
+    minSitePlan: "plus",
     name: "Contact Forms",
     surface: "site",
     /* THE most important row in Neo's site table: Basic has none at all (Plus 1000, Growth
@@ -199,6 +212,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "site_whatsapp",
+    minSitePlan: "plus",
     name: "WhatsApp",
     surface: "site",
     /* Plus and above. Neo's own generated sites carry a WhatsApp widget — observed in a real
@@ -209,6 +223,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "site_testimonials",
+    minSitePlan: "plus",
     name: "Testimonials",
     surface: "site",
     because: "the word-of-mouth you already have, where a stranger can read it",
@@ -226,6 +241,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "site_branding",
+    minSitePlan: "plus",
     name: "Remove Neo Branding",
     surface: "site",
     /* Absent on Basic. Only worth surfacing to someone already heading for Plus. */
@@ -270,26 +286,44 @@ export const FEATURES: Feature[] = [
  * in play, so a mail+site recommendation justifies each half rather than stacking two reasons
  * for whichever matched hardest — the point is to explain the shape of the recommendation.
  */
+const SITE_TIER_RANK: Record<string, number> = { basic: 0, plus: 1, growth: 2 };
+
+/**
+ * Is this feature actually included in the plan being recommended?
+ *
+ * `sitePlanId` is what `rules.ts` chose. Passing null (mail-only, or no plan yet) keeps every
+ * feature eligible, because there is no site tier to contradict.
+ */
+function availableOn(f: Feature, sitePlanId: string | null): boolean {
+  if (!f.minSitePlan) return true;
+  if (!sitePlanId) return false;
+  return (SITE_TIER_RANK[sitePlanId] ?? 0) >= SITE_TIER_RANK[f.minSitePlan];
+}
+
 export function pickFeatures(
   profile: Profile,
   surfaces: FeatureSurface[],
   limit = 2,
+  /* The site plan rules.ts settled on. Features the tier does not include are filtered out —
+     see `minSitePlan`. Optional so mail-only callers need not pass it. */
+  sitePlanId: string | null = null,
 ): Feature[] {
+  const eligible = FEATURES.filter((f) => f.matches(profile) && availableOn(f, sitePlanId));
   const picked: Feature[] = [];
 
   for (const surface of surfaces) {
-    const best = FEATURES.filter((f) => f.surface === surface && f.matches(profile)).sort(
-      (a, b) => b.priority - a.priority,
-    )[0];
+    const best = eligible
+      .filter((f) => f.surface === surface)
+      .sort((a, b) => b.priority - a.priority)[0];
     if (best) picked.push(best);
   }
 
   // One surface in play and room left — add its runner-up rather than padding with the other
   // surface, which they explicitly didn't ask for.
   if (picked.length < limit && surfaces.length === 1) {
-    const more = FEATURES.filter(
-      (f) => f.surface === surfaces[0] && f.matches(profile) && !picked.includes(f),
-    ).sort((a, b) => b.priority - a.priority);
+    const more = eligible
+      .filter((f) => f.surface === surfaces[0] && !picked.includes(f))
+      .sort((a, b) => b.priority - a.priority);
     picked.push(...more.slice(0, limit - picked.length));
   }
 

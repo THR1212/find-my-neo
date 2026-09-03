@@ -123,9 +123,30 @@ export function isResolved(profile: Profile, signal: SignalId): boolean {
   return v !== undefined && v !== null && v !== "";
 }
 
-export function resolvedWeight(profile: Profile): number {
+/**
+ * How much of the space is closed, with prefilled signals counted at HALF.
+ *
+ * The discount governs the early stop, and that is a correctness concern rather than a
+ * cosmetic one. It was written for the narrowing meter, then dropped on 03 Sep when the meter
+ * came off screen and a check said flow length was unaffected. **That check was too narrow.**
+ * It compared one path at a prefill cap of 2; it did not cover what actually happens when a
+ * description is rich.
+ *
+ * What happens without it: prefills count full weight, `confidence` starts high, and
+ * `shouldReveal` fires at the 0.82 threshold after two questions. A florist whose description
+ * resolved three signals was asked `team` and `import` and then sent to the reveal — so
+ * `currentClient` was never asked and never known, on a run where we had budget for it. More
+ * information in the description made us collect LESS from the person, which is exactly
+ * backwards.
+ *
+ * Half is a judgement, not a measurement: a signal we inferred is worth real confidence but
+ * less than one someone tapped, because a tap cannot be misread. Reinstated with the reason
+ * corrected — this is about when to stop asking, not about a number on screen.
+ */
+export function resolvedWeight(profile: Profile, prefilled?: string[]): number {
+  const pre = new Set(prefilled ?? []);
   return QUESTIONS.filter((q) => isResolved(profile, q.signal)).reduce(
-    (sum, q) => sum + q.weight,
+    (sum, q) => sum + (pre.has(q.id) ? q.weight / 2 : q.weight),
     0,
   );
 }
@@ -134,9 +155,9 @@ export function resolvedWeight(profile: Profile): number {
  * 0–1. Starts above zero because the free-text answer alone tells us a lot — opening the
  * ring at empty after someone has just written a paragraph reads as "you weren't listening".
  */
-export function confidence(profile: Profile): number {
+export function confidence(profile: Profile, prefilled?: string[]): number {
   const base = isResolved(profile, "industry") ? 0.22 : 0.05;
-  const earned = (resolvedWeight(profile) / TOTAL_WEIGHT) * (1 - base);
+  const earned = (resolvedWeight(profile, prefilled) / TOTAL_WEIGHT) * (1 - base);
   return Math.min(0.97, base + earned);
 }
 
@@ -145,8 +166,8 @@ export function confidence(profile: Profile): number {
  * feel dramatic (thousands falling away) and later ones feel precise (dozens to a handful) —
  * linear decay reads as a progress bar, which is the opposite of the feeling we want.
  */
-export function remainingSetups(profile: Profile): number {
-  const c = confidence(profile);
+export function remainingSetups(profile: Profile, prefilled?: string[]): number {
+  const c = confidence(profile, prefilled);
   const value = STARTING_SETUPS * Math.pow(1 - c, 3.2);
   return Math.max(FLOOR_SETUPS, Math.round(value));
 }
@@ -222,7 +243,7 @@ export function shouldReveal(state: EngineState): boolean {
   if (nextQuestion(state) === null) return true;
   if (state.asked.length >= MAX_QUESTIONS) return true;
   // Never cut it off before two — one answer after the free text feels like it guessed.
-  return state.asked.length >= 2 && confidence(state.profile) >= CONFIDENT_ENOUGH;
+  return state.asked.length >= 2 && confidence(state.profile, state.prefilled) >= CONFIDENT_ENOUGH;
 }
 
 /**

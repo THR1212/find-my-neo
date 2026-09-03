@@ -1104,11 +1104,6 @@ a.btn {
 
 /* The honest note under the plan line. Quieter than the rationale — it is a caveat, not a
    selling point, but it must be readable. */
-.plan-note {
-  margin-top: 6px;
-  color: var(--text-faint);
-}
-
 /* Check a domain of your own, on the reveal. Deliberately quiet: it is an escape hatch for
    when our three suggestions are wrong, not a competing call to action. */
 .own-domain {

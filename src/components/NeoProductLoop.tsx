@@ -54,7 +54,7 @@ export default function NeoProductLoop({
           loop
           muted
           playsInline
-          preload="metadata"
+          preload={variant === "hero" ? "auto" : "metadata"}
           controls={false}
           onError={() => setFailed(true)}
         />

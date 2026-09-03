@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import NeoProductLoop from "./NeoProductLoop";
 import { MAIL_CLIPS, TEMPLATE_SHOTS } from "../lib/neoMedia";
 
@@ -11,9 +11,10 @@ import { MAIL_CLIPS, TEMPLATE_SHOTS } from "../lib/neoMedia";
  * template shots the reveal already vendors — Neo's own output, not a spinner we drew —
  * so the pause is a look at the product instead of a loading gap.
  *
- * The sequence loops on purpose. Unlike Neo's site-generator loader (which must not loop,
- * because a 38s hang would look stuck), we do not know when the profile will land, so a
- * short product reel that wraps is honest. prefers-reduced-motion gets a still frame.
+ * Beats stay mounted and fade. Unmounting the <video> on every switch dropped the card
+ * to a blank frame while the next file buffered. The sequence loops on purpose: unlike
+ * Neo's site-generator loader (which must not loop), we do not know when the profile
+ * will land. prefers-reduced-motion holds on the first beat.
  */
 
 const BEAT_MS = 2400;
@@ -44,9 +45,6 @@ export default function ProductWait() {
     return () => clearInterval(t);
   }, [reduceMotion]);
 
-  const beat = BEATS[i];
-  const film = beat.kind === "film" ? clip(beat.id) : null;
-
   return (
     <aside className="product-wait" aria-busy="true" aria-live="polite">
       <p className="eyebrow">Putting this together</p>
@@ -57,26 +55,26 @@ export default function ProductWait() {
       </p>
 
       <div className="product-wait-stage">
-        <AnimatePresence mode="wait">
-          {film ? (
-            <motion.div
-              key={film.id}
-              className="product-wait-beat"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <NeoProductLoop clip={film} variant="hero" />
-            </motion.div>
-          ) : (
-            <motion.div
+        {BEATS.map((beat, n) => {
+          const on = n === i;
+          if (beat.kind === "film") {
+            const film = clip(beat.id);
+            if (!film) return null;
+            return (
+              <div
+                key={film.id}
+                className={`product-wait-beat${on ? " on" : ""}`}
+                aria-hidden={!on}
+              >
+                <NeoProductLoop clip={film} variant="hero" active={on} />
+              </div>
+            );
+          }
+          return (
+            <div
               key="templates"
-              className="product-wait-beat product-wait-templates"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className={`product-wait-beat product-wait-templates${on ? " on" : ""}`}
+              aria-hidden={!on}
             >
               <div className="product-wait-tpl-pair">
                 {TEMPLATE_SHOTS.slice(0, 2).map((shot) => (
@@ -93,11 +91,13 @@ export default function ProductWait() {
               </div>
               <p className="product-wait-caption">
                 <span className="neo-loop-name">AI-powered site builder</span>
-                <span className="neo-loop-caption">Two looks, the way Neo's generator shows them</span>
+                <span className="neo-loop-caption">
+                  Two looks, the way Neo's generator shows them
+                </span>
               </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          );
+        })}
       </div>
 
       <ol className="product-wait-pips" aria-hidden="true">

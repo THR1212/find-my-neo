@@ -517,8 +517,8 @@ h1 {
 .product-wait-stage {
   position: relative;
   flex: 1 1 auto;
-  min-height: 280px;
-  height: min(46vh, 380px);
+  min-height: 300px;
+  height: min(52vh, 420px);
 }
 
 .product-wait-beat {
@@ -526,6 +526,14 @@ h1 {
   inset: 0;
   display: flex;
   flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s var(--ease-out);
+}
+
+.product-wait-beat.on {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .product-wait-beat .neo-loop-hero {
@@ -538,6 +546,7 @@ h1 {
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   overflow: hidden;
+  height: 100%;
 }
 
 .product-wait-tpl-pair {

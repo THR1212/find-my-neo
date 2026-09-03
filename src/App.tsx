@@ -108,6 +108,10 @@ export default function App() {
   /* The model's ranking now lives inside `engine` (and so is persisted and overruled there),
      rather than in a separate state that was consumed once and thrown away. */
   const current = useMemo(() => nextQuestion(engine), [engine]);
+  /* Read inside the question-surface callback, which fires long after that render. A ref, not
+     the value, because the callback closes over whichever render started the fetch. */
+  const currentQuestionRef = useRef<string | null>(null);
+  currentQuestionRef.current = current?.id ?? null;
   /* What the description already answered, in the words the option would have used. Shown on
      the guess screen so a skipped question is visible and therefore correctable. */
   const inferred = useMemo(
@@ -145,16 +149,29 @@ export default function App() {
       if (opts.profile) {
         void fetchQuestionSurface(text).then((surface) => {
           if (Object.keys(surface).length === 0) return;
+          /* Nothing left to reword. */
+          if (stageRef.current === "reveal") return;
+
           /**
-           * Do not apply it once a question is on screen.
+           * Apply it to every question EXCEPT the one being read right now.
            *
-           * Wording lands ~12s in. Someone who taps "That's us" quickly is already reading
-           * question 1 in the fixed wording, and applying the override then rewrites the
-           * question under them mid-read. Better to lose the generated wording for a fast
-           * mover than to change the words they are in the middle of.
+           * The rule used to be "drop it entirely once a question is on screen", and the
+           * reason was right: rewriting a question under someone mid-read is worse than
+           * plain wording. But it threw away the other seven to protect one, and it did that
+           * more and more often as the call got slower — measured live at 11.5s on one run
+           * and past 45s on the next, against a guess screen most people leave in a few
+           * seconds. The generated wording was being discarded almost every time.
+           *
+           * Holding back the current question keeps the original guarantee intact and lets
+           * the rest of the flow read as it was meant to.
            */
-          if (stageRef.current === "question" || stageRef.current === "reveal") return;
-          setEngine((prev) => ({ ...prev, surface }));
+          setEngine((prev) => {
+            const onScreen = stageRef.current === "question" ? currentQuestionRef.current : null;
+            if (!onScreen) return { ...prev, surface };
+            const rest = { ...surface };
+            delete rest[onScreen];
+            return { ...prev, surface: rest };
+          });
         });
       }
       if (!opts.profile) return;

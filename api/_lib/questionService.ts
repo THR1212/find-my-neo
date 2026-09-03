@@ -354,7 +354,12 @@ export async function handleQuestions(
          nothing, and nothing here means every screen reads from the fixed bank. Nobody waits
          on this — it resolves while the guess screen is up and is dropped if a question is
          already being read, so a slow success still costs the user no time. */
-      timeoutMs: 45000,
+      /* Measured live at 11.5s on one call and past 45s on the next — reasoning-token variance,
+         not network. 45s was still cutting off successful generations. The wait costs the user
+         nothing (the guess screen never blocks on this, and App now applies late wording to
+         every question except the one being read), so the ceiling should sit above the slow
+         tail rather than inside it. */
+      timeoutMs: 75000,
       maxRetries: 0,
     });
     questions = out.questions;

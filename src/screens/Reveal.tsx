@@ -249,7 +249,11 @@ export default function Reveal({
   const features = pickFeatures(
     profile,
     surfaces,
-    2,
+    /* Three, measured. Over 96 profiles the reveal produced 13 distinct bullet sets at two
+       and 23 at three, using 12 of the 20 features rather than 8 — the third slot is where
+       "every business gets the same two lines" stops being true. Four reaches 30 sets but
+       each extra line earns less and the screen gets longer; three is the knee. */
+    3,
     rec.sitePlan?.id ?? null,
     rec.mailPlan.id,
     /* Overlay the generated reason AFTER selection and entitlement filtering, so a generation

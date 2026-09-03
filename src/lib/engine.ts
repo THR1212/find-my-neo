@@ -303,7 +303,9 @@ const MIN_QUESTIONS = 3;
  * How many questions may be asked purely to improve the FEATURE lines, once nothing left can
  * change the plan or the price.
  *
- * Two, and the number is not arbitrary: `pickFeatures` renders exactly two bullets, so a third
+ * Two, and still two now that the reveal renders THREE bullets: the third slot is filled by
+ * ranking what we already know, not by asking for more. Asking a third feature-only question
+ * is drop-off we cause; ranking is free. Originally: `pickFeatures` rendered two bullets, so a third
  * feature-only question cannot change anything a person reads. Without this bound every flow
  * ran to eight — three extra questions bought two better lines, which is a poor trade against
  * the 40-65% quiz completion in docs/competitor-qualification.md.

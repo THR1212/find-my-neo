@@ -335,6 +335,12 @@ export async function handleQuestions(
       /* Nine questions now, not six. Raised with the bank; llm.ts reports truncation rather
          than letting it surface as a JSON parse error. */
       maxOutputTokens: 3800,
+      /* The long call. 45s and no retry beats 20s twice: the old pair spent 40.5s to return
+         nothing, and nothing here means every screen reads from the fixed bank. Nobody waits
+         on this — it resolves while the guess screen is up and is dropped if a question is
+         already being read, so a slow success still costs the user no time. */
+      timeoutMs: 45000,
+      maxRetries: 0,
     });
     questions = out.questions;
   } catch (err) {

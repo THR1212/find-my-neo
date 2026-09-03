@@ -5,7 +5,8 @@
     "signature_builder": "pricing page: MAX ONLY. plan-features.json: 'STANDARD and MAX'. Our `look_established` need forces STANDARD citing this.",
     "drive_storage": "pricing page: Drive is MAX ONLY. plan-features.json: 'Standard (1,024) and Max (51,200). Absent from Starter.'",
     "ai_summary": "pricing page: MAX ONLY. plan-features.json: 'All three, limit 4 on Starter and Standard.'",
-    "advanced_tracking": "pricing page: MAX ONLY. plan-features.json: 'All three, limited: Starter 5, Standard 5, Max unlimited.'"
+    "advanced_tracking": "pricing page: MAX ONLY. plan-features.json: 'All three, limited: Starter 5, Standard 5, Max unlimited.'",
+    "sendLimitPerDay": "pricing page: Starter 500 / Standard 1000 / Max 1000 per day. plan-features.json sendLimitPerDay: max 2000. Nothing reads it today."
   },
   "rows": [
     {
@@ -476,5 +477,6 @@
       "standard": "Send professional-looking personalized emails to multiple people at once and track how many open your emails.",
       "max": "Customize with the HTML editorSave campaigns as templatesTrack engagement for your campaign"
     }
-  ]
+  ],
+  "_relationToOtherFiles": "Sibling of site-features.json, which has done the same job for the SITE plans since 02 Sep — the mail half was simply missing. plan-features.json is a different source, not an older copy: that is Pandora, the backend entitlements, and it is authoritative for what the product DOES. This file is authoritative for what the customer is TOLD. Overlap between them is expected; disagreement is the finding, and there are five."
 }

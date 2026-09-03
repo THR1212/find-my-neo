@@ -58,13 +58,8 @@
       "standard": 1000,
       "max": 2000
     },
-    "_storageGb": {
-      "_source": "neo.space/pricing-and-plan, 'Mailbox Storage' row, read 03 Sep 2026",
-      "_note": "PER MAILBOX, not shared — Neo's catalogue says 'allotted for each mailbox that is created'. This is the #1 paywall trigger in docs/data-findings.md §5 (32-52% of conversions in every industry), and it had no feature bullet until 03 Sep.",
-      "starter": 15,
-      "standard": 50,
-      "max": 100
-    }
+    "_storageGbNote": "PER MAILBOX, not shared — Neo's catalogue says 'allotted for each mailbox that is created'. Confirmed against the live pricing table 03 Sep (15/50/100 GB). It is the #1 paywall trigger in docs/data-findings.md §5 at 32-52% of conversions in every industry.",
+    "_sendLimitConflict": "This file says max 2000/day. Neo's live pricing page said 1000/day on 03 Sep (Starter 500, Standard 1000, Max 1000). Nothing reads sendLimitPerDay, so nothing is wrong on screen today — recorded so whoever resolves the other four conflicts resolves this one too. See src/data/mail-features.json _conflictsWithPandora."
   },
   "site": {
     "_plans": [

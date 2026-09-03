@@ -43,9 +43,20 @@ Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
    Same for features: `src/lib/features.ts` is a fixed bank using Neo's own verbatim names.
    **The pricing sheet is not the offering.** Neo Lite is in the sheet and Neo does not sell it;
    we recommended it, with a real price, until 03 Sep. Check a plan is purchasable before
-   `rules.ts` can return it. Mail feature names come from Neo's JSON config; **site feature
-   names have no config** and are captured in `src/data/site-features.json` — re-read the live
-   page before quoting a site limit.
+   `rules.ts` can return it.
+
+   **THREE SOURCES, AND THEY DISAGREE.** `plan-features.json` is Pandora, the backend
+   entitlements — authoritative for what the product DOES. `site-features.json` and
+   `mail-features.json` are Neo's own published comparison tables — authoritative for what the
+   customer is TOLD, and the only thing a judge can check live. Five disagreements are recorded
+   in `mail-features.json._conflictsWithPandora`, including Signature Designer, which Pandora
+   puts on Standard and the pricing page puts on Max only. **Where they conflict, do not print
+   the Pandora answer**: a promise Neo's own page contradicts is the worst error this product
+   can make. Resolve it with someone who has access; do not pick by feel.
+
+   **A cap is not a gate.** Twice on 03 Sep a need forced a higher tier for something the
+   cheaper tier already had — read receipts (Starter has 50/month) and attachments (Starter has
+   15 GB). Before adding a floor, check the feature is ABSENT below it, not merely smaller.
 3. **No API key ever reaches the browser.** All model calls go through `api/*` serverless functions.
 4. **Every external call must degrade, never block.** Three of them now: the LLM (`api/_lib/llm.ts`,
    replay mode), Neo's site generator (`api/_lib/neoSite.ts`, falls back to a *recorded real*
@@ -186,7 +197,13 @@ builder — read `docs/neo-product-facts.md` before claiming anything about what
   multiplies price; the old import-first order was retired as a selection effect. Do not
   re-tune weights by feel — `docs/data-findings.md` §1c and §8 are the reason they are what
   they are.
-- **Generated question wording** — the model rewrites all eight questions for the business
+- **The question bank is eight**, and two of today's changes were evidence-led rather than
+  reasoned: `client` was measured out (four options, one plan outcome, no reveal effect), and
+  `extras` asks **past behaviour with a recall window** — "which of these did you do last
+  month?" — because stated intent runs ~21% above actual behaviour (Schmidt & Bijmolt, 77
+  studies). It briefly asked what people *wanted*, which is the worst version. Do not reword it
+  back toward intent; it is the question that decides Max.
+- **Generated question wording** — the model rewrites the questions this run will ASK for the business
   someone typed: prompt, sub-line, placeholder, option labels and hints. Three layers, and
   only the middle one is generated:
   signals + weights fixed · surface text generated · option ids + `resolves` fixed.
@@ -246,7 +263,12 @@ builder — read `docs/neo-product-facts.md` before claiming anything about what
   of Neo's own outputs is not a guess. Neo picks the template randomly client-side
   (`docs/neo-product-facts.md`); this is the answer to that.
 
-- Sound cues — must ship muted-by-default with a visible toggle.
+- ~~Sound cues — must ship muted-by-default with a visible toggle~~ — **done 03 Sep.**
+  `src/sound.ts` + `SoundToggle`. It had been shipping UNMUTED with no control anywhere:
+  `muted = false`, `unlockSound()` re-unmuting on every option tap, and `setSoundMuted`
+  exported and never called. Now muted by default from localStorage, and `unlockSound()`
+  unlocks the AudioContext only — unlocking and unmuting are different things and only one is
+  the user's decision.
 - ~~Python `analysis/` folder for the persona/retention numbers~~ — **done 02 Sep.**
   `analysis/scripts/` + `analysis/output/`, findings written up in `docs/data-findings.md`.
   5,318 confirmed exactly; the yearly-billing default verified on two datasets; the

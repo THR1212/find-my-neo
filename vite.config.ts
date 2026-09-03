@@ -236,6 +236,12 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         const { status, body } = await handleDomainLookup(
           url.searchParams.get("name"),
           url.searchParams.get("tlds"),
+          /* `manual` MUST be forwarded, and it was not until 03 Sep. api/domains.ts passes it;
+             this mount dropped it, so the Partner Panel rung was unreachable on localhost and
+             every .co.site check answered `available: null` — while production, with the same
+             credentials, answered properly. A dev/prod signature drift that presents as "the
+             feature doesn't work locally", which is the least useful way to find out. */
+          url.searchParams.get("manual"),
         );
         res.statusCode = status;
         res.setHeader("Content-Type", "application/json");

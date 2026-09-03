@@ -149,7 +149,9 @@ const SCHEMA = {
       type: "string",
       description:
         "Subtitle for the narrowing counter on the guess screen. Names this kind of " +
-        "business. No digits. Under 52 characters. e.g. 'bakeries taking orders over Instagram'.",
+        "business in everyday words, plus how they work if the text said so. No digits. " +
+        "Under 64 characters. e.g. 'bakeries taking orders over Instagram', " +
+        "'independent cinemas still on WhatsApp'.",
     },
   },
 } as const;
@@ -184,7 +186,9 @@ const SYSTEM = [
   "Write summary in the customer's own register. Plain, specific, no marketing language.",
   "",
   "meterGuess is the line under the narrowing counter on the guess screen. Names this kind",
-  "of business. Never a number, never a price. e.g. 'bakeries taking cake orders over Instagram'.",
+  "of business in their words. If they mentioned a channel or how they sell, include it.",
+  "Never a number, never a price. e.g. 'bakeries taking cake orders over Instagram',",
+  "'neighbourhood cinemas taking bookings in WhatsApp'.",
 ].join("\n");
 
 const STOPWORDS = new Set([
@@ -344,7 +348,8 @@ export async function handleProfile(
       meterGuess: String(profile.meterGuess ?? "")
         .replace(/\d[\d,]*/g, "")
         .replace(/\s+/g, " ")
-        .trim(),
+        .trim()
+        .slice(0, 64),
       degraded,
       mode: llmMode(),
       ...(reason ? { reason: reason.slice(0, 240) } : {}),

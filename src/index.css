@@ -1548,8 +1548,8 @@ a.btn {
 
 .meter-dock-reveal {
   left: auto;
-  /* Flush to the right of the 1180px stage — above the preview, not on it. */
-  right: max(20px, calc((100vw - min(1180px, calc(100vw - 40px))) / 2 + 20px));
+  /* Right of the stage, inset from the browser chrome — not the viewport corner. */
+  right: max(40px, calc((100vw - min(1180px, calc(100vw - 40px))) / 2 + 28px));
   transform: none;
   top: 18px;
 }

@@ -195,13 +195,17 @@ const SYSTEM = [
   "label does not already say. 'Gmail' does not need the hint 'you use Gmail'. Return an",
   "empty hint rather than restating the label.",
   "",
-  "For each option also write meter: the line under the narrowing counter AFTER they pick",
-  "that option. It names similar businesses in their situation. Never a number, never a",
-  "price, never what this product will do.",
-  "  GOOD: 'who take cake orders in DMs'",
-  "  GOOD: 'who still use a personal inbox'",
+  "For each option also write meter: 4–10 words for the narrowing counter when they pick",
+  "that option. This is the one line that SHOULD name their kind of business plus this",
+  "option's situation. Option labels must still not staple the noun; the meter may.",
+  "Never a number, never a price, never what this product will do.",
+  "  GOOD (bakery + Social DMs): 'bakeries taking orders in DMs'",
+  "  GOOD (cinema + Gmail): 'cinemas still running on Gmail'",
+  "  GOOD (clinic + start fresh): 'clinics starting their mail fresh'",
+  "  GOOD (studio + email and a site): 'studios who want mail and a site'",
   "  BAD:  '1,204 bakeries like you'     - never a count",
   "  BAD:  'we'll set up Instagram checkout' - a product promise",
+  "  BAD:  'who sell the way you do'     - too generic; name THEIR trade",
   "",
   "These are the six questions and their EXACT ids. Use these ids verbatim. Do not invent an",
   "id, do not add or drop options, and keep each option meaning what it means now:",
@@ -251,7 +255,7 @@ function validateQuestions(raw: ModelQuestion[] | undefined): {
           .replace(/\d[\d,]*/g, "")
           .replace(/\s+/g, " ")
           .trim()
-          .slice(0, 52),
+          .slice(0, 64),
       };
       kept++;
     }

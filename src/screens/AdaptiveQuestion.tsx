@@ -25,10 +25,12 @@ export default function AdaptiveQuestion({
   question,
   step,
   onAnswer,
+  onPicked,
 }: {
   question: Question;
   step: number;
   onAnswer: (questionId: string, optionIds: string[], freeText?: string) => void;
+  onPicked?: (optionIds: string[]) => void;
 }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [text, setText] = useState("");
@@ -43,6 +45,7 @@ export default function AdaptiveQuestion({
       locked.current = true;
       playSound("select");
       setPicked([optionId]);
+      onPicked?.([optionId]);
       window.setTimeout(() => {
         onAnswer(question.id, [optionId], text.trim() || undefined);
       }, 130);
@@ -50,9 +53,11 @@ export default function AdaptiveQuestion({
     }
     const turningOn = !picked.includes(optionId);
     if (turningOn) playSound("select");
-    setPicked((prev) =>
-      prev.includes(optionId) ? prev.filter((id) => id !== optionId) : [...prev, optionId],
-    );
+    const next = picked.includes(optionId)
+      ? picked.filter((id) => id !== optionId)
+      : [...picked, optionId];
+    setPicked(next);
+    onPicked?.(next);
   }
 
   function submit(e?: FormEvent) {

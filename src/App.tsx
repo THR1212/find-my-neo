@@ -58,6 +58,8 @@ export default function App() {
    * Starting it any later and the reveal would sit waiting on it.
    */
   const [neoSite, setNeoSite] = useState<NeoSite | null>(restored?.neoSite ?? null);
+  /** Options tapped on the current question — meter copy updates before Continue. */
+  const [liveOptionIds, setLiveOptionIds] = useState<string[]>([]);
 
   /**
    * Current stage, readable from inside async callbacks.
@@ -194,6 +196,10 @@ export default function App() {
     return () => document.documentElement.classList.remove("is-reveal");
   }, [stage]);
 
+  useEffect(() => {
+    setLiveOptionIds([]);
+  }, [current?.id, stage]);
+
   /**
    * Apply an answer and decide where to go next.
    *
@@ -266,6 +272,8 @@ export default function App() {
               surface: engine.surface,
               meterGuess: engine.meterGuess,
               pickedOptionIds: engine.trail?.[engine.trail.length - 1]?.pickedOptionIds,
+              currentQuestionId: stage === "question" ? current?.id ?? null : null,
+              liveOptionIds,
             }}
           />
         </motion.div>
@@ -312,7 +320,12 @@ export default function App() {
             )}
 
             {stage === "question" && current && (
-              <AdaptiveQuestion question={current} step={stepNumber} onAnswer={answer} />
+              <AdaptiveQuestion
+                question={current}
+                step={stepNumber}
+                onAnswer={answer}
+                onPicked={setLiveOptionIds}
+              />
             )}
 
             {stage === "reveal" && (

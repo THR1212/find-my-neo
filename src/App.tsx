@@ -615,11 +615,37 @@ export default function App() {
         </button>
       )}
 
-      <main className={`stage${stage === "reveal" ? " stage-reveal" : ""}${funnel ? " stage-funnel" : ""}`}>
+      {funnel ? (
+        <main className="stage stage-funnel">
+          {stage === "checkout" && (
+            <Checkout
+              order={checkoutOrder}
+              paying={paying}
+              onBack={() => setStage("reveal")}
+              onPay={() => {
+                if (paying) return;
+                setPaying(true);
+                window.setTimeout(() => {
+                  setPaying(false);
+                  setStage("success");
+                }, 900);
+              }}
+            />
+          )}
+          {stage === "success" && (
+            <Success
+              order={checkoutOrder}
+              onBack={() => setStage("checkout")}
+              onRestart={restart}
+            />
+          )}
+        </main>
+      ) : (
+      <main className={`stage${stage === "reveal" ? " stage-reveal" : ""}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={screenKey}
-            className={`screen${stage === "reveal" ? " screen-wide" : ""}${funnel ? " screen-funnel" : ""}${stage === "guess" && loading ? " screen-wait" : ""}`}
+            className={`screen${stage === "reveal" ? " screen-wide" : ""}${stage === "guess" && loading ? " screen-wait" : ""}`}
             variants={screenVariants}
             initial="enter"
             animate="center"
@@ -690,33 +716,10 @@ export default function App() {
                 }}
               />
             )}
-
-            {stage === "checkout" && (
-              <Checkout
-                order={checkoutOrder}
-                paying={paying}
-                onBack={() => setStage("reveal")}
-                onPay={() => {
-                  if (paying) return;
-                  setPaying(true);
-                  window.setTimeout(() => {
-                    setPaying(false);
-                    setStage("success");
-                  }, 900);
-                }}
-              />
-            )}
-
-            {stage === "success" && (
-              <Success
-                order={checkoutOrder}
-                onBack={() => setStage("checkout")}
-                onRestart={restart}
-              />
-            )}
           </motion.div>
         </AnimatePresence>
       </main>
+      )}
     </>
   );
 }

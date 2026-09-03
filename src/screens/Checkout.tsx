@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { NeoHeader } from "../components/NeoChrome";
 import {
   businessMailLabel,
-  formatCheckoutAmount,
+  formatUsd,
   orderIsReady,
   totalsForCycle,
   type CheckoutCycle,
@@ -37,14 +37,14 @@ export default function Checkout({
     () =>
       ready
         ? totalsForCycle(order.mailPlanId, order.pricedMailboxes, "yearly")
-        : { amountDueInr: null, savedInr: 0, savePercent: 0 },
+        : { amountDueInr: null, savedInr: 0, savePercent: 0, amountDueUsd: null, savedUsd: 0 },
     [ready, order],
   );
   const totals = useMemo(
     () =>
       ready
         ? totalsForCycle(order.mailPlanId, order.pricedMailboxes, cycle)
-        : { amountDueInr: null, savedInr: 0, savePercent: 0 },
+        : { amountDueInr: null, savedInr: 0, savePercent: 0, amountDueUsd: null, savedUsd: 0 },
     [ready, order, cycle],
   );
 
@@ -70,8 +70,8 @@ export default function Checkout({
     );
   }
 
-  const dueLabel = totals.amountDueInr == null ? "Pay" : `Pay ${formatCheckoutAmount(totals.amountDueInr)}`;
-  const mailPrice = totals.amountDueInr;
+  const dueLabel = totals.amountDueUsd == null ? "Pay" : `Pay ${formatUsd(totals.amountDueUsd)}`;
+  const mailPrice = totals.amountDueUsd;
 
   return (
     <div className="neo-funnel neo-checkout">
@@ -159,7 +159,7 @@ export default function Checkout({
             <button
               className="neo-pay"
               type="button"
-              disabled={paying || totals.amountDueInr == null}
+              disabled={paying || totals.amountDueUsd == null}
               onClick={() => {
                 unlockSound();
                 playSound("cta");
@@ -188,7 +188,7 @@ export default function Checkout({
                 <div className="neo-line-title-row">
                   <p className="neo-line-title">{businessMailLabel(order.mailPlanName)}</p>
                   <p className="neo-line-price">
-                    {mailPrice == null ? "—" : formatCheckoutAmount(mailPrice)}
+                    {mailPrice == null ? "—" : formatUsd(mailPrice)}
                     <span
                       className="neo-info"
                       title="Price from the same plan shown on your setup. Yearly is 12 months at the yearly mailbox rate."
@@ -215,7 +215,7 @@ export default function Checkout({
               <div className="neo-line neo-line-site">
                 <p className="neo-line-title">AI site</p>
                 <div className="neo-site-price">
-                  <p className="neo-line-price">{formatCheckoutAmount(0)}</p>
+                  <p className="neo-line-price">{formatUsd(0)}</p>
                   <p className="neo-free-beta">FREE BETA</p>
                 </div>
               </div>
@@ -224,11 +224,11 @@ export default function Checkout({
             <div className="neo-due">
               <p className="neo-due-label">Amount due now</p>
               <p className="neo-due-amount">
-                {totals.amountDueInr == null ? "—" : formatCheckoutAmount(totals.amountDueInr)}
+                {totals.amountDueUsd == null ? "—" : formatUsd(totals.amountDueUsd)}
               </p>
             </div>
             {cycle === "yearly" && totals.savedInr > 0 && (
-              <p className="neo-saved">YOU SAVED {formatCheckoutAmount(totals.savedInr)}!</p>
+              <p className="neo-saved">YOU SAVED {formatUsd(totals.savedUsd)}!</p>
             )}
           </aside>
         </div>
@@ -244,7 +244,7 @@ export default function Checkout({
           >
             ×
           </button>
-          <div className="neo-chat-bubble">Hi. Need a hand with checkout?</div>
+          <div className="neo-chat-bubble">Hi. Need a…</div>
         </div>
       )}
     </div>

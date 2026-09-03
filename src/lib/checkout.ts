@@ -62,9 +62,13 @@ export function businessMailLabel(planName: string): string {
  */
 const INR_PER_USD = 75;
 
-export function formatCheckoutAmount(amountInr: number): string {
-  const usd = amountInr / INR_PER_USD;
-  return `$${usd.toLocaleString("en-US", {
+function usdFromInr(inr: number): number {
+  return Math.round((inr / INR_PER_USD) * 100) / 100;
+}
+
+export function formatUsd(amount: number): string {
+  if (amount === 0) return "$0";
+  return `$${amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -75,6 +79,9 @@ export interface CycleTotals {
   amountDueInr: number | null;
   savedInr: number;
   savePercent: number;
+  /** Rounded per-mailbox USD, then multiplied — Max × 2 yearly is $191.76. */
+  amountDueUsd: number | null;
+  savedUsd: number;
 }
 
 /**
@@ -93,18 +100,30 @@ export function totalsForCycle(
   const yearly = plan?.inr.yearly ?? monthly;
 
   if (cycle === "yearly") {
-    if (yearly == null) return { amountDueInr: null, savedInr: 0, savePercent: 0 };
+    if (yearly == null) {
+      return { amountDueInr: null, savedInr: 0, savePercent: 0, amountDueUsd: null, savedUsd: 0 };
+    }
     const amountDueInr = yearly * boxes * 12;
+    const amountDueUsd = usdFromInr(yearly) * boxes * 12;
     if (monthly == null || monthly <= yearly) {
-      return { amountDueInr, savedInr: 0, savePercent: 0 };
+      return { amountDueInr, savedInr: 0, savePercent: 0, amountDueUsd, savedUsd: 0 };
     }
     const savedInr = (monthly - yearly) * boxes * 12;
+    const savedUsd = (usdFromInr(monthly) - usdFromInr(yearly)) * boxes * 12;
     const savePercent = Math.round((1 - yearly / monthly) * 100);
-    return { amountDueInr, savedInr, savePercent };
+    return { amountDueInr, savedInr, savePercent, amountDueUsd, savedUsd };
   }
 
-  if (monthly == null) return { amountDueInr: null, savedInr: 0, savePercent: 0 };
-  return { amountDueInr: monthly * boxes, savedInr: 0, savePercent: 0 };
+  if (monthly == null) {
+    return { amountDueInr: null, savedInr: 0, savePercent: 0, amountDueUsd: null, savedUsd: 0 };
+  }
+  return {
+    amountDueInr: monthly * boxes,
+    savedInr: 0,
+    savePercent: 0,
+    amountDueUsd: usdFromInr(monthly) * boxes,
+    savedUsd: 0,
+  };
 }
 
 export function orderIsReady(order: CheckoutOrder | null | undefined): order is CheckoutOrder {

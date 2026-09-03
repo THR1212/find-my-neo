@@ -96,7 +96,7 @@ you're not. See "Changing the demo answer" below.
 | `src/components/Wordmark.tsx` | The "Find My Neo" lockup. |
 | `src/lib/errorLog.ts` | Reports crashes **and silent degradations** to `/api/log`. |
 | `src/components/ErrorBoundary.tsx` | Stops a React crash showing a blank page. |
-| `tools/bookmarklet/` | Puts our button on Neo's real pricing page. Edit `source.js`, then run `node tools/bookmarklet/build.mjs`. |
+| `tools/bookmarklet/` | Puts our button on Neo's real pricing page. Edit `source.js`, then run `VERCEL_SHARE_TOKEN=... node tools/bookmarklet/build.mjs`. The token is never stored in the repo. |
 | `src/index.css` | How everything looks. Uses Neo's real brand colours. |
 | `vite.config.ts` | Also runs the `/api/*` endpoints locally, so `npm run dev` matches production. |
 

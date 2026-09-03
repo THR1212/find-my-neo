@@ -47,7 +47,7 @@ export default function Reveal({
   neoSite: NeoSite | null;
   neoSiteAlt?: NeoSite | null;
   reasons?: ReasonMap;
-  rationale?: { rationale: string; whyNotCheaper: string };
+  rationale?: { rationale: string; whyNotCheaper: string; because?: string };
   verdict?: {
     mailTier: string;
     siteTier: string;
@@ -62,6 +62,7 @@ export default function Reveal({
   const [ownChecking, setOwnChecking] = useState(false);
   const [ownError, setOwnError] = useState<string | null>(null);
   const [live, setLive] = useState<Record<string, DomainInfo>>({});
+  const [chosenTemplate, setChosenTemplate] = useState<string | null>(null);
   const revealCuePlayed = useRef(false);
 
   const stem = reveal?.domains[0]?.name.split(".")[0] ?? "";
@@ -212,6 +213,7 @@ export default function Reveal({
       neoName ?? (profile.brandName as string) ?? domain?.name.split(".")[0] ?? "your business",
     businessDescription: businessText ?? "",
     neoIndustryKey: neoSite?.industryKey,
+    neoTemplateKey: chosenTemplate,
   });
 
   const liveAvail = domain ? (live[domain.name]?.available ?? domain.available) : null;
@@ -412,6 +414,12 @@ export default function Reveal({
           profile={profile}
           mailPlanId={rec.mailPlan.id}
           mailPlanName={rec.mailPlan.name}
+          chosenTemplate={chosenTemplate}
+          onChooseTemplate={(key) => {
+            unlockSound();
+            playSound("select");
+            setChosenTemplate((prev) => (prev === key ? null : key));
+          }}
         />
       </div>
     </div>

@@ -14,8 +14,7 @@
  * "Not quite" beats a dead screen mid-demo. The payload carries `degraded: true`.
  */
 
-import { complete, llmMode } from "./llm.js";
-import { proxyToProduction } from "./upstream.js";
+import { complete } from "./llm.js";
 
 /**
  * Titan's analytics industry taxonomy — 16 industries over 103 sub-industries.
@@ -66,7 +65,6 @@ const QUESTION_IDS = [
   "import",
   "surface",
   "channel",
-  "client",
   "team",
   "sells",
   /* The three that reach Max and Growth. Omitting them here does not merely lose a feature —
@@ -119,12 +117,19 @@ const PREFILL_VALUES = {
   currentClient: ["gmail", "outlook", "apple", "none"],
 } as const;
 
-/** Which question resolves each prefillable signal — used to skip it. */
+/**
+ * Which question a prefilled signal lets us SKIP.
+ *
+ * `currentClient` is deliberately absent: the `client` question was removed once measurement
+ * showed it changed neither the plan nor the reveal, so reading "one shared Gmail" out of the
+ * description skips nothing. The signal is still extracted — features.ts reads it — but it
+ * must not consume one of the MAX_PREFILL slots, which exist to save SCREENS. Spending one on
+ * a question that no longer exists would crowd out a prefill that saves a real one.
+ */
 const SIGNAL_TO_QUESTION: Record<string, string> = {
   importIntent: "import",
   surface: "surface",
   customerChannel: "channel",
-  currentClient: "client",
   sellsOnline: "sells",
 };
 
@@ -154,9 +159,9 @@ const TLDS = ["com", "in", "co", "co.site"] as const;
 /**
  * The `.co.site` note is ours, never the model's.
  *
- * It states a price ("free"), and CLAUDE.md rule 2 is that the LLM never decides price. It is
+ * It states a price ("free"), and CLAUDE.md rule 2 is that the model never decides one. It is
  * also a fixed product fact rather than something to phrase per business, so there is nothing
- * for a model to add. `domainNotes` from the model covers the three registrable TLDs only.
+ * for a model to add. `domainNotes` covers the three registrable TLDs only.
  */
 const COSITE_NOTE = "Free for your first billing cycle — Neo's own, and live today";
 
@@ -178,7 +183,7 @@ interface ModelProfile {
   domainStem: string;
   suggestedMailboxes: string[];
   /**
-   * All six question ids, most worth asking first.
+   * All nine question ids, most worth asking first.
    *
    * Was `nextQuestionId`, a single pick — and App.tsx nulled it after one use, so questions
    * 2, 3 and 4 came from `nextQuestion`'s weight fallback. That fallback is a `reduce` over a
@@ -194,8 +199,6 @@ interface ModelProfile {
   domainNotes: string[];
   /** One short line per mailbox saying what it is for. */
   mailboxLabels: string[];
-  /** Counter subtitle after the guess, before any question. No digits. */
-  meterGuess: string;
 }
 
 const SCHEMA = {
@@ -212,7 +215,6 @@ const SCHEMA = {
     "questionPriority",
     "prefill",
     "domainNotes",
-    "meterGuess",
   ],
   properties: {
     summary: {
@@ -257,7 +259,7 @@ const SCHEMA = {
       maxItems: 9,
       items: { type: "string", enum: [...QUESTION_IDS] },
       description:
-        "All six question ids, each exactly once, ordered by how much asking it would tell " +
+        "All nine question ids, each exactly once, ordered by how much asking it would tell " +
         "us about THIS business that the description does not already say. Put a question " +
         "LAST if the description already answers it.",
     },
@@ -309,20 +311,12 @@ const SCHEMA = {
       description:
         "One short reason per domain, in order .com then .in then .co. Never mention price.",
     },
-    meterGuess: {
-      type: "string",
-      description:
-        "Subtitle for the narrowing counter on the guess screen. Names this kind of " +
-        "business in everyday words, plus how they work if the text said so. No digits. " +
-        "Under 64 characters. e.g. 'bakeries taking orders over Instagram', " +
-        "'independent cinemas still on WhatsApp'.",
-    },
   },
 } as const;
 
 const SYSTEM = [
   "You read a one-or-two sentence description of a small business and return a structured",
-  "profile. Question wording is generated separately and is not your job.",
+  "profile. You are the only model step in this product.",
   "",
   "You must never choose a plan, a price, a billing cycle, or how many mailboxes someone",
   "should buy. Deterministic code computes those from your profile. Emitting one would put",
@@ -368,11 +362,6 @@ const SYSTEM = [
   "not the same number.",
   "",
   "Write summary in the customer's own register. Plain, specific, no marketing language.",
-  "",
-  "meterGuess is the line under the narrowing counter on the guess screen. Names this kind",
-  "of business in their words. If they mentioned a channel or how they sell, include it.",
-  "Never a number, never a price. e.g. 'bakeries taking cake orders over Instagram',",
-  "'neighbourhood cinemas taking bookings in WhatsApp'.",
 ].join("\n");
 
 const STOPWORDS = new Set([
@@ -410,7 +399,6 @@ function derivedProfile(businessText: string): ModelProfile {
     questionPriority: [],
     prefill: {},
     domainNotes: ["The one people will guess", "Reads as local", "Short, room to grow"],
-    meterGuess: "",
   };
 }
 
@@ -444,7 +432,7 @@ function validatePrefill(raw: Prefill | undefined): {
     /* Cap reached, but the model DID extract this. Record it: dropped-by-cap and
        never-mentioned are the same silence otherwise, and only one of them is a design
        choice. The question stays askable, so the fact is deferred, not lost. */
-    if (skip.length >= MAX_PREFILL) {
+    if (SIGNAL_TO_QUESTION[signal] && skip.length >= MAX_PREFILL) {
       dropped.push(`${signal}: over MAX_PREFILL, asking instead`);
       continue;
     }
@@ -473,7 +461,8 @@ function validatePrefill(raw: Prefill | undefined): {
       }
       profile[signal] = String(value);
     }
-    skip.push(SIGNAL_TO_QUESTION[signal]);
+    const q = SIGNAL_TO_QUESTION[signal];
+    if (q) skip.push(q);
   }
 
   return { profile, skip, dropped };
@@ -501,9 +490,6 @@ export async function handleProfile(
   if (businessText.trim().length < 8) {
     return { status: 400, body: { error: "businessText too short" } };
   }
-
-  const proxied = await proxyToProduction("/api/profile", businessText, sid);
-  if (proxied) return proxied;
 
   let profile: ModelProfile;
   let degraded = false;
@@ -544,7 +530,7 @@ export async function handleProfile(
       sid,
       ms: Date.now() - startedAt,
       model: process.env.LLM_MODEL ?? "default",
-      mode: llmMode(),
+      mode: process.env.LLM_MODE ?? "replay",
       chars: businessText.length,
       degraded,
       ...(reason ? { reason: reason.slice(0, 200) } : {}),
@@ -607,6 +593,8 @@ export async function handleProfile(
           name: `${stem}.${tld}`,
           available: null,
           priceInr: null,
+          /* Free-ness is a product fact, not a lookup result, so it is set on the first paint
+             rather than waiting for a check that can never return "free" anyway. */
           ...(tld === "co.site" ? { free: true } : {}),
           note: tld === "co.site" ? COSITE_NOTE : (profile.domainNotes?.[i] ?? undefined),
           recommended: i === 0,
@@ -620,15 +608,7 @@ export async function handleProfile(
            RevealContent requires the field. */
         site: { headline: "", subhead: "", sections: [] },
       },
-      /* Guess-screen meter subtitle. Digits stripped so a model cannot write a count. */
-      meterGuess: String(profile.meterGuess ?? "")
-        .replace(/\d[\d,]*/g, "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .slice(0, 64),
       degraded,
-      mode: llmMode(),
-      ...(reason ? { reason: reason.slice(0, 240) } : {}),
     },
   };
 }

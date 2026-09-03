@@ -30,14 +30,21 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         "LLM_MODEL",
         "LLM_API_KEY",
         "LLM_BASE_URL",
+        /* .co.site availability. All optional: with none of these set, cositeService falls
+           through to its HTTP probe, which can only ever answer "taken" or "unknown" — never
+           "free" — and the reveal renders no badge. Unconfigured is a deployment state, not
+           a broken one. */
         "NEO_COSITE_CHECK_URL",
+        "NEO_COSITE_CHECK_TOKEN",
+        "NEO_COSITE_AUTH_HEADER",
         "NEO_COSITE_TOKEN_URL",
         "NEO_PARTNER_EMAIL",
         "NEO_PARTNER_PASSWORD",
         "NEO_PARTNER_ORIGIN",
         "NEO_PARTNER_IID",
-        "NEO_COSITE_AUTH_HEADER",
-        "NEO_COSITE_CHECK_TOKEN",
+        "NEO_PARTNER_SESSION",
+        "NEO_PARTNER_PANEL_URL",
+        "NEO_PARTNER_PANEL_UA",
       ]) {
         if (env[k]) process.env[k] = env[k];
       }
@@ -95,7 +102,10 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         });
       });
 
-      // Neo's own site generator. Same handler the Vercel function uses.
+      /* Neo's own site generator, same handler the Vercel function uses.
+         POST as well as GET, from moin-version: the client now sends a JSON body and
+         wants BOTH template variants back. Left as GET only, prod would work and
+         localhost would quietly fall back to the fixture. */
       server.middlewares.use("/api/neo-site", async (req, res) => {
         res.setHeader("Content-Type", "application/json");
         res.setHeader("Cache-Control", "private, no-store");
@@ -226,6 +236,12 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         const { status, body } = await handleDomainLookup(
           url.searchParams.get("name"),
           url.searchParams.get("tlds"),
+          /* `manual` MUST be forwarded, and it was not until 03 Sep. api/domains.ts passes it;
+             this mount dropped it, so the Partner Panel rung was unreachable on localhost and
+             every .co.site check answered `available: null` — while production, with the same
+             credentials, answered properly. A dev/prod signature drift that presents as "the
+             feature doesn't work locally", which is the least useful way to find out. */
+          url.searchParams.get("manual"),
         );
         res.statusCode = status;
         res.setHeader("Content-Type", "application/json");

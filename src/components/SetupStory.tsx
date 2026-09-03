@@ -18,6 +18,8 @@ export default function SetupStory({
   profile = {},
   mailPlanId = null,
   mailPlanName = null,
+  chosenTemplate = null,
+  onChooseTemplate,
 }: {
   domain: string;
   showSite: boolean;
@@ -26,6 +28,9 @@ export default function SetupStory({
   profile?: Record<string, unknown>;
   mailPlanId?: string | null;
   mailPlanName?: string | null;
+  /** `templateKey` of the pane they picked, or null while neither is chosen. */
+  chosenTemplate?: string | null;
+  onChooseTemplate?: (templateKey: string) => void;
 }) {
   if (!showSite) {
     const clips = clipsFor(profile, mailPlanId, 3);
@@ -47,29 +52,50 @@ export default function SetupStory({
   );
   const firstHero = sites[0] ? pickHero(sites[0], "landing") : null;
 
+  /**
+   * PICKABLE, and this is the point of showing two.
+   *
+   * docs/neo-product-facts.md records Neo choosing the template RANDOMLY client-side — the
+   * same bakery came back `fashion_store`, then `property` ("Real Estate"), then `bio_site`
+   * across three runs, and the bike shop in testing got "Logistics". Two panes only make that
+   * visible; letting someone pick is what answers it, because the choice rides to Neo as
+   * `templateKey` instead of being re-rolled there.
+   *
+   * Buttons, not divs with handlers: this is a choice between two options and it has to be
+   * reachable by keyboard like the domain pills already are.
+   */
+  const pane = (site: NeoSite | null, opts: { alt?: boolean; delay: number }) => {
+    if (!site) {
+      return (
+        <div className="tpl-pane">
+          <NeoSiteGenerating />
+        </div>
+      );
+    }
+    const chosen = chosenTemplate === site.templateKey;
+    return (
+      <button
+        type="button"
+        className={`tpl-pane tpl-pane-pick${chosen ? " tpl-pane-chosen" : ""}`}
+        aria-pressed={chosen}
+        onClick={() => onChooseTemplate?.(site.templateKey)}
+      >
+        <NeoSitePreview
+          site={site}
+          {...(opts.alt ? { avoidHero: firstHero, fallbackSite: sites[0] } : {})}
+          delay={opts.delay}
+        />
+        <span className="tpl-pick-badge">{chosen ? "Chosen" : "Use this one"}</span>
+      </button>
+    );
+  };
+
   return (
     <aside className="setup-story setup-story-site" aria-label="Site preview">
-      <p className="story-kicker">AI-powered site builder</p>
+      <p className="story-kicker">AI-powered site builder — pick the look you want</p>
       <div className="tpl-pair">
-        <div className="tpl-pane">
-          {sites[0] ? (
-            <NeoSitePreview site={sites[0]} delay={0} />
-          ) : (
-            <NeoSiteGenerating />
-          )}
-        </div>
-        <div className="tpl-pane">
-          {sites[1] ? (
-            <NeoSitePreview
-              site={sites[1]}
-              avoidHero={firstHero}
-              fallbackSite={sites[0]}
-              delay={0.08}
-            />
-          ) : (
-            <NeoSiteGenerating />
-          )}
-        </div>
+        {pane(sites[0] ?? null, { delay: 0 })}
+        {pane(sites[1] ?? null, { alt: true, delay: 0.08 })}
       </div>
     </aside>
   );

@@ -33,7 +33,7 @@ export interface ProfileResult {
    */
   meterGuess?: string;
   /**
-   * All six question ids, ranked most-worth-asking-first for THIS business.
+   * All nine question ids, ranked most-worth-asking-first for THIS business.
    *
    * Replaced `nextQuestionId`, which was a single pick that App consumed once and discarded —
    * leaving questions 2, 3 and 4 to the engine's fixed weight order, which is identical for
@@ -219,6 +219,13 @@ export interface RationaleResult {
   rationale: string;
   /** "Why not the cheaper plan". Empty means show nothing — there is no fixed fallback. */
   whyNotCheaper: string;
+  /**
+   * One line carrying the whole justification, built from the solver's own reasons.
+   *
+   * Empty falls back to the bulleted needs list, which is what the reveal showed before this
+   * existed — so a failed or slow generation loses the brevity, never the explanation.
+   */
+  because: string;
 }
 
 /**
@@ -241,7 +248,7 @@ export async function fetchRationale(input: {
   sitePlanName: string | null;
   mailboxes: number;
 }): Promise<RationaleResult> {
-  const empty = { rationale: "", whyNotCheaper: "" };
+  const empty = { rationale: "", whyNotCheaper: "", because: "" };
   if (MODE === "replay") return empty;
   try {
     const res = await fetch("/api/rationale", {

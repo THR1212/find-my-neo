@@ -134,7 +134,12 @@ function cheapestUsd(prices: any[]): { usd: number; registrar: string } | null {
  * concurrently — pricing failing must never stop availability rendering, so they settle
  * independently rather than sharing a try/catch.
  */
-export async function lookupDomains(stem: string, tlds: string[]): Promise<DomainInfo[]> {
+export async function lookupDomains(
+  stem: string,
+  tlds: string[],
+  /** Manual "check a domain I typed" request. Only this opts into the Partner Panel rung. */
+  allowPanel = false,
+): Promise<DomainInfo[]> {
   /* `.co.site` is Neo's own namespace, not a registrable TLD, so it goes to its own checker.
      Sending it to DomScan would ask about `co.site` itself — which IS registered, so every
      stem would come back taken. See cositeService.ts. It costs no DomScan credit either, so
@@ -164,7 +169,7 @@ export async function lookupDomains(stem: string, tlds: string[]): Promise<Domai
      co.site check must never stop either — it reaches a different host entirely. */
   const [statusRes, pricesRes, coSiteRes] = await Promise.allSettled([
     ...calls,
-    wantsCoSite ? checkCoSite(stem) : Promise.resolve(null),
+    wantsCoSite ? checkCoSite(stem, { allowPanel }) : Promise.resolve(null),
   ]);
 
   if (statusRes.status === "fulfilled" && statusRes.value) {
@@ -220,9 +225,11 @@ export async function lookupDomains(stem: string, tlds: string[]): Promise<Domai
       domain: `${stem}.${COSITE_SUFFIX}`,
       tld: COSITE_SUFFIX,
       available: co?.available ?? null,
-      /* Only Neo's own endpoint is authoritative here. The HTTP-probe fallback can prove a
-         name is taken but never that it is free, so it must not claim authority for one. */
-      confidence: co?.source === "neo" ? "authoritative" : null,
+      /* Authoritative only for the sources that read Neo's own ORDER records: the
+         purpose-built check, and the Partner Panel bundle lookup on the manual path. The HTTP
+         probe sees published sites only — about a fifth of orders — so it can prove a name is
+         taken but never that it is free, and must not claim authority for either. */
+      confidence: co?.source === "neo" || co?.source === "panel" ? "authoritative" : null,
       /* No price: it is free now and Neo has not published the renewal figure, so any number
          here would be invented. `free` carries the whole story. */
       priceInr: null,
@@ -240,6 +247,16 @@ export async function lookupDomains(stem: string, tlds: string[]): Promise<Domai
 export async function handleDomainLookup(
   stemRaw: string | null,
   tldsRaw: string | null,
+  /**
+   * `manual=1` on the query string: the person typed a name and pressed Check.
+   *
+   * It opts into the Partner Panel rung in cositeService. It is NOT a security boundary — the
+   * client controls it, so anyone can set it. What it actually guarantees is that the reveal's
+   * own batch lookup, which fires on every page view, never touches an admin-session endpoint.
+   * The rate limit in cositeService is the real brake. Said plainly here because a flag like
+   * this invites being mistaken for a gate.
+   */
+  manualRaw: string | null = null,
 ): Promise<{ status: number; body: unknown }> {
   const stem = (stemRaw ?? "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
   if (!stem) return { status: 400, body: { error: "missing or invalid `name`" } };
@@ -264,8 +281,10 @@ export async function handleDomainLookup(
       ? capped
       : [...capped.slice(0, coSiteAt), COSITE_SUFFIX, ...capped.slice(coSiteAt)];
 
+  const allowPanel = manualRaw === "1" || manualRaw === "true";
+
   try {
-    return { status: 200, body: { domains: await lookupDomains(stem, tlds) } };
+    return { status: 200, body: { domains: await lookupDomains(stem, tlds, allowPanel) } };
   } catch (err) {
     return { status: 502, body: { error: err instanceof Error ? err.message : String(err) } };
   }

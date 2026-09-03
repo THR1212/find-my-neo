@@ -1,5 +1,5 @@
 /**
- * Rewrites the six questions for the business someone typed.
+ * Rewrites the nine questions for the business someone typed.
  *
  * SPLIT OUT OF profileService ON PURPOSE — this is a latency fix, not tidying.
  *
@@ -55,15 +55,6 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
       site: "I already have a website",
     },
   },
-  client: {
-    prompt: "What do you use for mail right now?",
-    options: {
-      gmail: "Gmail",
-      outlook: "Outlook",
-      apple: "Apple Mail",
-      none: "Nothing set up yet",
-    },
-  },
   team: {
     prompt: "How many email addresses do you need?",
     options: {
@@ -90,9 +81,9 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
     },
   },
   extras: {
-    prompt: "Do you do any of these today?",
+    prompt: "Which of these are a regular part of your work?",
     options: {
-      invoices: "Send quotes or invoices",
+      invoices: "Quoting and invoicing jobs",
       campaigns: "Message past customers as a group",
       bookings: "Book people in for a time",
       receipts: "Check whether mail was opened",
@@ -130,7 +121,7 @@ interface ModelQuestion {
   prompt: string;
   sub: string;
   placeholder: string;
-  options: { optionId: string; label: string; hint: string; meter: string }[];
+  options: { optionId: string; label: string; hint: string }[];
 }
 
 const SCHEMA = {
@@ -149,7 +140,10 @@ const SCHEMA = {
         properties: {
           questionId: {
             type: "string",
-            enum: ["import", "surface", "channel", "client", "team", "sells", "volume", "extras", "catalogue"],
+            /* Derived, never typed out. This list was hand-written and went stale twice —
+               once stuck at six ids while the bank held nine, and again when `client` was
+               removed. QUESTION_SHAPE is the one place a question is declared here. */
+            enum: Object.keys(QUESTION_SHAPE),
           },
           prompt: { type: "string", description: "The question. Under 60 characters." },
           sub: { type: "string", description: "One clarifying line. Under 90 characters." },
@@ -167,20 +161,13 @@ const SCHEMA = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["optionId", "label", "hint", "meter"],
+              required: ["optionId", "label", "hint"],
               properties: {
                 optionId: { type: "string" },
                 label: { type: "string", description: "Under 34 characters." },
                 hint: {
                   type: "string",
                   description: "Under 46 characters. Empty string if it adds nothing.",
-                },
-                meter: {
-                  type: "string",
-                  description:
-                    "Subtitle for the narrowing counter AFTER they pick this option. " +
-                    "Names similar businesses in their situation. No digits. Under 52 characters. " +
-                    "e.g. 'who take cake orders in DMs'.",
                 },
               },
             },
@@ -190,6 +177,30 @@ const SCHEMA = {
     },
   },
 } as const;
+
+/* Content words, lowercased. Stopwords go because "you need two" vs "two" is not new information. */
+const STOP = new Set([
+  "a","an","and","are","as","at","by","do","for","from","have","in","is","it","of","on","or",
+  "the","to","with","you","your","yours","own","currently","already","usual","usually","often",
+  "need","needs","use","uses","using","this","that","these","those","only","just","not","no",
+]);
+const words = (t: string) =>
+  new Set(
+    t
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]+/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 1 && !STOP.has(w)),
+  );
+
+/** True when `hint` carries no content word that `context` does not already have. */
+function addsNothing(hint: string, context: string): boolean {
+  const h = words(hint);
+  if (h.size === 0) return true;
+  const c = words(context);
+  for (const w of h) if (!c.has(w)) return false;
+  return true;
+}
 
 const SYSTEM = [
   "You rewrite nine fixed questions for one specific small business, from a short description",
@@ -218,19 +229,16 @@ const SYSTEM = [
   "onto every line — 'Just cinema email', 'cinema mail', 'cinema addresses' reads like a mail",
   "merge; the context is already obvious from the screen. And a hint must ADD something the",
   "label does not already say. 'Gmail' does not need the hint 'you use Gmail'. Return an",
-  "empty hint rather than restating the label.",
-  "",
-  "For each option also write meter: 4–10 words for the narrowing counter when they pick",
-  "that option. This is the one line that SHOULD name their kind of business plus this",
-  "option's situation. Option labels must still not staple the noun; the meter may.",
-  "Never a number, never a price, never what this product will do.",
-  "  GOOD (bakery + Social DMs): 'bakeries taking orders in DMs'",
-  "  GOOD (cinema + Gmail): 'cinemas still running on Gmail'",
-  "  GOOD (clinic + start fresh): 'clinics starting their mail fresh'",
-  "  GOOD (studio + email and a site): 'studios who want mail and a site'",
-  "  BAD:  '1,204 bakeries like you'     - never a count",
-  "  BAD:  'we'll set up Instagram checkout' - a product promise",
-  "  BAD:  'who sell the way you do'     - too generic; name THEIR trade",
+  "empty hint rather than restating the label. Real hints from an earlier run, all of which",
+  "were stripped because they said nothing the screen did not already say:",
+  "  'Two'                     -> 'You need two email addresses'   (the question already asks)",
+  "  'None of these'           -> 'You do not currently do any of these'",
+  "  'Photos and documents'    -> 'You often share images or documents'",
+  "But do not swing to giving none at all: that instruction, put more bluntly, returned 27",
+  "empty hints out of 27. Write a hint when you can name something CONCRETE out of their own",
+  "description — 'Scanned PDFs and other attachments', for a firm that mentioned scanned",
+  "returns, is worth having. Return an empty hint when all you would be writing is the label",
+  "again in other words.",
   "",
   "These are the nine questions and their EXACT ids. Use these ids verbatim. Do not invent an",
   "id, do not add or drop options, and keep each option meaning what it means now:",
@@ -262,7 +270,7 @@ function validateQuestions(raw: ModelQuestion[] | undefined): {
       continue;
     }
 
-    const options: Record<string, { label?: string; hint?: string; meter?: string }> = {};
+    const options: Record<string, { label?: string; hint?: string }> = {};
     let kept = 0;
     for (const o of q.options ?? []) {
       if (!(o.optionId in shape.options)) {
@@ -273,14 +281,22 @@ function validateQuestions(raw: ModelQuestion[] | undefined): {
         dropped.push(`${q.questionId}: duplicate optionId ${o.optionId}`);
         continue;
       }
+      const label = String(o.label ?? "").slice(0, 34);
+      const hint = String(o.hint ?? "").slice(0, 46);
       options[o.optionId] = {
-        label: String(o.label ?? "").slice(0, 34),
-        hint: String(o.hint ?? "").slice(0, 46),
-        meter: String(o.meter ?? "")
-          .replace(/\d[\d,]*/g, "")
-          .replace(/\s+/g, " ")
-          .trim()
-          .slice(0, 64),
+        label,
+        /**
+         * A hint that introduces no word the label and prompt do not already carry is padding,
+         * and padding on every option is most of why different businesses produced screens that
+         * looked the same. The prompt has always asked for this; nothing enforced it, and a
+         * real run came back with 'Two' hinted as 'You need two email addresses' under the
+         * question "How many email addresses do you need?".
+         *
+         * Deliberately mechanical and deliberately narrow: it only catches a hint that is
+         * strictly redundant, and says nothing about one that merely reads thin. Anything
+         * cleverer would be us deciding what is interesting on the model's behalf.
+         */
+        hint: addsNothing(hint, label + " " + String(q.prompt ?? "")) ? "" : hint,
       };
       kept++;
     }
@@ -322,7 +338,29 @@ export async function handleQuestions(
       schemaName: "question_surface",
       /* Nine questions now, not six. Raised with the bank; llm.ts reports truncation rather
          than letting it surface as a JSON parse error. */
-      maxOutputTokens: 3800,
+      /**
+       * 8000, and the ceiling is nearly free to raise: billing is on tokens actually used,
+       * not on the cap. What it buys is headroom for REASONING tokens, which gpt-5.6 counts
+       * against `max_completion_tokens` alongside the visible output. The visible JSON here is
+       * only ~1,200-1,500 tokens; at 3,800 a long deliberation left too little room to finish
+       * it, and a live call came back "output truncated ... the JSON is incomplete" after 25s.
+       *
+       * That failure is invisible from outside: the service returns an empty surface, every
+       * question renders from the fixed bank, and the flow looks like it simply never
+       * personalised anything. Which is the symptom this whole thread began with.
+       */
+      maxOutputTokens: 8000,
+      /* The long call. 45s and no retry beats 20s twice: the old pair spent 40.5s to return
+         nothing, and nothing here means every screen reads from the fixed bank. Nobody waits
+         on this — it resolves while the guess screen is up and is dropped if a question is
+         already being read, so a slow success still costs the user no time. */
+      /* Measured live at 11.5s on one call and past 45s on the next — reasoning-token variance,
+         not network. 45s was still cutting off successful generations. The wait costs the user
+         nothing (the guess screen never blocks on this, and App now applies late wording to
+         every question except the one being read), so the ceiling should sit above the slow
+         tail rather than inside it. */
+      timeoutMs: 75000,
+      maxRetries: 0,
     });
     questions = out.questions;
   } catch (err) {

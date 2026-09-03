@@ -142,12 +142,23 @@ export async function lookupDomains(
      prices and no availability. There is time to spare: the reveal is already waiting on
      Neo's 22-38s generator. */
   timeoutMs = 12000,
+  /**
+   * The person typed a name and pressed Check, rather than this being the reveal's own
+   * batch lookup.
+   *
+   * Server-side this opts a `.co.site` name into Titan's Partner Panel lookup, which is the
+   * only source that can currently say a name is FREE — the probe can only ever say taken.
+   * Deliberately off for the batch lookup, so a page view never reaches an admin-session
+   * endpoint. Not a security boundary: see handleDomainLookup.
+   */
+  manual = false,
 ): Promise<DomainInfo[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(
-      `/api/domains?name=${encodeURIComponent(stem)}&tlds=${encodeURIComponent(tlds.join(","))}`,
+      `/api/domains?name=${encodeURIComponent(stem)}&tlds=${encodeURIComponent(tlds.join(","))}` +
+        (manual ? "&manual=1" : ""),
       { signal: controller.signal },
     );
     if (!res.ok) {

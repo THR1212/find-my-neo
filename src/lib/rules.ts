@@ -34,6 +34,17 @@ const MAIL = plansData.mail.plans as MailPlanJson[];
    unreleased price set as current is the kind of error that loses a pricing conversation. */
 const SITE = plansData.site.live as SitePlanJson[];
 
+/** One row of the price breakdown. `each` is null where the line is not per-unit. */
+export interface PriceLine {
+  label: string;
+  /** Per-unit price at the chosen cycle. */
+  each: number | null;
+  /** How many units. 1 for the site. */
+  qty: number;
+  /** each * qty, or null when the sheet has no figure. */
+  totalInr: number | null;
+}
+
 export interface Recommendation {
   mailPlan: MailPlanJson;
   sitePlan: SitePlanJson | null;
@@ -41,6 +52,19 @@ export interface Recommendation {
   mailboxes: number;
   /** Total INR per month at the chosen cycle. Null if any component price is unavailable. */
   monthlyInr: number | null;
+  /**
+   * The same total, itemised.
+   *
+   * A single "Rs2,665/mo" is the most opaque thing on the reveal, and it is opaque in the one
+   * direction that matters: mail is priced PER MAILBOX, so four addresses on Max is four times
+   * a number nobody was shown. Someone reading it cannot tell whether the tier or the mailbox
+   * count drove it, which is exactly the "why is this Max?" question the needs list exists to
+   * answer — and the needs list cannot answer it, because the multiplication is not a need.
+   *
+   * Derived here rather than in the reveal so the parts always sum to `monthlyInr`; a
+   * breakdown assembled beside the total is a breakdown that can disagree with it.
+   */
+  lines: PriceLine[];
   /**
    * The needs that forced this shape above the baseline — the justification, derived rather
    * than templated. Each carries the Pandora entitlement it rests on, so a reviewer can check
@@ -137,12 +161,32 @@ export function recommend(
   const monthlyInr =
     mailUnit === null || siteUnit === null ? null : mailUnit * mailboxes + siteUnit;
 
+  const lines: PriceLine[] = [
+    {
+      label: mailPlan.name,
+      each: mailUnit,
+      qty: mailboxes,
+      totalInr: mailUnit === null ? null : mailUnit * mailboxes,
+    },
+  ];
+  /* Only when there IS a site. A "Rs0 site" row on a mail-only setup would invite the reader
+     to wonder what they are not being charged for. */
+  if (sitePlan) {
+    lines.push({
+      label: `${sitePlan.name} site`,
+      each: siteUnit,
+      qty: 1,
+      totalInr: siteUnit,
+    });
+  }
+
   return {
     mailPlan,
     sitePlan,
     cycle,
     mailboxes,
     monthlyInr,
+    lines,
     /* What actually forced this shape. Empty means the baseline was enough, which is itself
        worth saying: "Starter is genuinely all you need" is a trust-building sentence. */
     needs: solution.binding,
@@ -174,14 +218,14 @@ export function buildRationale(
 /**
  * What Neo charges for the `.co.site` subdomain in the FIRST billing cycle, per month.
  *
- * Read from `plans.json` rather than hardcoded as "free", because it is only free on some
- * cycles: the promo is \u20b90/mo on monthly and yearly but \u20b925/mo on two-yearly and \u20b937.50/mo on
- * four-yearly. `chooseCycle` returns only monthly or yearly today, so the answer is always 0
- * right now — which is exactly why this should be derived and not asserted. The day someone
- * makes the engine recommend a two-year commitment, the reveal must stop saying "Free" by
- * itself, not because a person remembered to come back and change a string.
+ * Darrel's, restored 03 Sep when .co.site came back in. Read from `plans.json` rather than
+ * hardcoded as "free", because it is free only on some cycles: 0/mo monthly and yearly, but
+ * Rs25/mo two-yearly and Rs37.50/mo four-yearly. `chooseCycle` returns only monthly or yearly
+ * today, so the answer is always 0 right now — which is exactly why it is derived. The day
+ * the engine recommends a two-year commitment, the reveal stops saying "Free" by itself,
+ * not because someone remembered to change a string.
  *
- * Returns null when the sheet has no figure for that cycle: unknown, so claim nothing.
+ * Null when the sheet has no figure for that cycle: unknown, so claim nothing.
  */
 export function domainFirstCycleInr(cycle: BillingCycle): number | null {
   const promo = plansData.domain.promoInrPerMonth as Partial<Record<BillingCycle, number>>;

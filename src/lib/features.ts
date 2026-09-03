@@ -34,6 +34,7 @@
  */
 
 import { has, type Profile } from "./profile";
+import { QUESTIONS } from "./questions";
 
 export type FeatureSurface = "mail" | "site";
 
@@ -107,11 +108,24 @@ export const FEATURES: Feature[] = [
     priority: 9,
   },
   {
+    /**
+     * NO `minMailPlan`, deliberately: Pandora has read receipts on all three tiers, capped at
+     * 50/month on Starter and a 90-day trial on Standard, unlimited on Max. Only the unlimited
+     * version is a Max thing.
+     *
+     * That is why `know_it_was_read` is no longer a need in candidates.ts — and why this line
+     * now matches the explicit tick as well. Someone who tells us they track opens used to be
+     * charged for Max and, on the tiers below, could still miss the bullet entirely; now they
+     * keep their tier and are told the feature is there.
+     */
     id: "read_receipts",
     name: "Read Receipts",
     surface: "mail",
     because: "you can tell whether a quote was actually opened",
-    matches: (p) => is(p, "sellsOnline", false) || is(p, "customerChannel", "personal_email"),
+    matches: (p) =>
+      is(p, "extras", "receipts") ||
+      is(p, "sellsOnline", false) ||
+      is(p, "customerChannel", "personal_email"),
     priority: 8,
   },
   {
@@ -328,6 +342,107 @@ function availableOn(f: Feature, sitePlanId: string | null, mailPlanId: string |
   return true;
 }
 
+/**
+ * How often each feature matches, across the profiles our own questions can produce.
+ *
+ * THE PROBLEM THIS SOLVES. The reveal shows one feature per surface, chosen by `priority` —
+ * and priority turned out to track how GENERIC a feature is. `import_email_contacts` is
+ * priority 10 and matches 100% of profiles; `site_contact_forms` is 10 and matches 75%.
+ * So the top of each surface was occupied by whatever applies to everyone, and a measured
+ * sweep of 96 profiles produced 12 distinct bullet pairs, with 11 of the 20 features unable
+ * to appear under ANY combination.
+ *
+ * A bullet that is true of nearly every business is not telling this one anything. So a
+ * feature's rank is now its priority minus how common it is: priority still says what matters
+ * more, commonness says how much of that is news.
+ *
+ * The reference set is built FROM `QUESTIONS`, not hand-written, so it cannot describe a
+ * world the flow no longer produces — the `client` question's removal changes these rates
+ * without anyone remembering to update a fixture.
+ */
+const SAMPLE = 512;
+
+function referenceProfiles(): Profile[] {
+  const out: Profile[] = [];
+  for (let i = 0; i < SAMPLE; i++) {
+    const p: Profile = {};
+    /* A different stride per question, so the sample sweeps combinations evenly instead of
+       marching every question through its options in lockstep. */
+    QUESTIONS.forEach((q, qi) => {
+      const opt = q.options[(i * (qi * 2 + 1)) % q.options.length];
+      for (const [k, v] of Object.entries(opt.resolves)) {
+        p[k] = q.multi ? [String(v)] : (v as never);
+      }
+    });
+    out.push(p);
+  }
+  return out;
+}
+
+/* Computed once, on first use. `discrimination` in candidates.ts calls pickFeatures many
+   times per tap, so this must never be per-call work. */
+let commonnessCache: Map<string, number> | null = null;
+function commonness(id: string): number {
+  if (!commonnessCache) {
+    const grid = referenceProfiles();
+    commonnessCache = new Map(
+      FEATURES.map((f) => [f.id, grid.filter((p) => f.matches(p)).length / grid.length]),
+    );
+  }
+  return commonnessCache.get(id) ?? 0;
+}
+
+/**
+ * How far commonness may pull a feature down the order.
+ *
+ * At 6, a feature matching everyone loses six points of priority — enough to move
+ * `import_email_contacts` (10, matches all) below `invoice_builder` (8, matches half), which
+ * is the reordering the whole change is for. Priority still decides between two features of
+ * similar reach.
+ */
+const COMMONNESS_WEIGHT = 6;
+
+/**
+ * Feature ids the `extras` question lets someone ask for BY NAME.
+ *
+ * A tick here is not an inference we drew from their description — it is the person telling us
+ * they do this. It outranks `priority`, which is our own ordering of what usually matters.
+ *
+ * Without this, removing the read-receipts floor would have made things worse rather than
+ * better: they would keep their tier (right) and then never see Read Receipts on the reveal
+ * (wrong), because at priority 8 it loses to Multi-device support at 9. Someone would tick
+ * "Check whether mail was opened" and get a screen that never mentions it.
+ */
+const TICKED_FEATURE: Record<string, string> = {
+  invoices: "invoice_builder",
+  campaigns: "email_marketing",
+  bookings: "appointment_booking",
+  receipts: "read_receipts",
+};
+
+/** Did they tick the `extras` option that names this feature? */
+function askedForByName(f: Feature, p: Profile): boolean {
+  return Object.entries(TICKED_FEATURE).some(
+    ([tick, id]) => id === f.id && has(p, "extras", tick),
+  );
+}
+
+/**
+ * Priority, plus a step no ordinary priority can reach for anything they ticked — and a
+ * further step for a ticked feature that is TIER-GATED.
+ *
+ * The second step decides between two ticks. Someone who ticked both invoices and read
+ * receipts is on Max because of Invoice Builder; read receipts are on every tier and cost
+ * them nothing. Showing Read Receipts next to a Max price would name the one thing on that
+ * screen they did not have to pay for. `minMailPlan` already records which is which, so this
+ * needs no new data — and it must not reach for the needs table, because candidates.ts
+ * imports this file and the cycle is what put `Profile` in its own module.
+ */
+const rank = (f: Feature, p: Profile) => {
+  if (askedForByName(f, p)) return f.priority + 100 + (f.minMailPlan || f.minSitePlan ? 50 : 0);
+  return f.priority - COMMONNESS_WEIGHT * commonness(f.id);
+};
+
 export function pickFeatures(
   profile: Profile,
   surfaces: FeatureSurface[],
@@ -339,24 +454,40 @@ export function pickFeatures(
      Max-only and must never be named next to a Starter or Standard price. */
   mailPlanId: string | null = null,
 ): Feature[] {
+  /* A tick is an eligibility route of its own, not just a ranking boost. `invoice_builder`
+     matches on `sellsOnline === true`, so the cinema-ticket reseller who ticked "Send quotes
+     or invoices" — and was charged Max for it — was filtered out before ranking ever ran and
+     could not have been shown whatever we did to the sort. `availableOn` still applies: a tick
+     never names a feature the tier they are on does not include. */
   const eligible = FEATURES.filter(
-    (f) => f.matches(profile) && availableOn(f, sitePlanId, mailPlanId),
+    (f) =>
+      (f.matches(profile) || askedForByName(f, profile)) &&
+      availableOn(f, sitePlanId, mailPlanId),
   );
   const picked: Feature[] = [];
 
   for (const surface of surfaces) {
     const best = eligible
       .filter((f) => f.surface === surface)
-      .sort((a, b) => b.priority - a.priority)[0];
+      .sort((a, b) => rank(b, profile) - rank(a, profile))[0];
     if (best) picked.push(best);
   }
 
-  // One surface in play and room left — add its runner-up rather than padding with the other
-  // surface, which they explicitly didn't ask for.
-  if (picked.length < limit && surfaces.length === 1) {
+  /**
+   * Fill any remaining slots from whichever surface has the better remaining feature.
+   *
+   * THIS USED TO BE `surfaces.length === 1` ONLY, which made `limit` inert for everyone
+   * getting both mail and a site — the common case. Two surfaces filled two slots and the
+   * branch never ran, so raising the limit to 3 or 4 changed nothing at all. Measured over 96
+   * profiles: 13 distinct bullet sets at limit 2, and exactly 13 at limit 4.
+   *
+   * One per surface still comes first, above — someone getting both should hear about both
+   * before they hear a second thing about either.
+   */
+  if (picked.length < limit) {
     const more = eligible
-      .filter((f) => f.surface === surfaces[0] && !picked.includes(f))
-      .sort((a, b) => b.priority - a.priority);
+      .filter((f) => surfaces.includes(f.surface) && !picked.includes(f))
+      .sort((a, b) => rank(b, profile) - rank(a, profile));
     picked.push(...more.slice(0, limit - picked.length));
   }
 

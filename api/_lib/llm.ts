@@ -80,6 +80,21 @@ export interface CompleteArgs {
   schema: Record<string, unknown>;
   schemaName: string;
   maxOutputTokens?: number;
+  /**
+   * Per-call ceiling, because one number never fitted both callers.
+   *
+   * The default suits the small extractions (profile, plan, rationale) at a p50 of 3-6s.
+   * The question rewrite is roughly 5x the output tokens and had been living just under the
+   * 20s default; on 03 Sep it went over, and because `maxRetries` was 1 the caller waited
+   * 40.5s to be told "Request timed out" — the whole generated-wording feature silently off,
+   * every screen falling back to the fixed bank exactly as designed to do on failure.
+   */
+  timeoutMs?: number;
+  /**
+   * A retry is right for a short call — a cold provider often works second try. It is wrong
+   * for a long one, where it only doubles the wait before the same degradation.
+   */
+  maxRetries?: number;
 }
 
 /**
@@ -94,6 +109,8 @@ export async function complete<T>({
   schema,
   schemaName,
   maxOutputTokens = 4096,
+  timeoutMs = TIMEOUT_MS,
+  maxRetries = 1,
 }: CompleteArgs): Promise<T> {
   if (llmMode() === "replay") {
     try {
@@ -118,8 +135,9 @@ export async function complete<T>({
    * degraded path never runs, and the user gets an error screen instead of a working flow.
    * A bounded failure is a degradation; an unbounded one is an outage.
    *
-   * 20s against a p50 of 3-6s. Generous enough that a slow-but-alive call still lands,
-   * tight enough to stay inside the platform limit and leave room to fall back.
+   * 20s against a p50 of 3-6s, and per-call overridable — see `timeoutMs`. Generous enough
+   * that a slow-but-alive call still lands, tight enough to stay inside the platform limit
+   * and leave room to fall back.
    */
   const res = await getClient().chat.completions.create(
     {
@@ -136,7 +154,7 @@ export async function complete<T>({
     max_completion_tokens: maxOutputTokens,
     // NO temperature. gpt-5.6-* rejects it outright. See header.
     },
-    { timeout: TIMEOUT_MS, maxRetries: 1 },
+    { timeout: timeoutMs, maxRetries },
   );
 
   const choice = res.choices[0];

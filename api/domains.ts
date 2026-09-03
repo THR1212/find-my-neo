@@ -25,6 +25,7 @@ export default async function handler(req: Request): Promise<Response> {
   const { status, body } = await handleDomainLookup(
     url.searchParams.get("name"),
     url.searchParams.get("tlds"),
+    url.searchParams.get("manual"),
   );
 
   return new Response(JSON.stringify(body), {

@@ -33,8 +33,26 @@ import { complete } from "./llm.js";
  * What someone gives up by dropping one tier, from `src/data/plan-features.json`.
  *
  * Supplied to the model rather than left to it, because "what does the cheaper plan lack" is
- * exactly the kind of question a model answers plausibly and wrongly. These are Pandora's
- * entitlements, not a guess.
+ * exactly the kind of question a model answers plausibly and wrongly.
+ *
+ * HAND-MAINTAINED, and the comment used to imply otherwise. Every row was checked against
+ * `plan-features.json` and `site-features.json` on 03 Sep, at Hari's request — "if we are
+ * unsure we shouldn't show this" — and three of the four held exactly:
+ *
+ *   max    -> Standard   invoice_builder / titan_ai / email_marketing are all "MAX ONLY"
+ *   plus   -> Basic      Contact Forms, Testimonials, Remove Neo Branding are all null on basic
+ *   growth -> Plus       products, services, gallery all 500 on plus and Unlimited on growth;
+ *                        Font themes Standard on plus, Premium on growth
+ *
+ * The fourth did not. `standard` claimed "unlimited email templates", and NO email-template
+ * entitlement exists anywhere in the recorded Pandora data — it was plausible and unsourced,
+ * the exact failure this table exists to prevent, sitting inside it. Replaced with
+ * `drive_storage`, which is recorded ("Standard 1,024 and Max 51,200. Absent from Starter")
+ * and is also the stronger line: docs/data-findings.md §5 has storage as the dominant paywall
+ * trigger in every industry.
+ *
+ * If a row is edited, re-check it against the JSON. This is a claim about what someone loses
+ * by spending less, printed while they decide.
  *
  * Darrel's competitor research is why this line exists at all: Cynet recommends one plan and
  * lists the others, and Mailchimp and Rinda both justify the recommendation rather than just
@@ -43,7 +61,7 @@ import { complete } from "./llm.js";
 const CHEAPER_TIER: Record<string, { cheaper: string; loses: string }> = {
   standard: {
     cheaper: "Neo Starter",
-    loses: "the signature designer, company branding, and unlimited email templates",
+    loses: "the signature designer, company branding, and the extra mailbox storage",
   },
   max: {
     cheaper: "Neo Standard",
@@ -62,12 +80,14 @@ const CHEAPER_TIER: Record<string, { cheaper: string; loses: string }> = {
 interface ModelRationale {
   rationale: string;
   whyNotCheaper: string;
+  /** One line that carries the whole justification. See the schema note. */
+  because: string;
 }
 
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["rationale", "whyNotCheaper"],
+  required: ["rationale", "whyNotCheaper", "because"],
   properties: {
     rationale: {
       type: "string",
@@ -82,6 +102,24 @@ const SCHEMA = {
         "One sentence saying what the cheaper plan would cost them in capability, using ONLY " +
         "the loses list given. Under 130 characters. Empty string if no cheaper plan was " +
         "given. Never states a price.",
+    },
+    /**
+     * The reveal was a stack: a rationale sentence, then a bulleted needs list, then a
+     * why-not-cheaper line, then a cycle line, then a domain note. Five blocks saying
+     * overlapping things, and the screen was too tall to read.
+     *
+     * `because` replaces the first three with one line. Its STRUCTURE is fixed — it may only
+     * use the reasons the solver already computed, which is why the prompt hands them over
+     * and forbids anything else. That keeps the justification checkable: every clause traces
+     * to a binding need, exactly as the bullets did, without three separate paragraphs.
+     */
+    because: {
+      type: "string",
+      description:
+        "ONE sentence, under 180 characters, joining the reasons in `needs` into something a " +
+        "person would say out loud — and naming the single reason that mattered most FIRST. " +
+        "Use only those reasons; never add one. Never state a price, a plan name, or a " +
+        "number of rupees.",
     },
   },
 } as const;
@@ -104,6 +142,13 @@ const SYSTEM = [
   "in their own register. Not marketing language, not a feature list.",
   "  GOOD: 'Two addresses so bouquet orders stop landing in the same inbox as everything else.'",
   "  BAD:  'The perfect plan to supercharge your florist business.'",
+  "",
+  "because: one sentence carrying the whole justification, built ONLY from the `needs`",
+  "reasons handed to you, heaviest first. It replaces a bulleted list, so it must not lose a",
+  "reason and must not gain one.",
+  "  GOOD: 'You quote every repair, and that is the part that needs Max — the rest is the site",
+  "         and the photos you send.'",
+  "  BAD:  'Perfect for growing businesses like yours.'   - says nothing they told us",
   "",
   "whyNotCheaper: what dropping to the cheaper plan would actually cost them. Use ONLY the",
   "capabilities listed in `cheaperPlanLoses`. Do not invent a limit, a feature, or a number.",
@@ -128,6 +173,7 @@ const PRICE_LIKE = /(₹|rs\.?\s*\d|\d[\d,]*\s*(?:\/|per\s)?\s*(?:mo|month|yr|ye
 function validate(raw: ModelRationale | undefined): {
   rationale: string;
   whyNotCheaper: string;
+  because: string;
   dropped: string[];
 } {
   const dropped: string[] = [];
@@ -151,6 +197,9 @@ function validate(raw: ModelRationale | undefined): {
   return {
     rationale: clean(raw?.rationale, "rationale", true),
     whyNotCheaper: clean(raw?.whyNotCheaper, "whyNotCheaper", false),
+    /* Not required: an empty `because` falls back to the bullets, which is what shipped
+       before this field existed. A missing summary must never blank the justification. */
+    because: clean(raw?.because, "because", false),
     dropped,
   };
 }
@@ -216,7 +265,7 @@ export async function handleRationale(
     reason = err instanceof Error ? err.message : String(err);
   }
 
-  const { rationale, whyNotCheaper, dropped } = validate(out);
+  const { rationale, whyNotCheaper, because, dropped } = validate(out);
 
   console.error(
     "[rationale]",
@@ -233,5 +282,5 @@ export async function handleRationale(
   );
 
   /* Empty strings are a complete answer: the reveal keeps buildRationale's line. */
-  return { status: 200, body: { rationale, whyNotCheaper } };
+  return { status: 200, body: { rationale, whyNotCheaper, because } };
 }

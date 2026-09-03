@@ -159,6 +159,7 @@ function derivedFallback(businessText: string): ProfileResult {
         { name: `${stem}.com`, available: null, priceInr: null, recommended: true },
         { name: `${stem}.in`, available: null, priceInr: null },
         { name: `${stem}.co`, available: null, priceInr: null },
+        { name: `${stem}.co.site`, available: null, priceInr: null, free: true },
       ],
       mailboxes: [
         { address: `hello@${stem}.com`, label: "For enquiries and new customers" },

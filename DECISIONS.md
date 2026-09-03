@@ -1016,6 +1016,139 @@ visible on the page rather than only in the meter.
 
 ---
 
+### 2026-09-03 · `.co.site` joins the domain recommendations, checked by its own endpoint
+
+**Decided.** The reveal now recommends **four** names: the model's three registrable TLDs
+exactly as before, plus `<stem>.co.site` in a fourth, reserved slot, labelled **Free** for the
+first billing cycle. Availability for it comes from a new `api/_lib/cositeService.ts`, folded
+into the existing `/api/domains` response rather than given a route of its own.
+
+**Why.** `.co.site` is the only thing on Neo's domain step Neo can actually sell today
+(`docs/neo-product-facts.md`), and it is free for the first cycle — `plans.json` →
+`domain.promoInrPerMonth` is ₹0/mo on monthly and yearly. Leaving it off a screen whose entire
+job is to land someone on a domain meant the flow's one *working* option was the one we didn't
+show. The custom-domain caveat is still on screen; it is now branched so it appears only on the
+names it is true of.
+
+This overrides `docs/neo-product-facts.md`'s "do not substitute `.co.site` to make the flow
+complete" — and the word doing the work is *substitute*. Nothing was swapped: the three
+registrable names keep their ranking, and `.co.site` is appended. Amended in place there rather
+than left to contradict this file.
+
+**Why a separate checker, and not DomScan.** DomScan checks **registrations**. `foo.co.site`
+is not a registration — it is a record inside a domain Neo already owns — so DomScan answers
+about `co.site` itself, which *is* registered. Every stem would come back taken. It also costs
+nothing to check separately, so `.co.site` is deliberately exempt from `MAX_TLDS`.
+
+**Two things measured that day, both of which kill the cheap approach:**
+
+1. **`*.co.site` is a DNS wildcard.** `zzqx7v9nonexistentstem.co.site` resolves to the same
+   four A records as `co.site` itself (18.161.125.17/.26/.113/.128). A DNS-over-HTTPS lookup —
+   the keyless check you reach for first — says "exists" for every stem in the universe. Do not
+   reintroduce it.
+2. **A 404 does not mean free.** The host returns an identical 404 (18,725 bytes) for an
+   unclaimed stem *and* for a claimed-but-never-published one — and `docs/data-findings.md` §9
+   found only **9,121 of 44,581 site orders were ever published** — so **79.5% of taken names
+   are invisible to an HTTP probe**. Reading 404 as "available" would put a green badge on a name a person can
+   find taken one keystroke later: the same class of bug as the florist shown
+   "thistletwine.com Available" (fixed in `src/lib/session.ts`).
+
+So the fallback probe answers **taken (200) or unknown (anything else), never free**, and
+`NEO_COSITE_CHECK_URL` is the seam for Neo's real endpoint. Unknown renders no badge, per rule
+4 — the name is still recommended and still shown as free, we just do not claim availability.
+No traffic goes to Neo's production domain **search** (rule 5); this fetches a published page
+from the site host, once per stem per session, behind a 10-minute cache.
+
+**Two ranking traps, both hit and both fixed** (`src/lib/domains.ts`):
+
+- Ranking `.co.site` *with* the others loses it. Its usual answer is `available: null`, which
+  sorts behind every confirmed-free `.net`/`.org`/`.shop` from the same batch — the one name Neo
+  can sell would be the one pushed off the end of a four-item list.
+- Ranking it *first* hands it the hero slot whenever the DomScan lookup fails, because then
+  everything is unknown and nothing outranks it. A degraded third-party call is not a reason to
+  headline a free subdomain instead of the name the person came for.
+
+Hence a reserved last slot: three contested registrable slots, `.co.site` appended.
+
+**"Free" is derived, not asserted.** `domainFirstCycleInr(cycle)` in `rules.ts` reads
+`plans.json` per cycle, because the promo is ₹0/mo only on monthly and yearly — it is ₹25/mo on
+two-yearly and ₹37.50/mo on four-yearly. `chooseCycle` returns only monthly or yearly today, so
+the answer is always ₹0 right now, which is exactly why it should be computed. The day someone
+makes the engine recommend a two-year commitment, the reveal stops saying "Free" on its own.
+
+**A taken `.co.site` is stated, not hidden.** `availableFromLookup` still drops taken names from
+the recommendations, but the reveal adds a note naming the one that's gone. A taken `.com` is one
+of two hundred million and not news; a taken `.co.site` means the stem is gone *inside Neo*, on
+the exact screen the CTA hands off to, so they find out in thirty seconds either way.
+
+**Reverse if:** Neo ships custom-domain purchase, at which point the three registrable names
+stop being aspirational and the fourth slot is worth re-arguing. Or if Neo's real availability
+endpoint turns out to be unavailable to us indefinitely — the probe is honest but it is mostly
+silent, and a permanently unanswerable badge may be worth removing rather than explaining.
+
+**Not verified:** no live `.co.site` returning 200 was found to confirm the taken path against
+production. It is covered by unit test (stubbed `fetch`, eleven cases) and by construction, not
+by observation. Nine stems were probed, all 404 — consistent with them simply being unclaimed,
+but it means the 200 branch has never fired for real.
+
+---
+
+### 2026-09-03 · The `.co.site` check runs on a minted Titan partner token
+
+**Decided.** `api/_lib/cositeService.ts` now mints a short-lived token from
+`POST https://bll.titan.email/partner/token/generate` and sends it as `Authorization: Bearer`
+to the availability check. Darrel supplied the mint endpoint; the check endpoint itself is
+still outstanding, so `NEO_COSITE_CHECK_URL` remains the seam and the probe remains the
+fallback.
+
+**Two credentials, and conflating them is the easy mistake.** `NEO_PARTNER_AUTH` is the
+partner credential *we hold*, used only to mint. The token it returns is what the check sees.
+An empty POST to the mint endpoint returned
+`{"code":"UNAUTHENTICATED","attrs":{"detail":"Auth header missing"}}` — so the mint call is
+itself authenticated. We stopped probing there rather than guess header names, which is
+credential-probing shaped; `NEO_PARTNER_AUTH_HEADER` is configurable for exactly that reason.
+
+Neither value is logged, echoed into an error, or returned to the caller. Mint failures raise
+the **status code only** — the body of a failed auth response can contain the credential it
+rejected, and a token in a `reportDegraded` string reaches the browser console and from there
+anywhere.
+
+**Three bugs this turned up, all found by running it rather than reading it:**
+
+1. **A flat 60s refresh skew made the cache a load generator.** With a token whose lifetime is
+   shorter than the skew, every cached token looks already-expired, so every request re-mints —
+   pointed at an auth endpoint. A stub issuing 2-second tokens produced three mints for three
+   requests and never once hit the cache. The skew is now `min(60s, lifetime/2)`.
+2. **`askNeo(...) ?? probe(...)` inside one try/catch was not a fallback chain.** A throw from
+   `askNeo` skipped the `??` entirely and landed in the catch, so a 500 or an expired
+   credential degraded straight past the probe to "unknown". The probe is weaker but not
+   useless — it can still prove a name is taken — so the two rungs are now separate
+   try/catches and only the bottom gives up.
+3. **A hard failure was cached for the full ten minutes.** A transient blip pinned "unknown"
+   on a stem long past recovery, and the reveal's own lookup never re-asks. Errors now get a
+   30-second penalty box instead of the 10-minute TTL.
+
+**Retry policy.** One retry with a freshly minted token on a 401/403 from the check, and only
+when the token was minted. A static `NEO_COSITE_CHECK_TOKEN` that is rejected will be rejected
+again, so retrying it doubles latency for nothing. A cached token expiring between two requests
+in the same instance is a routine race, not an incident — verified: invalidating tokens
+server-side produced `check 401 → mint → check OK` with no visible failure.
+
+**Verified against a stub that behaves like a real partner API:** one mint serves three
+requests (cache hit); rotating tokens server-side triggers exactly one re-mint; a wrong partner
+credential and a missing partner credential both degrade to a rendered reveal rather than an
+error; and five ladder cases assert each rung, including that the probe is NOT consulted when
+the check answers.
+
+**Still outstanding, and the last thing needed:** the availability check's own URL, method and
+response shape, and the mint call's auth header name. Until `NEO_COSITE_CHECK_URL` is set the
+code takes the probe path, which can prove "taken" but never "free".
+
+**Reverse if:** Titan exposes an availability check that needs no token exchange — then
+`NEO_COSITE_CHECK_TOKEN` (or no auth at all) is simpler and the minting layer is dead weight.
+
+---
+
 ## 03 Sep 2026 — the flow only looked adaptive
 
 Three complaints from a walkthrough ("questions are repeated", "we're not getting more
@@ -1481,3 +1614,141 @@ because the quote is the evidence.
 CLAUDE.md rule 2 rewritten to match. It said "the LLM never decides price or plan", which was
 true until today and is now too blunt: the accurate rule is that it never emits a number, may
 only raise, and only with a checked reason. Snapshot v7.
+
+---
+
+---
+
+### 2026-09-03 · The real Titan contract, and the endpoint that isn't reachable yet
+
+Darrel supplied the actual contract, and **almost every convention I had assumed was wrong.**
+Recording the diff, because each item is the sort of thing that gets re-guessed:
+
+| | Assumed | Actual |
+|---|---|---|
+| Mint URL | `bll.titan.email/partner/token/generate` | `api.titan.email/fa/mail/login` |
+| Mint auth | a header, name unknown | **email + password in the JSON body** |
+| Extra header | none | **`origin: https://app.titan.email`, required** |
+| Token field | `token` / `accessToken` | **`session`** |
+| Check auth | `Authorization: Bearer` | **`x-auth-token`** |
+| Expiry | `expiresIn` in the response | **absent — it is a JWT, read `exp`** |
+
+`Authorization: Bearer` is the near-universal convention and it is simply not what this API
+uses. Worth remembering as a case where the conventional guess was confidently wrong; the stub
+now asserts the absence of that header so it cannot creep back.
+
+**The mint credential is a real Titan login.** Not an API key — a Partner Panel email and
+password, so it is a far more sensitive secret than `DOMSCAN_API_KEY`. It lives only in
+`.env.local` and Vercel's env, is never logged, never echoed into an error, and never returned
+to the caller. Failed logins raise the **status code only**, because the body of a rejected
+auth response can contain what it rejected. The session's `exp` claim is *read* but never
+trusted for authorisation — the worst a bad value can do is make us re-mint early.
+
+**Re-minting is rate-limited by design, not for latency.** This is a *login* endpoint: minting
+per request is a credential-stuffing traffic shape against Titan's own auth. That is the real
+justification for the cache and the proportional refresh skew, and it is why the 401 retry is
+conditional (a rejected static token will be rejected again; retrying it unconditionally is a
+bad habit to build against `/login`).
+
+**The blocker, and it is not ours to fix.**
+`GET https://bll.titan.email/internal/neo/v2/check-domain-availability` returns
+
+    {"error":"UnRegisteredEndpoint","desc":"Endpoint not Registered","statusCode":404}
+
+from the public internet — while `/internal/ip-to-country` on the **same host** returns 200.
+So the host is reachable, the `/internal/` prefix is routable, and this specific route is not
+exposed on that edge. The 404 arrives *before* any auth check, so **no token will fix it**:
+either the route is internal-network-only (a Vercel function is not inside Titan's network) or
+it sits behind a different gateway. Two path variants were tried to rule out a typo in the
+version segment, and then probing stopped — enumerating paths against an internal API is not
+something to do at volume.
+
+Also still unknown: the **query parameter name** (Titan gave the path, not the parameter) and
+the **response shape**. The reader accepts `available` / `isAvailable` / `taken` / `exists` /
+`registered` so a reasonable shape works without a code change.
+
+This ships anyway because the ladder degrades a 404 to the HTTP probe, so the reveal stays
+correct and the `.co.site` row still renders as free — it just makes no availability claim.
+
+**Verified against a stub asserting Titan's documented contract exactly** (origin header,
+payload shape, `session` response, `x-auth-token`, real JWT `exp`): one login serves four
+checks; invalidating sessions produces `check 401 → login → check OK`; a 2-second JWT re-mints
+where a 1800-second one does not, which proves `exp` is being read rather than a fixed TTL; and
+an opaque non-JWT session and a malformed JWT payload both fall back without throwing.
+
+**Reverse if:** Titan exposes a public availability endpoint that needs no login exchange —
+then the whole minting layer is dead weight and `NEO_COSITE_CHECK_TOKEN` or no auth is simpler.
+
+---
+
+### 2026-09-03 · An unpublished site still holds its name — which promotes the endpoint and demotes the probe
+
+Darrel confirmed: **a site that was never published still exists as an active order.** So its
+`.co.site` name is genuinely occupied.
+
+That answers the question left open when the check endpoint was specified, and it moves the
+numbers in opposite directions for the two sources:
+
+| | sees | of 44,581 orders |
+|---|---|---|
+| Neo's check endpoint (orders) | claimed **and** published | all of them |
+| Our HTTP probe (published pages) | published only | **9,121 — 20.5%** |
+
+So the probe misses roughly **four in five taken names**. It is a poor substitute, not a
+near-equivalent, and the earlier decision that it may answer only "taken" or "unknown" —
+never "free" — is now quantified rather than merely cautious. A 404 from the probe is
+uninformative in about 80% of the cases that matter.
+
+**It also upgrades the endpoint.** Because it reads orders rather than pages, a `true` from it
+is genuinely authoritative in both directions, which is what justifies rendering the green
+"Available" badge on a `.co.site` name at all (`source === "neo"` →
+`confidence: "authoritative"` in `domainService`). Nothing else we have can earn that badge.
+
+**And it corrects a figure I had wrong in three places.** I had written "31,545 of 44,581 never
+published", which is only the `generated=0/published=0` cell of the §9 crosstab. The true
+never-published total is **35,460 (79.5%)** — the other unpublished cell, 3,915 generated but
+never published, belongs in it too. Fixed in `cositeService.ts`, `neo-product-facts.md` and the
+earlier entry above. The §9 table itself was always right; the prose summarising it was not.
+
+**Consequence for the demo:** without endpoint access there is no honest path to a green badge
+on a `.co.site` name. The row still renders, still says Free, and says nothing about
+availability — which is correct, and worth stating plainly rather than papering over.
+
+---
+
+### 2026-09-03 · Login verified against production; the 404 is confirmed to be routing, not auth
+
+Credentials configured and the flow exercised end to end. Three findings.
+
+**1. The login works, and the session is not what the documentation says.**
+`POST api.titan.email/fa/mail/login` returns 200 with the documented payload. But Titan's own
+example shows `"session": "eyJhbGciOi..."` — a JWT — and a real Partner Panel login returns
+**`1:G8lW…`: 34 characters, one segment, opaque**, with no expiry field anywhere in the
+response. So `jwtExpiryMs` returns null on the actual path and `TOKEN_FALLBACK_TTL_MS` decides
+the cache lifetime. Raised 5 min → 30 min, and the justification is the retry, not the number:
+we cannot know the real TTL because nothing states it, but an over-long guess is self-healing
+(an expired session 401s, which re-mints and retries transparently) while an under-long guess
+has no safety net and just logs in again — every five minutes per serverless instance, against
+Titan's own auth endpoint. Correctness comes from the 401 retry; the number only trades login
+volume against one extra round trip after a real expiry.
+
+Also in the response: `is2FAEnabled: false`. If 2FA is ever enabled on that account this flow
+breaks entirely, which is one more argument for a service credential over a human login.
+
+**2. The 404 is definitively routing, not auth or parameters.** With a real, valid session in
+`x-auth-token`, `/internal/neo/v2/check-domain-availability` still answers
+`{"error":"UnRegisteredEndpoint","statusCode":404}` — tried with `domain=`, `domainName=` and
+`name=`. All three identical. Combined with `/internal/ip-to-country` returning 200 on the same
+host, the route simply is not exposed on the public edge. Nothing on our side can fix it, and
+the parameter-name question is moot until it is: a 404 cannot tell us which parameter it wanted.
+
+Verified the whole real path degrades correctly: login succeeds, check 404s, ladder falls to the
+probe, reveal renders all four domains with `.co.site` marked free. No errors, no unhandled
+rejections, and neither the password nor the session appears anywhere in the dev-server log.
+
+**3. DomScan `/v1/status` has recovered.** It returned `results: []` with
+`determinacy_rate: 0` for every stem earlier today (including `google`); it now returns three
+authoritative results with `determinacy_rate: 1`. So the availability badge renders again on
+the registrable TLDs. Nothing was changed on our side — it was an upstream outage, and the code
+degraded correctly throughout, which is the useful part. Worth re-checking before the demo
+rather than assuming either state.

@@ -43,6 +43,14 @@ export interface DomainOption {
    */
   available: boolean | null;
   priceInr: number | null;
+  /**
+   * Free for the first billing cycle. True only for `.co.site`, Neo's own namespace.
+   *
+   * Distinct from `priceInr: 0`, which would render "~\u20b90/yr" — free-then-renews is not a
+   * price of zero, and Neo has not published the renewal figure. The reveal prints "Free"
+   * with its own caveat instead.
+   */
+  free?: boolean;
   /** Why this one is worth considering. Shown only on alternates. */
   note?: string;
   recommended?: boolean;

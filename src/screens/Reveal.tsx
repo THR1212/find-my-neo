@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { DomainOption, RevealContent } from "../lib/session";
-import { availableFromLookup, lookupDomains, type DomainInfo } from "../lib/domains";
+import {
+  availableFromLookup,
+  COSITE_SUFFIX,
+  isCoSite,
+  lookupDomains,
+  type DomainInfo,
+} from "../lib/domains";
 import { pickFeatures, withReason, type FeatureSurface, type ReasonMap } from "../lib/features";
-import { recommend, CYCLE_LABEL } from "../lib/rules";
+import { recommend, CYCLE_LABEL, domainFirstCycleInr } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
 import SetupStory from "../components/SetupStory";
 import { block as blockData, type NeoSite } from "../lib/neoSite";
@@ -13,6 +19,7 @@ import { playSetupReady, playSound, unlockSound } from "../sound";
  * Locked-viewport reveal. Squarespace Blueprint / Wix ADI / Linear-settings pattern:
  * the page does not scroll; left is the recommendation, right is a live preview pane.
  * Taken domains never appear — availableFromLookup drops them (Darrel, 3 Sep).
+ * `.co.site` is the fourth recommended name, checked by its own endpoint.
  */
 
 export default function Reveal({
@@ -116,6 +123,7 @@ export default function Reveal({
           name: row.domain,
           available: row.available,
           priceInr: row.priceInr,
+          free: row.free,
           note: notesByName[row.domain],
           recommended: i === 0,
         }))
@@ -123,6 +131,7 @@ export default function Reveal({
   );
   const allDomains = [...suggested, ...extraDomains.filter((d) => !suggested.some((s) => s.name === d.name))];
   const domain = allDomains.find((d) => d.name === chosenName) ?? allDomains[0];
+  const coSiteTaken = live[`${stem}.${COSITE_SUFFIX}`]?.available === false;
 
   async function checkOwnDomain() {
     const raw = ownInput.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
@@ -163,7 +172,13 @@ export default function Reveal({
     }
     setExtraDomains((prev) => [
       ...prev,
-      { name: row.domain, available: true, priceInr: row.priceInr, note: "Your own idea" },
+      {
+        name: row.domain,
+        available: true,
+        priceInr: row.priceInr,
+        free: row.free,
+        note: "Your own idea",
+      },
     ]);
     setChosenName(row.domain);
     setOwnInput("");
@@ -200,6 +215,7 @@ export default function Reveal({
   const liveAvail = domain ? (live[domain.name]?.available ?? domain.available) : null;
   const livePrice = domain ? (live[domain.name]?.priceInr ?? domain.priceInr) : null;
   const domainName = domain?.name ?? `${stem || "yourbusiness"}.com`;
+  const firstCycle = domainFirstCycleInr(rec.cycle);
 
   return (
     <div className="reveal-page">
@@ -214,11 +230,18 @@ export default function Reveal({
               <span className="domain-name">{domain.name}</span>
               {liveAvail === true && <span className="badge">Available</span>}
               {liveAvail === false && <span className="badge badge-taken">Taken</span>}
-              {livePrice !== null && (
-                <span className="domain-price">
-                  ~₹{livePrice.toLocaleString("en-IN")}/yr
-                  <span className="price-caveat">approx</span>
+              {domain.free ? (
+                <span className="domain-price domain-free">
+                  {firstCycle === 0 ? "Free" : firstCycle != null ? `₹${firstCycle.toLocaleString("en-IN")}/mo` : "Free"}
+                  <span className="price-caveat">first billing cycle</span>
                 </span>
+              ) : (
+                livePrice !== null && (
+                  <span className="domain-price">
+                    ~₹{livePrice.toLocaleString("en-IN")}/yr
+                    <span className="price-caveat">approx</span>
+                  </span>
+                )
               )}
             </div>
           ) : (
@@ -244,14 +267,27 @@ export default function Reveal({
                     aria-pressed={active}
                   >
                     <span className="alt-name">{d.name}</span>
-                    {price !== null && (
-                      <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
+                    {d.free ? (
+                      <span className="alt-price alt-free">
+                        {firstCycle === 0 ? "Free" : firstCycle != null ? `₹${firstCycle.toLocaleString("en-IN")}` : "Free"}
+                      </span>
+                    ) : (
+                      price !== null && (
+                        <span className="alt-price">₹{price.toLocaleString("en-IN")}</span>
+                      )
                     )}
                     {taken && <span className="alt-taken">taken</span>}
                   </button>
                 );
               })}
             </div>
+          )}
+
+          {coSiteTaken && (
+            <p className="domain-note domain-note-taken">
+              <strong>{stem}.{COSITE_SUFFIX}</strong> is already in use on Neo — the free
+              subdomain needs a different name.
+            </p>
           )}
 
           <details className="own-domain">
@@ -333,6 +369,13 @@ export default function Reveal({
             )}
             <p className="plan-meta">
               {CYCLE_LABEL[rec.cycle]} · cancel anytime
+            </p>
+            <p className="plan-meta plan-note">
+              {!domain
+                ? `Neo's domain purchase is coming, so for now you'll connect a name you own.`
+                : isCoSite(domain.name)
+                  ? `We'll copy ${domain.name} for you — it's Neo's own, free for your first billing cycle, and you can claim it on the next screen.`
+                  : `We'll copy ${domain.name} for you — Neo's domain purchase is coming, so for now you'll connect it under "use a domain I own".`}
             </p>
             <div className="row reveal-cta">
               <a

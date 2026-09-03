@@ -147,6 +147,18 @@ Domain availability + indicative pricing: **DomScan**, via our own `/api/domains
 server-side only. RDAP was built first and removed — see DECISIONS. **Watch the credits:**
 `/v1/prices` bills per TLD × registrar pair, so it always needs a `registrars=` filter.
 
+**`.co.site` does not go to DomScan.** It is Neo's own namespace, not a registrable TLD, so
+DomScan answers about `co.site` itself — which is registered, i.e. a confident "taken" for
+every stem. `api/_lib/cositeService.ts` handles it, inside the same `/api/domains` response,
+exempt from `MAX_TLDS` because it costs no credit. Without `NEO_COSITE_CHECK_URL` set, its
+fallback can prove a name is **taken** but never that it is **free** — `*.co.site` is a DNS
+wildcard and an unpublished-but-claimed name 404s like an unclaimed one. Do not "fix" that by
+reading 404 as available. See DECISIONS 2026-09-03.
+
+The reveal shows **four** domains: three registrable, plus `.co.site` in a reserved last slot
+labelled Free. `.co.site` must never take the hero slot — including when the DomScan lookup
+fails, which is where the obvious ranking gets it wrong.
+
 ## LLM
 
 **`docs/llm-flow.md` explains the whole model flow end to end** — what the two calls are, when

@@ -171,6 +171,23 @@ export function buildRationale(
   return `${who} on your own domain.`;
 }
 
+/**
+ * What Neo charges for the `.co.site` subdomain in the FIRST billing cycle, per month.
+ *
+ * Read from `plans.json` rather than hardcoded as "free", because it is only free on some
+ * cycles: the promo is \u20b90/mo on monthly and yearly but \u20b925/mo on two-yearly and \u20b937.50/mo on
+ * four-yearly. `chooseCycle` returns only monthly or yearly today, so the answer is always 0
+ * right now — which is exactly why this should be derived and not asserted. The day someone
+ * makes the engine recommend a two-year commitment, the reveal must stop saying "Free" by
+ * itself, not because a person remembered to come back and change a string.
+ *
+ * Returns null when the sheet has no figure for that cycle: unknown, so claim nothing.
+ */
+export function domainFirstCycleInr(cycle: BillingCycle): number | null {
+  const promo = plansData.domain.promoInrPerMonth as Partial<Record<BillingCycle, number>>;
+  return promo[cycle] ?? null;
+}
+
 export const CYCLE_LABEL: Record<BillingCycle, string> = {
   monthly: "billed monthly",
   quarterly: "billed quarterly",

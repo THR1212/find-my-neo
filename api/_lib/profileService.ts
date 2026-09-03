@@ -149,7 +149,16 @@ const SIGNAL_TO_QUESTION: Record<string, string> = {
 const MAX_PREFILL = 3;
 
 /** Matches src/lib/domains.ts TLDS. The stem is the model's; the TLDs are not its business. */
-const TLDS = ["com", "in", "co"] as const;
+const TLDS = ["com", "in", "co", "co.site"] as const;
+
+/**
+ * The `.co.site` note is ours, never the model's.
+ *
+ * It states a price ("free"), and CLAUDE.md rule 2 is that the LLM never decides price. It is
+ * also a fixed product fact rather than something to phrase per business, so there is nothing
+ * for a model to add. `domainNotes` from the model covers the three registrable TLDs only.
+ */
+const COSITE_NOTE = "Free for your first billing cycle — Neo's own, and live today";
 
 /** What the free text already answered. Every field optional; null means "not stated". */
 export interface Prefill {
@@ -598,7 +607,8 @@ export async function handleProfile(
           name: `${stem}.${tld}`,
           available: null,
           priceInr: null,
-          note: profile.domainNotes?.[i] ?? undefined,
+          ...(tld === "co.site" ? { free: true } : {}),
+          note: tld === "co.site" ? COSITE_NOTE : (profile.domainNotes?.[i] ?? undefined),
           recommended: i === 0,
         })),
         mailboxes: mailboxLocals.map((local, i) => ({

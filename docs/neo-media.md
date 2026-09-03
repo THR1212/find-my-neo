@@ -48,6 +48,7 @@ All under `https://static.flock.co/meta/plan/feature/images/`. Vendored to
 
 | Local file | Neo's key | Our feature id |
 |---|---|---|
+| `features/storage.png` | `storage` | `storage` |
 | `features/one_click_import.gif` | `one_click_import` | `import_email_contacts` |
 | `features/multi_account.gif` | `multi_account` | `multi_device_support` |
 | `features/read_receipt.png` | `read_receipt` | `read_receipts` |
@@ -64,7 +65,7 @@ Neo's key and ours differ often enough (`smart_write` is `titan_ai`, `multi_acco
 without a picture, deliberately — a borrowed image would be exactly the claim-about-a-product-
 we-do-not-own that the rule at the top of this file forbids.
 
-There are 28 more assets in that set we do not use (storage, priority_inbox, turbo_search,
+There are 27 more assets in that set we do not use (priority_inbox, turbo_search,
 undo_send, two_factor_auth, …). If a feature is ever added to `features.ts`, look there first.
 
 Template shots share the prefix `https://cdn.prod.website-files.com/6380708edae368c5674306ee`.

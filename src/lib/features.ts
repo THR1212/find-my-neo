@@ -109,6 +109,30 @@ export const FEATURES: Feature[] = [
   },
   {
     /**
+     * THE #1 CONVERSION DRIVER, and it had no bullet at all until 03 Sep.
+     *
+     * docs/data-findings.md §5 measures real paywall clicks: `Storage Banner` is the dominant
+     * trigger in EVERY industry at 32-52%, ahead of everything else by a distance. `volume` is
+     * already the question that most often sets the mail tier because of it — and yet someone
+     * who answered "Large files, often", was moved to Max for that reason, and read a needs
+     * line saying "you send large files often" was never told what they actually got.
+     *
+     * No `minMailPlan`: every tier has storage. What differs is the amount — 15 / 50 / 100 GB,
+     * from Neo's own pricing table, recorded in plan-features.json rather than typed here.
+     * The `because` states the PER-MAILBOX fact instead of a number, because that is the part
+     * people get wrong and the part that survives a price change.
+     */
+    id: "storage",
+    name: "Mailbox Storage",
+    surface: "mail",
+    because: "room for what you send, counted per mailbox rather than shared across the team",
+    matches: (p) => is(p, "attachmentVolume", "docs") || is(p, "attachmentVolume", "heavy"),
+    /* Above multi_device_support (9) and below import (10): it is the strongest reason in the
+       data, but only for the people who told us they send things, which `matches` enforces. */
+    priority: 9.5,
+  },
+  {
+    /**
      * NO `minMailPlan`, deliberately: Pandora has read receipts on all three tiers, capped at
      * 50/month on Starter and a 90-day trial on Standard, unlimited on Max. Only the unlimited
      * version is a Max thing.

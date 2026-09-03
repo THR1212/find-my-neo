@@ -199,6 +199,7 @@ export function clipsFor(
  * has to be written down rather than derived.
  */
 export const FEATURE_ART: Record<string, string> = {
+  storage: `${FEATURES_DIR}/storage.png`,
   import_email_contacts: `${FEATURES_DIR}/one_click_import.gif`,
   multi_device_support: `${FEATURES_DIR}/multi_account.gif`,
   read_receipts: `${FEATURES_DIR}/read_receipt.png`,

@@ -1384,7 +1384,7 @@ h1 {
 }
 
 .neo-site-hero {
-  aspect-ratio: 21 / 9;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   background: var(--bg-sunken);
 }
@@ -1446,7 +1446,7 @@ h1 {
 
 .neo-product img {
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   border-radius: 6px;
   display: block;
@@ -1848,7 +1848,7 @@ a.btn {
 
 .setup-story-site {
   overflow: hidden;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .setup-story-site > .story-kicker {
@@ -1857,13 +1857,13 @@ a.btn {
 }
 
 .tpl-pair {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
   overflow: hidden;
 }
 
@@ -1872,7 +1872,7 @@ a.btn {
   width: 100%;
   margin: 0;
   min-height: 0;
-  height: auto;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1883,9 +1883,9 @@ a.btn {
 
 .tpl-pane .neo-site,
 .tpl-pane .neo-gen {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-height: 0;
-  height: auto;
+  height: 100%;
   margin: 0;
   border: 0;
   border-radius: 0;
@@ -1894,33 +1894,42 @@ a.btn {
   overflow: hidden;
 }
 
-.neo-site-compact .neo-site-hero {
+.tpl-pane .neo-site-chrome,
+.tpl-pane .neo-site-foot {
   flex: 0 0 auto;
-  aspect-ratio: 16 / 10;
-  height: auto;
-  max-height: none;
 }
 
-.neo-site-compact .neo-site-body {
-  flex: 0 0 auto;
-  padding: 14px 16px 16px;
+.tpl-pane .neo-site-hero {
+  flex: 0 1 auto;
+  aspect-ratio: 16 / 9;
+  max-height: 38%;
+  min-height: 0;
 }
 
-.neo-site-compact .neo-site-heading {
-  font-size: clamp(15px, 1vw + 12px, 18px);
-}
-
-.neo-site-compact .neo-site-desc {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.tpl-pane .neo-site-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
+  padding: 12px 14px 10px;
 }
 
-.neo-site-compact .neo-site-cta {
+.tpl-pane .neo-site-heading {
+  font-size: clamp(14px, 1vw + 11px, 17px);
+}
+
+.tpl-pane .neo-site-cta {
   margin-top: 10px;
-  padding: 7px 14px;
-  font-size: 12.5px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.tpl-pane .neo-site-products {
+  margin-top: 12px;
+  gap: 6px;
+}
+
+.tpl-pane .neo-product img {
+  aspect-ratio: 4 / 3;
 }
 
 .story-kicker {
@@ -2097,10 +2106,6 @@ a.btn {
 
   .tpl-pair {
     gap: 8px;
-  }
-
-  .neo-site-compact .neo-site-desc {
-    -webkit-line-clamp: 2;
   }
 
   .product-wait-stage {

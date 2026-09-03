@@ -7,12 +7,9 @@ import { pickHero, type NeoSite } from "../lib/neoSite";
 /**
  * Right pane.
  *
- * Two different jobs, decided by what they asked for:
- *   site + mail -> two compact snapshots from Neo's site generator, this business only
- *   mail only   -> product films for features THIS mail plan actually includes
- *
- * Marketing-reel stills (other shops) never appear here. If the generator only returned
- * one site, the second card is the products look from that same site.
+ * Email+site: two full generator snapshots side by side (chrome, hero, copy, CTA,
+ * products, footer) — both from Neo's AI site builder for this business.
+ * Mail only: product films for features this mail plan actually includes.
  */
 export default function SetupStory({
   showSite,
@@ -45,31 +42,28 @@ export default function SetupStory({
     );
   }
 
-  const pair: { site: NeoSite; look: "landing" | "shop" }[] = [];
-  if (neoSite) pair.push({ site: neoSite, look: "landing" });
-  if (neoSiteAlt) pair.push({ site: neoSiteAlt, look: "landing" });
-  else if (neoSite) pair.push({ site: neoSite, look: "shop" });
-
-  const firstHero = pair[0] ? pickHero(pair[0].site, pair[0].look) : null;
+  const sites = [neoSite, neoSiteAlt ?? (neoSite ? neoSite : null)].filter(
+    (s): s is NeoSite => s != null,
+  );
+  const firstHero = sites[0] ? pickHero(sites[0], "landing") : null;
 
   return (
     <aside className="setup-story setup-story-site" aria-label="Site preview">
       <p className="story-kicker">AI-powered site builder</p>
       <div className="tpl-pair">
         <div className="tpl-pane">
-          {pair[0] ? (
-            <NeoSitePreview site={pair[0].site} look={pair[0].look} delay={0} />
+          {sites[0] ? (
+            <NeoSitePreview site={sites[0]} delay={0} />
           ) : (
             <NeoSiteGenerating />
           )}
         </div>
         <div className="tpl-pane">
-          {pair[1] ? (
+          {sites[1] ? (
             <NeoSitePreview
-              site={pair[1].site}
-              look={pair[1].look}
+              site={sites[1]}
               avoidHero={firstHero}
-              fallbackSite={pair[0].site}
+              fallbackSite={sites[0]}
               delay={0.08}
             />
           ) : (

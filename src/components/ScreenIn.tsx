@@ -5,17 +5,15 @@ const ease = [0.16, 1, 0.3, 1] as const;
 
 const stack = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.06, delayChildren: 0.04 } },
+  show: { transition: { staggerChildren: 0.035, delayChildren: 0.02 } },
 };
 
 const item = {
-  hidden: { opacity: 0, y: 8 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.34, ease } },
+  hidden: { opacity: 0, y: 6 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.22, ease } },
 };
 
-/**
- * Quiet stagger for a screen's blocks. Opacity + a few pixels — not a bounce.
- */
+/** Quiet fade for a screen's blocks. Fast enough that answering never waits on it. */
 export function ScreenIn({ children }: { children: ReactNode }) {
   const reduce = useReducedMotion();
   if (reduce) return <div>{children}</div>;

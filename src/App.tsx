@@ -5,7 +5,6 @@ import {
   applyAnswer,
   confidence,
   nextQuestion,
-  remainingSetups,
   shouldReveal,
   type EngineState,
 } from "./lib/engine";
@@ -14,31 +13,22 @@ import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
 
-import NarrowingMeter, { type MeterVariant } from "./components/NarrowingMeter";
-import MeterPreviewSwitch from "./components/MeterPreviewSwitch";
-import SoundToggle from "./components/SoundToggle";
-import { playSound } from "./sound";
-import { DISTINCT_INDUSTRY_VALUES } from "./data/industryUniverse";
+import NarrowingMeter from "./components/NarrowingMeter";
+import { playSound, unlockSound } from "./sound";
 import Hook from "./screens/Hook";
 import Describe from "./screens/Describe";
 import Guess from "./screens/Guess";
 import AdaptiveQuestion from "./screens/AdaptiveQuestion";
 import Reveal from "./screens/Reveal";
 
-const transition = { duration: 0.32, ease: [0.16, 1, 0.3, 1] as const };
+const transition = { duration: 0.2, ease: [0.16, 1, 0.3, 1] as const };
 const variants = {
-  enter: { opacity: 0, y: 10 },
+  enter: { opacity: 0, y: 8 },
   center: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
+  exit: { opacity: 0, y: -6 },
 };
 
 const emptyEngine: EngineState = { profile: {}, asked: [], freeText: {} };
-
-function readMeterVariant(): MeterVariant {
-  const q = new URLSearchParams(window.location.search).get("meter");
-  if (q === "numbers" || q === "words" || q === "closer" || q === "ring") return q;
-  return "numbers";
-}
 
 export default function App() {
   /**
@@ -48,7 +38,6 @@ export default function App() {
   const [restored] = useState(loadSnapshot);
 
   const [stage, setStage] = useState<Stage>(restored?.stage ?? "hook");
-  const [meterVariant, setMeterVariant] = useState<MeterVariant>(readMeterVariant);
   const [engine, setEngine] = useState<EngineState>(restored?.engine ?? emptyEngine);
   const [rawText, setRawText] = useState(restored?.rawText ?? "");
   const [reveal, setReveal] = useState<RevealContent | null>(restored?.reveal ?? null);
@@ -80,9 +69,6 @@ export default function App() {
   stageRef.current = stage;
 
   const conf = useMemo(() => confidence(engine.profile), [engine.profile]);
-  const remaining = useMemo(() => remainingSetups(engine.profile), [engine.profile]);
-  const meterRemaining =
-    stage === "hook" || stage === "describe" ? DISTINCT_INDUSTRY_VALUES : remaining;
   const current = useMemo(
     () => nextQuestion(engine, preferredQuestionId),
     [engine, preferredQuestionId],
@@ -161,6 +147,8 @@ export default function App() {
    */
   const submitDescription = useCallback(
     (text: string) => {
+      unlockSound();
+      playSound("progress");
       setRawText(text);
       setStage("guess");
       kickOff(text, { profile: true, site: true, seedNextQuestion: true });
@@ -247,21 +235,6 @@ export default function App() {
   const stepNumber = engine.asked.length + 1;
   const screenKey = stage === "question" ? `q-${current?.id ?? "none"}` : stage;
 
-  const chooseMeter = useCallback((next: MeterVariant) => {
-    setMeterVariant(next);
-    const url = new URL(window.location.href);
-    url.searchParams.set("meter", next);
-    window.history.replaceState(null, "", url);
-  }, []);
-
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    if (!url.searchParams.get("meter")) {
-      url.searchParams.set("meter", meterVariant);
-      window.history.replaceState(null, "", url);
-    }
-  }, [meterVariant]);
-
   return (
     <>
       <div className="backdrop" aria-hidden="true">
@@ -281,8 +254,6 @@ export default function App() {
         >
           <NarrowingMeter
             confidence={conf}
-            remaining={meterRemaining}
-            variant={meterVariant}
             stage={stage}
             lastQuestionId={engine.asked[engine.asked.length - 1] ?? null}
             profile={engine.profile}
@@ -295,21 +266,26 @@ export default function App() {
         </motion.div>
       </AnimatePresence>
 
-      <SoundToggle />
-      <MeterPreviewSwitch value={meterVariant} onChange={chooseMeter} />
-
-      <main className="stage">
+      <main className={`stage${stage === "reveal" ? " stage-reveal" : ""}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={screenKey}
-            className="screen"
+            className={`screen${stage === "reveal" ? " screen-wide" : ""}`}
             variants={variants}
             initial="enter"
             animate="center"
             exit="exit"
             transition={transition}
           >
-            {stage === "hook" && <Hook onStart={() => setStage("describe")} />}
+            {stage === "hook" && (
+              <Hook
+                onStart={() => {
+                  unlockSound();
+                  playSound("start");
+                  setStage("describe");
+                }}
+              />
+            )}
 
             {stage === "describe" && (
               <Describe onSubmit={submitDescription} initialText={rawText} />
@@ -322,7 +298,8 @@ export default function App() {
                 loading={loading}
                 error={error}
                 onConfirm={() => {
-                  playSound("mcq");
+                  unlockSound();
+                  playSound("progress");
                   setStage("question");
                 }}
                 onReject={rejectGuess}

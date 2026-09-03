@@ -1,14 +1,15 @@
 /**
- * Original cues only — muted until the visible toggle is on.
- * We do not ship Instagram's (or anyone's) notification sound. The "social" cue is a
- * short original double-ping that reads as a message, not a copy of a brand asset.
+ * Short original cues. Success on the last page is the committed MP3 — do not replace it.
+ * Autoplay policies still require a gesture before the context runs; the first tap unlocks.
  */
 
-export type SoundCue = "curious" | "mcq" | "social" | "setup" | "cta";
+export type SoundCue = "start" | "select" | "progress" | "cta" | "curious" | "mcq" | "social" | "setup";
 
-let muted = true;
+let muted = false;
 let ctx: AudioContext | null = null;
 let successClip: HTMLAudioElement | null = null;
+let lastCueAt = 0;
+let lastCue: string | null = null;
 
 export function soundIsMuted() {
   return muted;
@@ -24,14 +25,19 @@ function context(): AudioContext | null {
   return ctx;
 }
 
+export function unlockSound() {
+  muted = false;
+  void context()?.resume();
+  ensureSuccessClip();
+}
+
 export function setSoundMuted(next: boolean) {
   muted = next;
   if (next) {
     if (successClip) successClip.pause();
     return;
   }
-  void context()?.resume();
-  ensureSuccessClip();
+  unlockSound();
 }
 
 function tone(
@@ -47,12 +53,12 @@ function tone(
   osc.type = type;
   osc.frequency.setValueAtTime(freq, at);
   amp.gain.setValueAtTime(0, at);
-  amp.gain.linearRampToValueAtTime(gain, at + 0.01);
+  amp.gain.linearRampToValueAtTime(gain, at + 0.012);
   amp.gain.exponentialRampToValueAtTime(0.0008, at + duration);
   osc.connect(amp);
   amp.connect(audio.destination);
   osc.start(at);
-  osc.stop(at + duration + 0.03);
+  osc.stop(at + duration + 0.02);
 }
 
 function ensureSuccessClip() {
@@ -78,27 +84,27 @@ export function playSetupReady() {
 
 export function playSound(cue: SoundCue) {
   if (muted) return;
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const mapped = cue === "curious" ? "start" : cue === "mcq" || cue === "social" || cue === "setup" ? "select" : cue;
+  if (mapped === lastCue && now - lastCueAt < 90) return;
+  lastCue = mapped;
+  lastCueAt = now;
+
   const audio = context();
   if (!audio) return;
   void audio.resume();
   const t = audio.currentTime + 0.01;
 
-  if (cue === "curious") {
-    tone(audio, 392, t, 0.09, 0.04, "sine");
-    tone(audio, 494, t + 0.1, 0.1, 0.04, "sine");
-    tone(audio, 587, t + 0.22, 0.16, 0.045, "triangle");
-  } else if (cue === "mcq") {
-    tone(audio, 704, t, 0.055, 0.032, "sine");
-    tone(audio, 880, t + 0.05, 0.05, 0.028, "triangle");
-  } else if (cue === "social") {
-    tone(audio, 1174, t, 0.07, 0.038, "triangle");
-    tone(audio, 1397, t + 0.09, 0.11, 0.042, "triangle");
-  } else if (cue === "setup") {
-    tone(audio, 392, t, 0.14, 0.04, "sine");
-    tone(audio, 523, t + 0.11, 0.14, 0.04, "sine");
-    tone(audio, 659, t + 0.22, 0.22, 0.045, "triangle");
+  if (mapped === "start") {
+    tone(audio, 440, t, 0.07, 0.018, "sine");
+  } else if (mapped === "select") {
+    tone(audio, 698, t, 0.045, 0.022, "sine");
+    tone(audio, 880, t + 0.04, 0.05, 0.016, "sine");
+  } else if (mapped === "progress") {
+    tone(audio, 523, t, 0.06, 0.02, "sine");
+    tone(audio, 659, t + 0.07, 0.09, 0.018, "triangle");
   } else {
-    tone(audio, 330, t, 0.08, 0.04, "sine");
-    tone(audio, 440, t + 0.09, 0.16, 0.05, "sine");
+    tone(audio, 392, t, 0.07, 0.022, "sine");
+    tone(audio, 523, t + 0.08, 0.12, 0.024, "sine");
   }
 }

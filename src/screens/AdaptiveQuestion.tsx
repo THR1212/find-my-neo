@@ -1,8 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import type { Question } from "../lib/questions";
 import { LineIn, ScreenIn } from "../components/ScreenIn";
-import { playSound } from "../sound";
+import { playSound, unlockSound } from "../sound";
 
 /**
  * One question, whichever the engine chose.
@@ -32,18 +32,24 @@ export default function AdaptiveQuestion({
 }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [text, setText] = useState("");
+  const locked = useRef(false);
 
   const multi = question.multi === true;
 
   function choose(optionId: string) {
-    const isSocial = optionId === "social" && question.id === "channel";
+    unlockSound();
     if (!multi) {
-      playSound(isSocial ? "social" : "mcq");
-      onAnswer(question.id, [optionId], text.trim() || undefined);
+      if (locked.current) return;
+      locked.current = true;
+      playSound("select");
+      setPicked([optionId]);
+      window.setTimeout(() => {
+        onAnswer(question.id, [optionId], text.trim() || undefined);
+      }, 130);
       return;
     }
     const turningOn = !picked.includes(optionId);
-    if (turningOn) playSound(isSocial ? "social" : "mcq");
+    if (turningOn) playSound("select");
     setPicked((prev) =>
       prev.includes(optionId) ? prev.filter((id) => id !== optionId) : [...prev, optionId],
     );
@@ -51,8 +57,9 @@ export default function AdaptiveQuestion({
 
   function submit(e?: FormEvent) {
     e?.preventDefault();
-    // Free text alone is a valid answer — the engine treats it as resolving the signal.
     if (picked.length === 0 && !text.trim()) return;
+    unlockSound();
+    playSound("progress");
     onAnswer(question.id, picked, text.trim() || undefined);
   }
 
@@ -75,7 +82,7 @@ export default function AdaptiveQuestion({
 
         <LineIn>
           <div className="options" role={multi ? "group" : undefined}>
-            {question.options.map((opt, i) => {
+            {question.options.map((opt) => {
               const on = picked.includes(opt.id);
               return (
                 <motion.button
@@ -84,9 +91,8 @@ export default function AdaptiveQuestion({
                   className={`option${on ? " option-on" : ""}`}
                   onClick={() => choose(opt.id)}
                   aria-pressed={multi ? on : undefined}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.04 * i, duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                  whileTap={{ scale: 0.985 }}
+                  transition={{ duration: 0.12 }}
                 >
                   {multi && (
                     <span className="option-check" aria-hidden="true">

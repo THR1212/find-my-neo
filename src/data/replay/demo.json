@@ -1,6 +1,5 @@
 {
-  "_comment": "Hand-written demo fixture, matched to the scripted input in docs/demo-script.md. Not model output — tuned by hand so the reveal lands exactly as intended. Replace with a recorded live response once the prompt is tuned.",
-
+  "_comment": "Hand-written demo fixture, matched to the scripted input in docs/demo-script.md. Not model output \u2014 tuned by hand so the reveal lands exactly as intended. Replace with a recorded live response once the prompt is tuned.",
   "profile": {
     "summary": "a two-person bakery in Bandra taking custom cake orders over Instagram",
     "_industryNote": "Titan's 16-industry taxonomy, which api/profile.ts constrains the model to. Was 'Bakery & confectionery' - a label matching neither Titan's taxonomy nor Neo's builder categories, so the handoff URL never carried an industryKey. See docs/data-findings.md section 6.",
@@ -8,19 +7,17 @@
     "teamSize": 2,
     "location": "Bandra, Mumbai",
     "domainStem": "proofandbutter",
-    "suggestedMailboxes": ["hello", "orders"]
+    "suggestedMailboxes": [
+      "hello",
+      "orders"
+    ]
   },
-
-  "_nextQuestionIdNote": "The model's suggestion for what to ask first. The engine overrules it if the signal is already resolved, so this can never break the flow. 'channel' is chosen here because the free text already mentions Instagram — asking it back makes the tool look like it was listening.",
-  "nextQuestionId": "channel",
-
   "meterGuess": "bakeries taking cake orders over Instagram",
-
   "surface": {
     "channel": {
       "prompt": "Where do cake orders reach you today?",
-      "sub": "Pick all that apply — most bakeries have more than one.",
-      "placeholder": "Somewhere else? WhatsApp, a marketplace…",
+      "sub": "Pick all that apply \u2014 most bakeries have more than one.",
+      "placeholder": "Somewhere else? WhatsApp, a marketplace\u2026",
       "options": {
         "social": {
           "label": "Instagram and WhatsApp DMs",
@@ -49,10 +46,26 @@
       "sub": "Existing mail or contacts from how you take orders now.",
       "placeholder": "Something else you'd want moved across?",
       "options": {
-        "none": { "label": "No, I'll start fresh", "hint": "", "meter": "who are starting their mail fresh" },
-        "emails": { "label": "Yes, my emails", "hint": "", "meter": "who are bringing their mail across" },
-        "both": { "label": "Emails and contacts", "hint": "", "meter": "who are moving mail and contacts" },
-        "contacts": { "label": "Just my contacts", "hint": "", "meter": "who are bringing their contacts" }
+        "none": {
+          "label": "No, I'll start fresh",
+          "hint": "",
+          "meter": "who are starting their mail fresh"
+        },
+        "emails": {
+          "label": "Yes, my emails",
+          "hint": "",
+          "meter": "who are bringing their mail across"
+        },
+        "both": {
+          "label": "Emails and contacts",
+          "hint": "",
+          "meter": "who are moving mail and contacts"
+        },
+        "contacts": {
+          "label": "Just my contacts",
+          "hint": "",
+          "meter": "who are bringing their contacts"
+        }
       }
     },
     "surface": {
@@ -60,8 +73,16 @@
       "sub": "You can add the other half later.",
       "placeholder": "",
       "options": {
-        "mail": { "label": "Just email", "hint": "hello@ on your own domain", "meter": "who need bakery email first" },
-        "both": { "label": "Email and a site", "hint": "", "meter": "who want mail and a cake site" }
+        "mail": {
+          "label": "Just email",
+          "hint": "hello@ on your own domain",
+          "meter": "who need bakery email first"
+        },
+        "both": {
+          "label": "Email and a site",
+          "hint": "",
+          "meter": "who want mail and a cake site"
+        }
       }
     },
     "client": {
@@ -69,21 +90,53 @@
       "sub": "Pick all that apply.",
       "placeholder": "Something else?",
       "options": {
-        "gmail": { "label": "Gmail", "hint": "", "meter": "who run the bakery from Gmail" },
-        "outlook": { "label": "Outlook", "hint": "", "meter": "who run the bakery from Outlook" },
-        "apple": { "label": "Apple Mail", "hint": "", "meter": "who use Apple Mail today" },
-        "none": { "label": "Nothing set up yet", "hint": "", "meter": "who have no bakery inbox yet" }
+        "gmail": {
+          "label": "Gmail",
+          "hint": "",
+          "meter": "who run the bakery from Gmail"
+        },
+        "outlook": {
+          "label": "Outlook",
+          "hint": "",
+          "meter": "who run the bakery from Outlook"
+        },
+        "apple": {
+          "label": "Apple Mail",
+          "hint": "",
+          "meter": "who use Apple Mail today"
+        },
+        "none": {
+          "label": "Nothing set up yet",
+          "hint": "",
+          "meter": "who have no bakery inbox yet"
+        }
       }
     },
     "team": {
       "prompt": "How many email addresses do you need?",
-      "sub": "Addresses, not people — hello@ and orders@ count.",
+      "sub": "Addresses, not people \u2014 hello@ and orders@ count.",
       "placeholder": "",
       "options": {
-        "1": { "label": "Just one", "hint": "", "meter": "one-address bakery setups" },
-        "2": { "label": "Two", "hint": "Yours plus a hello@", "meter": "two-address bakery setups" },
-        "3-5": { "label": "Three to five", "hint": "", "meter": "small bakery teams like yours" },
-        "6+": { "label": "More than five", "hint": "", "meter": "bigger bakery teams like yours" }
+        "1": {
+          "label": "Just one",
+          "hint": "",
+          "meter": "one-address bakery setups"
+        },
+        "2": {
+          "label": "Two",
+          "hint": "Yours plus a hello@",
+          "meter": "two-address bakery setups"
+        },
+        "3-5": {
+          "label": "Three to five",
+          "hint": "",
+          "meter": "small bakery teams like yours"
+        },
+        "6+": {
+          "label": "More than five",
+          "hint": "",
+          "meter": "bigger bakery teams like yours"
+        }
       }
     },
     "sells": {
@@ -91,15 +144,21 @@
       "sub": "Changes what a cake site needs to do.",
       "placeholder": "Anything else about how you get paid?",
       "options": {
-        "yes": { "label": "Yes, I take orders or payments", "hint": "", "meter": "who take cake payments online" },
-        "enquiry": { "label": "No, they enquire first", "hint": "", "meter": "who take cake enquiries first" }
+        "yes": {
+          "label": "Yes, I take orders or payments",
+          "hint": "",
+          "meter": "who take cake payments online"
+        },
+        "enquiry": {
+          "label": "No, they enquire first",
+          "hint": "",
+          "meter": "who take cake enquiries first"
+        }
       }
     }
   },
-
   "reveal": {
-    "_domainsNote": "Availability and price are overridden at runtime by the live DomScan lookup (/api/domains). These values are the FALLBACK shown only when that call fails. They are set to the measured live figures rather than invented ones, so the fallback path can never contradict the happy path in front of an audience. The stem must match domainStem above — the lookup keys off it.",
-
+    "_domainsNote": "Availability and price are overridden at runtime by the live DomScan lookup (/api/domains). These values are the FALLBACK shown only when that call fails. They are set to the measured live figures rather than invented ones, so the fallback path can never contradict the happy path in front of an audience. The stem must match domainStem above \u2014 the lookup keys off it.",
     "domains": [
       {
         "name": "proofandbutter.com",
@@ -122,13 +181,42 @@
       }
     ],
     "mailboxes": [
-      { "address": "hello@proofandbutter.com", "label": "For enquiries and new customers" },
-      { "address": "orders@proofandbutter.com", "label": "So cake orders stop living in your DMs" }
+      {
+        "address": "hello@proofandbutter.com",
+        "label": "For enquiries and new customers"
+      },
+      {
+        "address": "orders@proofandbutter.com",
+        "label": "So cake orders stop living in your DMs"
+      }
     ],
     "site": {
       "headline": "Celebration cakes, made to order in Bandra",
       "subhead": "Two bakers, one oven, and a waiting list worth joining.",
-      "sections": ["This week's cakes", "Order for a date", "Find us in Bandra"]
+      "sections": [
+        "This week's cakes",
+        "Order for a date",
+        "Find us in Bandra"
+      ]
     }
-  }
+  },
+  "_adaptNote": "Replaces nextQuestionId (removed 03 Sep 2026). questionPriority is the model's full ranking, consumed head-first for the whole flow; prefill is what the description already answered, in the same vocabulary the resolves payloads use. The recorded business is a Bandra bakery taking cake orders over Instagram, so channel and surface are exactly what it states.",
+  "questionPriority": [
+    "team",
+    "sells",
+    "import",
+    "client",
+    "surface",
+    "channel"
+  ],
+  "prefill": {
+    "customerChannel": [
+      "social"
+    ],
+    "surface": "both"
+  },
+  "prefilledQuestionIds": [
+    "surface",
+    "channel"
+  ]
 }

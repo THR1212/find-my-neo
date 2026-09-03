@@ -20,8 +20,7 @@
  * So no generation can change what an answer means, only how it reads.
  */
 
-import { complete, llmMode } from "./llm.js";
-import { proxyToProduction } from "./upstream.js";
+import { complete } from "./llm.js";
 
 /**
  * The fixed question structure, mirrored from src/lib/questions.ts.
@@ -78,6 +77,32 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
     prompt: "Do people pay you online?",
     options: { yes: "Yes, I take orders or payments", enquiry: "No, they enquire, then we arrange it" },
   },
+  /* Added 03 Sep with the questions that make Max and Growth reachable. Leaving them out of
+     this mirror does not break anything — validation drops what it does not recognise — it
+     just silently costs the generated wording, so three of nine screens would have read from
+     the fixed bank forever while the other six were personalised. */
+  volume: {
+    prompt: "What do you send people?",
+    options: {
+      text: "Mostly just messages",
+      docs: "Photos and documents",
+      heavy: "Large files, often",
+    },
+  },
+  extras: {
+    prompt: "Do you do any of these today?",
+    options: {
+      invoices: "Send quotes or invoices",
+      campaigns: "Message past customers as a group",
+      bookings: "Book people in for a time",
+      receipts: "Check whether mail was opened",
+      none: "None of these",
+    },
+  },
+  catalogue: {
+    prompt: "How much would you list on the site?",
+    options: { few: "A handful", dozens: "Dozens", hundreds: "Hundreds" },
+  },
 };
 
 /**
@@ -115,8 +140,8 @@ const SCHEMA = {
   properties: {
     questions: {
       type: "array",
-      minItems: 6,
-      maxItems: 6,
+      minItems: 9,
+      maxItems: 9,
       items: {
         type: "object",
         additionalProperties: false,
@@ -124,7 +149,7 @@ const SCHEMA = {
         properties: {
           questionId: {
             type: "string",
-            enum: ["import", "surface", "channel", "client", "team", "sells"],
+            enum: ["import", "surface", "channel", "client", "team", "sells", "volume", "extras", "catalogue"],
           },
           prompt: { type: "string", description: "The question. Under 60 characters." },
           sub: { type: "string", description: "One clarifying line. Under 90 characters." },
@@ -138,7 +163,7 @@ const SCHEMA = {
           options: {
             type: "array",
             minItems: 2,
-            maxItems: 4,
+            maxItems: 5,
             items: {
               type: "object",
               additionalProperties: false,
@@ -167,7 +192,7 @@ const SCHEMA = {
 } as const;
 
 const SYSTEM = [
-  "You rewrite six fixed questions for one specific small business, from a short description",
+  "You rewrite nine fixed questions for one specific small business, from a short description",
   "of it. You rewrite the question, the clarifying line, the free-text placeholder, and every",
   "option's label and hint.",
   "",
@@ -207,7 +232,7 @@ const SYSTEM = [
   "  BAD:  'we'll set up Instagram checkout' - a product promise",
   "  BAD:  'who sell the way you do'     - too generic; name THEIR trade",
   "",
-  "These are the six questions and their EXACT ids. Use these ids verbatim. Do not invent an",
+  "These are the nine questions and their EXACT ids. Use these ids verbatim. Do not invent an",
   "id, do not add or drop options, and keep each option meaning what it means now:",
   SHAPE_FOR_PROMPT,
 ].join("\n");
@@ -286,9 +311,6 @@ export async function handleQuestions(
     return { status: 400, body: { error: "businessText too short" } };
   }
 
-  const proxied = await proxyToProduction("/api/questions", businessText, sid);
-  if (proxied) return proxied;
-
   let questions: ModelQuestion[] = [];
   let reason = "";
   try {
@@ -298,7 +320,9 @@ export async function handleQuestions(
       user: businessText,
       schema: SCHEMA as unknown as Record<string, unknown>,
       schemaName: "question_surface",
-      maxOutputTokens: 3200,
+      /* Nine questions now, not six. Raised with the bank; llm.ts reports truncation rather
+         than letting it surface as a JSON parse error. */
+      maxOutputTokens: 3800,
     });
     questions = out.questions;
   } catch (err) {
@@ -315,7 +339,6 @@ export async function handleQuestions(
       sid,
       ms: Date.now() - startedAt,
       model: process.env.LLM_MODEL ?? "default",
-      mode: llmMode(),
       surfaced: Object.keys(surface).length,
       dropped: dropped.length,
       ...(reason ? { reason: reason.slice(0, 200) } : {}),

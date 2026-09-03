@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { DomainOption, RevealContent } from "../lib/session";
 import { availableFromLookup, lookupDomains, type DomainInfo } from "../lib/domains";
-import { pickFeatures, type FeatureSurface } from "../lib/features";
+import { pickFeatures, withReason, type FeatureSurface, type ReasonMap } from "../lib/features";
 import { recommend, CYCLE_LABEL } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
 import SetupStory from "../components/SetupStory";
@@ -24,6 +24,9 @@ export default function Reveal({
   profile,
   businessText,
   neoSite,
+  reasons,
+  rationale,
+  verdict,
   onRestart,
 }: {
   reveal: RevealContent | null;
@@ -34,6 +37,14 @@ export default function Reveal({
   profile: Profile;
   businessText: string;
   neoSite: NeoSite | null;
+  reasons?: ReasonMap;
+  rationale?: { rationale: string; whyNotCheaper: string };
+  verdict?: {
+    mailTier: string;
+    siteTier: string;
+    raised: boolean;
+    cites: { entitlement: string; evidence: string }[];
+  } | null;
   onRestart: () => void;
 }) {
   const [chosenName, setChosenName] = useState<string | null>(null);
@@ -160,8 +171,18 @@ export default function Reveal({
 
   const mailboxCount = Math.max(reveal.mailboxes.length, answeredMailboxes ?? 0);
   const surfaces: FeatureSurface[] = showSite ? ["mail", "site"] : ["mail"];
-  const features = pickFeatures(profile, surfaces);
-  const rec = recommend(profile, mailboxCount);
+  const rec = recommend(
+    profile,
+    mailboxCount,
+    verdict?.raised ? { mail: verdict.mailTier, site: verdict.siteTier } : null,
+  );
+  const features = pickFeatures(
+    profile,
+    surfaces,
+    2,
+    rec.sitePlan?.id ?? null,
+    rec.mailPlan.id,
+  ).map((f) => withReason(f, reasons));
 
   const neoName =
     neoSite && typeof (blockData(neoSite, "header") as { title?: unknown })?.title === "string"
@@ -288,11 +309,27 @@ export default function Reveal({
                 <span className="plan-price"> ₹{rec.monthlyInr.toLocaleString("en-IN")}/mo</span>
               )}
             </div>
-            <p className="plan-why">{rec.rationale}</p>
+            <p className="plan-why">{rationale?.rationale || rec.rationale}</p>
             {features.length > 0 && (
               <p className="plan-meta">
                 {features.map((f) => f.name).join(" · ")}
               </p>
+            )}
+            {(rec.needs.length > 0 || verdict?.raised) && (
+              <ul className="plan-needs">
+                {rec.needs.map((n) => (
+                  <li key={n.id}>{n.because}</li>
+                ))}
+                {verdict?.raised &&
+                  verdict.cites.map((c) => (
+                    <li key={c.entitlement} className="need-from-words">
+                      you said “{c.evidence}”
+                    </li>
+                  ))}
+              </ul>
+            )}
+            {rationale?.whyNotCheaper && (
+              <p className="plan-meta plan-cheaper">{rationale.whyNotCheaper}</p>
             )}
             <p className="plan-meta">
               {CYCLE_LABEL[rec.cycle]} · cancel anytime

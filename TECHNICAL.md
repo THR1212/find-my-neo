@@ -138,5 +138,5 @@ An unfiltered `?tlds=com,in,co` cost **78 credits** in testing. Always send `reg
 With that filter plus caching: cold 4 credits, new business 1, repeat 0.
 
 **The prices are NOT Neo's.** They are a third-party registrar's USD list price converted at a
-hardcoded 88 INR/USD. Labelled "approx" on screen. The right source is Neo's own domain search
+hardcoded 95 INR/USD. Labelled "approx" on screen. The right source is Neo's own domain search
 API, which needs function-head approval.

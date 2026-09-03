@@ -33,11 +33,21 @@ export interface ProfileResult {
    */
   meterGuess?: string;
   /**
-   * Which question the model thinks is most worth asking first, given what the free text
-   * already revealed. Advisory only — engine.ts overrules it if that signal is already
-   * resolved or the id isn't real, so a bad suggestion can't break the flow.
+   * All six question ids, ranked most-worth-asking-first for THIS business.
+   *
+   * Replaced `nextQuestionId`, which was a single pick that App consumed once and discarded —
+   * leaving questions 2, 3 and 4 to the engine's fixed weight order, which is identical for
+   * every business. Advisory still: engine.ts re-checks every id against what is actually
+   * unresolved, so a hallucinated or already-answered id is skipped rather than trusted.
    */
-  nextQuestionId?: string | null;
+  questionPriority?: string[];
+  /**
+   * Signals the free text already answered, in the same value vocabulary a tapped option
+   * would have produced. Merged straight into the profile.
+   */
+  prefill?: Record<string, string | string[] | boolean>;
+  /** The question ids `prefill` closes — recorded so the guess screen can show them. */
+  prefilledQuestionIds?: string[];
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -75,8 +85,7 @@ export async function buildProfile(businessText: string): Promise<ProfileResult>
     warnIfReplayInProduction();
     await sleep(REPLAY_DELAY_MS);
     const fixture = demoFixture as unknown as ProfileResult;
-    const { profile, reveal, nextQuestionId, meterGuess } = fixture;
-    return { profile, reveal, nextQuestionId, meterGuess };
+    return fixture;
   }
 
   try {
@@ -139,7 +148,12 @@ function derivedFallback(businessText: string): ProfileResult {
       domainStem: stem,
       suggestedMailboxes: ["hello", "contact"],
     },
-    nextQuestionId: null,
+    /* Empty, not guessed: the call never happened, so we know nothing about this business.
+       The engine's weight order is the honest default, and skipping a question on a fact we
+       never read would be inventing an answer. */
+    questionPriority: [],
+    prefill: {},
+    prefilledQuestionIds: [],
     reveal: {
       domains: [
         { name: `${stem}.com`, available: null, priceInr: null, recommended: true },
@@ -155,6 +169,117 @@ function derivedFallback(businessText: string): ProfileResult {
   };
 }
 
+export interface PlanVerdict {
+  mailTier: string;
+  siteTier: string;
+  /** True when a cited entitlement moved a tier above the deterministic answer. */
+  raised: boolean;
+  cites: { entitlement: string; evidence: string }[];
+  /** Citations that failed verification. Logged, never shown. */
+  rejected?: string[];
+}
+
+/**
+ * Ask the model whether anything they SAID reveals a requirement the fixed questions missed.
+ *
+ * The only call that can change what someone pays, and it can only ever raise a tier — with a
+ * cited entitlement and a quote the server finds in their own words. Everything else about the
+ * plan is deterministic. See api/_lib/planService.ts.
+ *
+ * Never rejects: on any failure the caller keeps the deterministic recommendation, which is
+ * already correct — this call exists to catch what the options could not express, not to
+ * decide the ordinary case.
+ */
+export async function fetchPlanVerdict(input: {
+  businessText: string;
+  answers: { question: string; answer: string }[];
+  mailTier: string;
+  siteTier: string;
+  /** Question ids answered by tapping. The model may not contradict these. */
+  answeredByTap: string[];
+}): Promise<PlanVerdict | null> {
+  if (MODE === "replay") return null;
+  try {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-fmn-session": sessionId() },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    return (await res.json()) as PlanVerdict;
+  } catch (err) {
+    reportDegraded("plan", err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
+export interface RationaleResult {
+  /** Replaces buildRationale's line. Empty means keep the fixed one. */
+  rationale: string;
+  /** "Why not the cheaper plan". Empty means show nothing — there is no fixed fallback. */
+  whyNotCheaper: string;
+}
+
+/**
+ * The two sentences under the price, written with the WHOLE run in hand.
+ *
+ * The only call fired after screen 1, because it is the only one that needs the answers. It
+ * explains the plan `rules.ts` already chose — the plan and mailbox count go in as facts, never
+ * as a question (CLAUDE.md rule 2).
+ *
+ * Never rejects, and never blocks: the reveal renders `buildRationale`'s fixed line until and
+ * unless this lands. This is the one model call with no recorded fallback of its own, so the
+ * fixed templates stay.
+ */
+export async function fetchRationale(input: {
+  businessText: string;
+  answers: { question: string; answer: string }[];
+  mailPlanId: string;
+  mailPlanName: string;
+  sitePlanId: string | null;
+  sitePlanName: string | null;
+  mailboxes: number;
+}): Promise<RationaleResult> {
+  const empty = { rationale: "", whyNotCheaper: "" };
+  if (MODE === "replay") return empty;
+  try {
+    const res = await fetch("/api/rationale", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-fmn-session": sessionId() },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    return (await res.json()) as RationaleResult;
+  } catch (err) {
+    reportDegraded("rationale", err instanceof Error ? err.message : String(err));
+    return empty;
+  }
+}
+
+/**
+ * Per-feature "why this matters to you" clauses for this business.
+ *
+ * Fired alongside the other two and never awaited. Its own route because it is needed at the
+ * REVEAL, not before the first question — see api/_lib/reasonService.ts. Never rejects: an
+ * empty map means every feature line renders its hand-written string, which is what shipped
+ * before this existed.
+ */
+export async function fetchReasons(businessText: string): Promise<Record<string, string>> {
+  if (MODE === "replay") return {};
+  try {
+    const res = await fetch("/api/reasons", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-fmn-session": sessionId() },
+      body: JSON.stringify({ businessText }),
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const body = (await res.json()) as { reasons?: Record<string, string> };
+    return body.reasons ?? {};
+  } catch (err) {
+    reportDegraded("reasons", err instanceof Error ? err.message : String(err));
+    return {};
+  }
+}
 
 /**
  * Reworded question wording for this business. Fired alongside buildProfile, never awaited

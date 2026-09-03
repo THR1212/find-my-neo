@@ -31,9 +31,21 @@ Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
 1. **Shipped name is "Find My Neo"** — defined once in `src/lib/brand.ts` as `PRODUCT_NAME`,
    never hardcoded in a component. "Akinator" is a trademark (Elokence SAS): internal shorthand
    and repo name only, never on screen, in the deck, or in a page title. See `docs/naming.md`.
-2. **The LLM never decides price or plan.** It emits a structured profile object only.
+2. **The LLM never emits a price, and may only ever RAISE a plan — with a checked reason.**
+   Rewritten 03 Sep, when `api/plan.ts` gave the model a say for the first time. `rules.ts`
+   still computes the recommendation deterministically from Pandora entitlements; the model
+   may raise a tier only by citing an entitlement (an enum, so it cannot be invented) and
+   quoting words the server finds in what the person actually wrote. It may never lower a
+   tier, never contradict an option someone tapped, and never produce a number — the floor
+   for each entitlement is looked up in our table, not taken from the model. Fail any check
+   and the deterministic answer stands. What it emits otherwise is a structured profile only.
    `src/lib/rules.ts` maps profile → plan deterministically. Pricing lives in `src/data/plans.json`.
    Same for features: `src/lib/features.ts` is a fixed bank using Neo's own verbatim names.
+   **The pricing sheet is not the offering.** Neo Lite is in the sheet and Neo does not sell it;
+   we recommended it, with a real price, until 03 Sep. Check a plan is purchasable before
+   `rules.ts` can return it. Mail feature names come from Neo's JSON config; **site feature
+   names have no config** and are captured in `src/data/site-features.json` — re-read the live
+   page before quoting a site limit.
 3. **No API key ever reaches the browser.** All model calls go through `api/*` serverless functions.
 4. **Every external call must degrade, never block.** Three of them now: the LLM (`api/_lib/llm.ts`,
    replay mode), Neo's site generator (`api/_lib/neoSite.ts`, falls back to a *recorded real*
@@ -56,10 +68,12 @@ Budget prompt-iteration time on the guess screen and the reveal only.
 1. Hook — on the pricing page, opens a full-screen overlay
 2. Free text — "What's your business?" (the only real input, and what justifies an LLM)
 3. The guess — profile reflected back, confirm or correct
-4. **Adaptive questions** — the engine asks whichever unresolved signal narrows most.
-   The model *suggests* which to ask next; `engine.ts` overrules it if that signal is already
-   resolved or the id isn't real. Stops when confident, or at 4. Different businesses get
-   different paths.
+4. **Adaptive questions** — the model returns `questionPriority` (all six ids, ranked for this
+   business) and `prefill` (signals the free text already answered). `engine.ts` consumes the
+   ranking head-first for the WHOLE flow and re-checks every id against what is unresolved.
+   Stops when confident, or at 4. Different businesses genuinely get different paths — this was
+   only aspirational until 03 Sep; see DECISIONS.
+   **Never prefill `mailboxCount`** — free text offers headcount, which is not an address count.
    Questions are **multi-select where the world is** (`question.multi`) and most carry a
    **free-text box**. Free text alone resolves the signal — someone who types instead of
    picking has still answered.
@@ -67,7 +81,10 @@ Budget prompt-iteration time on the guess screen and the reveal only.
    why-this-plan features, and the plan + real price quietly underneath
 
 **Do not reintroduce a fixed screen order.** The adaptivity is the product.
-The narrowing meter (5,318 → single digits) is the gamification and must stay visible throughout.
+
+The narrowing meter shows **words, not a count** (03 Sep). The "possible setups" number is off
+screen: `confidence()` still drives the early stop, and `remainingSetups()` is still computed,
+but neither is a design input any more. Do not reason about pacing from the counter.
 
 **Never compare a profile value with `===`.** Multi-select means a value may be an array; use
 `has()` from `engine.ts`. A direct equality check silently stops matching and nothing fails
@@ -131,6 +148,10 @@ server-side only. RDAP was built first and removed — see DECISIONS. **Watch th
 `/v1/prices` bills per TLD × registrar pair, so it always needs a `registrars=` filter.
 
 ## LLM
+
+**`docs/llm-flow.md` explains the whole model flow end to end** — what the two calls are, when
+they fire, what they may and may not decide, what degrades to what, and what is still
+hand-written. Read that before reasoning about the flow; the notes below are the gotchas only.
 
 Provider is **not Anthropic** — it is GPT-5.6 (`gpt-5.6-terra` default, `gpt-5.6-luna` as the
 cheap tier). Model ID lives in `LLM_MODEL`, never hardcoded outside `api/_lib/llm.ts`.

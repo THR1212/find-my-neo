@@ -1,3 +1,5 @@
+import { appendFile } from "node:fs/promises";
+
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 
@@ -5,6 +7,9 @@ import { handleDomainLookup } from "./api/_lib/domainService.js";
 import { generateNeoSite } from "./api/_lib/neoSite.js";
 import { handleProfile } from "./api/_lib/profileService.js";
 import { handleQuestions } from "./api/_lib/questionService.js";
+import { handleReasons } from "./api/_lib/reasonService.js";
+import { handleRationale } from "./api/_lib/rationaleService.js";
+import { handlePlan } from "./api/_lib/planService.js";
 
 /**
  * Mounts /api/domains on the dev server so `npm run dev` behaves like the deployed build.
@@ -23,6 +28,48 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
       for (const k of ["LLM_MODE", "LLM_MODEL", "LLM_API_KEY", "LLM_BASE_URL"]) {
         if (env[k]) process.env[k] = env[k];
       }
+
+      /**
+       * Completed runs, appended to `runs.jsonl` (gitignored).
+       *
+       * The dev sink writes a FILE rather than printing, because this is the artefact for
+       * refining: one JSON object per line, so `analysis/` can read it with the same Python
+       * Darrel already uses, and it survives the terminal scrolling away. Production posts the
+       * same record to api/run.ts, which logs instead.
+       */
+      server.middlewares.use("/api/run", (req, res) => {
+        let body = "";
+        req.on("data", (c) => (body += c));
+        req.on("end", () => {
+          /* One object per line — a newline inside the JSON would break JSONL. Re-serialising
+             also validates the body, so a malformed post is dropped with a message rather
+             than corrupting the file for every run after it. */
+          let line = "";
+          try {
+            line = JSON.stringify(JSON.parse(body || "{}")) + "\n";
+          } catch {
+            console.error("[run] dropped an unparseable body");
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
+          void appendFile("runs.jsonl", line, "utf8")
+            .then(() => {
+              try {
+                const r = JSON.parse(body);
+                console.error(
+                  "[run]",
+                  `${r.sid} asked=${(r.trail ?? []).length} prefilled=${(r.prefilled ?? []).join(",") || "-"} -> runs.jsonl`,
+                );
+              } catch {
+                console.error("[run] appended (unparseable summary)");
+              }
+            })
+            .catch((err) => console.error("[run] could not append:", String(err)));
+          res.statusCode = 204;
+          res.end();
+        });
+      });
 
       // Client error / degradation sink. Mirrors api/log.ts; prints to the dev terminal.
       server.middlewares.use("/api/log", (req, res) => {
@@ -88,6 +135,7 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
       for (const [path, fn] of [
         ["/api/profile", handleProfile],
         ["/api/questions", handleQuestions],
+        ["/api/reasons", handleReasons],
       ] as const) {
         server.middlewares.use(path, async (req, res) => {
         res.setHeader("Content-Type", "application/json");
@@ -112,6 +160,53 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         });
         });
       }
+
+      /* Takes a whole object rather than a bare businessText, so it cannot share the loop
+         above. Same handler the Vercel function uses. */
+      /* Object-bodied like /api/rationale, so it cannot share the businessText loop either. */
+      server.middlewares.use("/api/plan", async (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        if (req.method !== "POST") {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: "method not allowed" }));
+          return;
+        }
+        let raw = "";
+        req.on("data", (c) => (raw += c));
+        req.on("end", async () => {
+          try {
+            const sid = String(req.headers["x-fmn-session"] ?? "none").slice(0, 24);
+            const { status, body } = await handlePlan(JSON.parse(raw || "{}"), sid);
+            res.statusCode = status;
+            res.end(JSON.stringify(body));
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: String(err) }));
+          }
+        });
+      });
+
+      server.middlewares.use("/api/rationale", async (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        if (req.method !== "POST") {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: "method not allowed" }));
+          return;
+        }
+        let raw = "";
+        req.on("data", (c) => (raw += c));
+        req.on("end", async () => {
+          try {
+            const sid = String(req.headers["x-fmn-session"] ?? "none").slice(0, 24);
+            const { status, body } = await handleRationale(JSON.parse(raw || "{}"), sid);
+            res.statusCode = status;
+            res.end(JSON.stringify(body));
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: String(err) }));
+          }
+        });
+      });
 
       server.middlewares.use("/api/domains", async (req, res) => {
         const url = new URL(req.url ?? "", "http://localhost");

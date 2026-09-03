@@ -4,15 +4,8 @@
   "_units": "All INR figures are PER MAILBOX PER MONTH for mail, and PER MONTH for site, at the stated billing cycle. Longer cycles are cheaper per month but billed upfront.",
 
   "mail": {
-    "_note": "Lite has no monthly option in the sheet (shown as '-') — it starts at quarterly. 'afterFirstCycle' is the renewal rate once the introductory cycle ends; it is higher than the intro rate for every plan except Lite, which is flat.",
+    "_note": "'afterFirstCycle' is the renewal rate once the introductory cycle ends, and it is higher than the intro rate for every plan here. NEO LITE WAS REMOVED 03 Sep 2026: it is in the pricing sheet but is NOT a plan Neo actually sells, so recommending it would send someone to a checkout that cannot fulfil it. Starter is the entry plan. Do not re-add it from the sheet — the sheet is not the offering.",
     "plans": [
-      {
-        "id": "lite",
-        "name": "Neo Lite",
-        "inr": { "monthly": null, "quarterly": 59, "yearly": 59, "twoYearly": 59, "fourYearly": 59 },
-        "afterFirstCycleInr": 59,
-        "blurb": "One address on your own domain"
-      },
       {
         "id": "starter",
         "name": "Neo Starter",

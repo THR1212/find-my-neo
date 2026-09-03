@@ -33,7 +33,7 @@
  *   `neo_site`     = "AI-powered site builder"    -> one-page (asset is one_page_site.png)
  */
 
-import { has, type Profile } from "./engine";
+import { has, type Profile } from "./profile";
 
 export type FeatureSurface = "mail" | "site";
 
@@ -49,6 +49,30 @@ export interface Feature {
    * generic benefit copy is exactly what we're trying to beat.
    */
   because: string;
+  /**
+   * Lowest site plan that actually includes this, per `src/data/site-features.json`.
+   *
+   * Absent means every tier has it (or it is a mail feature, where our plans do not gate the
+   * ones we surface). This exists because relevance and availability are different questions,
+   * and answering only the first produced a real contradiction: a phone-and-walk-ins bike shop
+   * matched `Contact Forms` on relevance, was correctly recommended **Basic** on price — and
+   * Basic has no contact forms. We would have printed a feature the plan underneath it does
+   * not include, which is the exact "promise we cannot keep" failure the verbatim-names rule
+   * exists to prevent.
+   */
+  minSitePlan?: "basic" | "plus" | "growth";
+  /**
+   * Lowest MAIL plan that actually grants this, per `src/data/plan-features.json` (Pandora
+   * backend, and the highest authority we have — it beats both the name config and the
+   * marketing table).
+   *
+   * The mail half had the same fault as the site half, and worse. Four features here are
+   * **Max-only**, and `chooseMailPlan` can only return Starter or Standard — so Invoice
+   * Builder, AI Email Writer, Campaign Mode and Appointment Booking were being offered as
+   * reasons to buy a plan that does not include any of them. Pandora is explicit that Invoice
+   * Builder is *disabled* on Starter and Standard.
+   */
+  minMailPlan?: "starter" | "standard" | "max";
   /** True when this person's profile makes the feature genuinely relevant. */
   matches: (p: Profile) => boolean;
   /** Tie-break when several match. Higher wins. */
@@ -92,6 +116,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "invoice_builder",
+    minMailPlan: "max",
     name: "Invoice Builder",
     surface: "mail",
     because: "quotes and invoices without leaving your inbox",
@@ -100,6 +125,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "titan_ai",
+    minMailPlan: "max",
     name: "AI Email Writer",
     surface: "mail",
     because: "replies to the same three questions stop eating your evenings",
@@ -109,6 +135,7 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "email_marketing",
+    minMailPlan: "max",
     name: "Campaign Mode",
     surface: "mail",
     because: "tell past customers what's new without doing it one message at a time",
@@ -132,7 +159,21 @@ export const FEATURES: Feature[] = [
     priority: 7,
   },
   {
+    id: "appointment_booking",
+    name: "Appointment Booking",
+    /* MAIL, and Max only. We had this filed as a `site` feature, which it is not — it appears
+       in no site plan at all. Since chooseMailPlan cannot return Max it will never surface
+       today; that is correct behaviour, not dead code, and it is recorded in
+       plan-features.json as an open question about whether Max should be reachable. */
+    surface: "mail",
+    minMailPlan: "max",
+    because: "people pick a slot themselves instead of messaging back and forth",
+    matches: (p) => is(p, "sellsOnline", false) || is(p, "customerChannel", "offline"),
+    priority: 5,
+  },
+  {
     id: "signature_builder",
+    minMailPlan: "standard",
     name: "Signature Designer",
     surface: "mail",
     because: "every mail you send looks like it came from a real business",
@@ -140,14 +181,94 @@ export const FEATURES: Feature[] = [
     priority: 4,
   },
 
-  /* --- Site --- */
+  /* --- Site ---
+   *
+   * SOURCE IS DIFFERENT FROM THE MAIL HALF ABOVE, and that matters when you add one.
+   *
+   * Mail features come from Neo's JSON config (the 49-entry file named at the top of this
+   * file), so their names are the API's own `heading` verbatim. **There is no equivalent
+   * config for site features** — three plausible paths were probed and all 403'd, and the
+   * pricing page fetches no second config. Neo's site features exist only as static markup in
+   * their pricing page's "AI Site Pricing" comparison table.
+   *
+   * That table is captured in `src/data/site-features.json` with its read date. Names below
+   * are its verbatim `feature-name` cells. Before adding one, check it there — and re-read the
+   * live page if you are about to quote a limit to anyone at Neo, because a marketing page
+   * changes without warning.
+   *
+   * There used to be three entries here and two of them were `matches: () => true`, so every
+   * site recommendation on earth showed the same bullets. That is the "the reveal is
+   * templated" complaint in its purest form: personalised copy sitting on top of a feature
+   * set that never varied.
+   */
   {
-    id: "appointment_booking",
-    name: "Appointment Booking",
+    id: "site_contact_forms",
+    minSitePlan: "plus",
+    name: "Contact Forms",
     surface: "site",
-    because: "people pick a slot themselves instead of messaging back and forth",
-    matches: (p) => is(p, "sellsOnline", false) || is(p, "customerChannel", "offline"),
+    /* THE most important row in Neo's site table: Basic has none at all (Plus 1000, Growth
+       unlimited). See rules.ts — this is why an enquiry-led business cannot be sent to Basic. */
+    because: "enquiries land in your inbox instead of a DM you'll scroll past",
+    matches: (p) =>
+      is(p, "sellsOnline", false) ||
+      is(p, "customerChannel", "social") ||
+      is(p, "customerChannel", "personal_email"),
+    priority: 10,
+  },
+  {
+    id: "site_products",
+    name: "List your products",
+    surface: "site",
+    because: "your products on a page you can send someone, priced and in one place",
+    matches: (p) => is(p, "sellsOnline", true),
     priority: 9,
+  },
+  {
+    id: "site_services",
+    name: "List your services",
+    surface: "site",
+    because: "what you do and what it costs, without retyping it into every message",
+    matches: (p) => is(p, "sellsOnline", false) && !is(p, "customerChannel", "offline"),
+    priority: 8,
+  },
+  {
+    id: "site_whatsapp",
+    minSitePlan: "plus",
+    name: "WhatsApp",
+    surface: "site",
+    /* Plus and above. Neo's own generated sites carry a WhatsApp widget — observed in a real
+       run, see docs/neo-product-facts.md — so this is a fact about the product, not a claim. */
+    because: "the chat button your customers already expect, on the site itself",
+    matches: (p) => is(p, "customerChannel", "social"),
+    priority: 7,
+  },
+  {
+    id: "site_testimonials",
+    minSitePlan: "plus",
+    name: "Testimonials",
+    surface: "site",
+    because: "the word-of-mouth you already have, where a stranger can read it",
+    matches: (p) => is(p, "customerChannel", "offline") || is(p, "customerChannel", "personal_email"),
+    priority: 6,
+  },
+  {
+    id: "site_analytics",
+    name: "Visitor analytics",
+    surface: "site",
+    /* On every site plan including Basic — safe to show to anyone with a site. */
+    because: "you find out whether anyone actually came, not just that it's live",
+    matches: (p) => is(p, "customerChannel", "site"),
+    priority: 5,
+  },
+  {
+    id: "site_branding",
+    minSitePlan: "plus",
+    name: "Remove Neo Branding",
+    surface: "site",
+    /* Absent on Basic. Only worth surfacing to someone already heading for Plus. */
+    because: "the page reads as yours, with nobody else's name in the footer",
+    matches: (p) => is(p, "sellsOnline", true) || is(p, "customerChannel", "site"),
+    priority: 4,
   },
   {
     id: "neo_site",
@@ -157,7 +278,7 @@ export const FEATURES: Feature[] = [
        system prompt says "one-page landing website". Never imply multi-page. */
     because: "a one-page site generated from what you just told us, yours to edit",
     matches: (p) => is(p, "customerChannel", "social") || is(p, "surface", "both"),
-    priority: 8,
+    priority: 3,
   },
   {
     id: "neo_domain",
@@ -165,10 +286,11 @@ export const FEATURES: Feature[] = [
     surface: "site",
     /* Catalogue heading is templated ("maxdesigns.co.site domain"), so this one is
        necessarily paraphrased — but the SUBSTANCE is exact: neo_domain is the free
-       .co.site subdomain, confirmed by walking the funnel. */
+       .co.site subdomain, confirmed by walking the funnel.
+       Last-resort fallback: matches everyone, so it must stay the lowest site priority. */
     because: "somewhere to publish today, before you commit to buying a domain",
     matches: () => true,
-    priority: 3,
+    priority: 1,
   },
   {
     id: "custom_domain",
@@ -185,28 +307,76 @@ export const FEATURES: Feature[] = [
  * in play, so a mail+site recommendation justifies each half rather than stacking two reasons
  * for whichever matched hardest — the point is to explain the shape of the recommendation.
  */
+const SITE_TIER_RANK: Record<string, number> = { basic: 0, plus: 1, growth: 2 };
+const MAIL_TIER_RANK: Record<string, number> = { starter: 0, standard: 1, max: 2 };
+
+/**
+ * Is this feature actually included in the plan being recommended?
+ *
+ * `sitePlanId` is what `rules.ts` chose. Passing null (mail-only, or no plan yet) keeps every
+ * feature eligible, because there is no site tier to contradict.
+ */
+function availableOn(f: Feature, sitePlanId: string | null, mailPlanId: string | null): boolean {
+  if (f.minSitePlan) {
+    if (!sitePlanId) return false;
+    if ((SITE_TIER_RANK[sitePlanId] ?? 0) < SITE_TIER_RANK[f.minSitePlan]) return false;
+  }
+  if (f.minMailPlan) {
+    if (!mailPlanId) return false;
+    if ((MAIL_TIER_RANK[mailPlanId] ?? 0) < MAIL_TIER_RANK[f.minMailPlan]) return false;
+  }
+  return true;
+}
+
 export function pickFeatures(
   profile: Profile,
   surfaces: FeatureSurface[],
   limit = 2,
+  /* The site plan rules.ts settled on. Features the tier does not include are filtered out —
+     see `minSitePlan`. Optional so mail-only callers need not pass it. */
+  sitePlanId: string | null = null,
+  /* The mail plan rules.ts settled on. Same reason as sitePlanId — four features here are
+     Max-only and must never be named next to a Starter or Standard price. */
+  mailPlanId: string | null = null,
 ): Feature[] {
+  const eligible = FEATURES.filter(
+    (f) => f.matches(profile) && availableOn(f, sitePlanId, mailPlanId),
+  );
   const picked: Feature[] = [];
 
   for (const surface of surfaces) {
-    const best = FEATURES.filter((f) => f.surface === surface && f.matches(profile)).sort(
-      (a, b) => b.priority - a.priority,
-    )[0];
+    const best = eligible
+      .filter((f) => f.surface === surface)
+      .sort((a, b) => b.priority - a.priority)[0];
     if (best) picked.push(best);
   }
 
   // One surface in play and room left — add its runner-up rather than padding with the other
   // surface, which they explicitly didn't ask for.
   if (picked.length < limit && surfaces.length === 1) {
-    const more = FEATURES.filter(
-      (f) => f.surface === surfaces[0] && f.matches(profile) && !picked.includes(f),
-    ).sort((a, b) => b.priority - a.priority);
+    const more = eligible
+      .filter((f) => f.surface === surfaces[0] && !picked.includes(f))
+      .sort((a, b) => b.priority - a.priority);
     picked.push(...more.slice(0, limit - picked.length));
   }
 
   return picked.slice(0, limit);
+}
+
+/** Model-written `because` clauses, keyed by feature id. Validated server-side. */
+export type ReasonMap = Record<string, string>;
+
+/**
+ * Overlay a generated reason onto a fixed feature.
+ *
+ * Only `because` is replaceable. `name` is Neo's own and `id`, `matches`, `minMailPlan` and
+ * `minSitePlan` are the contract that decides whether this feature may be shown at all — a
+ * generation that could touch those could put a Max-only feature next to a Starter price.
+ *
+ * Returns the feature unchanged when there is no override, so callers cannot tell the paths
+ * apart and a failed generation degrades to exactly what ships today.
+ */
+export function withReason(f: Feature, reasons?: ReasonMap): Feature {
+  const r = reasons?.[f.id]?.trim();
+  return r ? { ...f, because: r } : f;
 }

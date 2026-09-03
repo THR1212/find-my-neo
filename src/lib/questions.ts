@@ -34,6 +34,20 @@ export type SignalId =
   | "surface"
   | "customerChannel"
   | "sellsOnline"
+  /**
+   * The six below exist to make Max and Growth reachable, and each one gates on a real
+   * entitlement rather than a preference. Added 03 Sep — before them, `chooseMailPlan` could
+   * only ever return Starter or Standard, so two of Neo's plans were listed in plans.json and
+   * unreachable by any code path.
+   *
+   * Ordering note: these are asked only when they DISCRIMINATE (see candidates.ts), so adding
+   * six questions does not add six questions to anyone's flow. A business none of them applies
+   * to will never see them.
+   */
+  | "attachmentVolume"
+  /** Multi-select. Holds any of invoices / campaigns / bookings / receipts / none. */
+  | "extras"
+  | "catalogueSize"
   | "brandName";
 
 export interface QuestionOption {
@@ -263,7 +277,145 @@ export function withSurface(q: Question, surface?: SurfaceMap): Question {
   };
 }
 
+/* --- The six that reach Max and Growth ---------------------------------------------------
+ *
+ * WHY THESE SIX AND NOT ANY OTHERS. docs/data-findings.md §5 is the most directly useful thing
+ * we have for a pre-purchase quiz: it records which paywall someone actually clicked before
+ * paying. `Storage Banner` dominates in EVERY industry at 32-52% of conversions, `Read Receipt`
+ * is the #2 real feature at 8-12%, and everything else is low single digits. So storage leads,
+ * receipts follow, and the rest are here because they are hard entitlement gates in Pandora —
+ * not because they sound compelling.
+ *
+ * EVERY OPTION DESCRIBES WHAT THEY DO TODAY, never what they would like. "Do you send quotes
+ * or invoices?" is a fact; "would you like to send invoices?" is a feature pitch, and people
+ * say yes to nice-sounding features they never use — §9 measured exactly that, with only 3.5%
+ * of orders ever building an order form. Behaviour is the honest thing to price on.
+ *
+ * WEIGHTS ARE PROVISIONAL and say so. §5 justifies storage above receipts above the rest; the
+ * exact numbers below are not data-derived the way the original six are. This matters much
+ * less than it used to, because `nextQuestion` now selects on discrimination and weight only
+ * breaks ties — and runs.jsonl is how we settle them rather than by feel.
+ */
+QUESTIONS.push(
+  {
+    id: "volume",
+    signal: "attachmentVolume",
+    prompt: "What do you send people?",
+    sub: "Storage is the single most common reason people upgrade — worth getting right.",
+    weight: 0.25,
+    freeText: { placeholder: "Something bulkier? Tell us" },
+    options: [
+      { id: "text", label: "Mostly just messages", resolves: { attachmentVolume: "text" } },
+      {
+        id: "docs",
+        label: "Photos and documents",
+        hint: "Quotes, invoices, a few images",
+        resolves: { attachmentVolume: "docs" },
+      },
+      {
+        id: "heavy",
+        label: "Large files, often",
+        hint: "Design files, video, big galleries",
+        resolves: { attachmentVolume: "heavy" },
+      },
+    ],
+  },
+  {
+    /**
+     * FOUR Max gates in ONE multi-select, and the reason is drop-off asymmetry.
+     *
+     * These were four separate yes/no questions and the probe showed why that fails: a "yes"
+     * settles the plan and kills all further discrimination, while a "no" leaves every tier
+     * open. So a plain business answering no to everything was asked SEVEN questions, and a
+     * consultant who invoices was asked THREE — the longest flow going to exactly the people
+     * most likely to abandon. Four consecutive "do you do X" screens also read as a feature
+     * checklist, which is the form feeling the adaptive flow exists to avoid.
+     *
+     * As one checklist, a plain business clears all four in a single tap on "None of these".
+     *
+     * Every option is a Max entitlement in Pandora: Invoice Builder, Campaign Mode and
+     * Appointment Booking are explicitly absent below Max, and only Max has unlimited read
+     * receipts (Starter caps at 50, Standard is a 90-day trial). Read receipts earn their
+     * place from data — docs/data-findings.md §5 has them as the #2 paywall trigger at 8-12%,
+     * behind only storage.
+     */
+    id: "extras",
+    signal: "extras",
+    prompt: "Do you do any of these today?",
+    sub: "Pick any that apply. Asking what you already do, not what sounds useful.",
+    weight: 0.2,
+    multi: true,
+    freeText: { placeholder: "Something else you do a lot of?" },
+    options: [
+      { id: "invoices", label: "Send quotes or invoices", resolves: { extras: "invoices" } },
+      {
+        id: "campaigns",
+        label: "Message past customers as a group",
+        hint: "Offers, new stock, seasonal notes",
+        resolves: { extras: "campaigns" },
+      },
+      { id: "bookings", label: "Book people in for a time", resolves: { extras: "bookings" } },
+      {
+        id: "receipts",
+        label: "Check whether mail was opened",
+        resolves: { extras: "receipts" },
+      },
+      { id: "none", label: "None of these", resolves: { extras: "none" } },
+    ],
+  },
+  {
+    id: "catalogue",
+    signal: "catalogueSize",
+    prompt: "How much would you list on the site?",
+    sub: "Products or services, roughly.",
+    weight: 0.12,
+    options: [
+      { id: "few", label: "A handful", hint: "Under ten", resolves: { catalogueSize: "few" } },
+      { id: "dozens", label: "Dozens", resolves: { catalogueSize: "dozens" } },
+      { id: "hundreds", label: "Hundreds", resolves: { catalogueSize: "hundreds" } },
+    ],
+  },
+);
+
 export const QUESTION_BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]));
 
 /** Total narrowing available, used to normalise the confidence ring. */
 export const TOTAL_WEIGHT = QUESTIONS.reduce((sum, q) => sum + q.weight, 0);
+
+/**
+ * Plain-English lines for the questions the free text already answered.
+ *
+ * Reads the profile back through the SAME option table the question would have shown, so the
+ * words a person sees on the guess screen are the words they would have tapped. Nothing here
+ * is model-written: if the description said "orders come through Instagram DMs", this renders
+ * the fixed label "Social DMs", which is the option `prefill` actually resolved to.
+ *
+ * Deliberately shows the resolved OPTION, not the raw sentence. The point of the line is to
+ * expose what we recorded — the thing that will price them — rather than to flatter them by
+ * repeating their own text back.
+ *
+ * Returns [] when nothing was prefilled, which is the common case and renders nothing.
+ */
+export function describePrefill(
+  profile: Record<string, unknown>,
+  prefilledIds: string[] | undefined,
+  surface?: SurfaceMap,
+): string[] {
+  const lines: string[] = [];
+  for (const id of prefilledIds ?? []) {
+    const q = QUESTION_BY_ID.get(id);
+    if (!q) continue;
+    const shown = withSurface(q, surface);
+    const value = profile[q.signal];
+    const matched = shown.options.filter((o) => {
+      const v = o.resolves[q.signal];
+      if (v === undefined) return false;
+      return Array.isArray(value) ? value.includes(String(v)) : value === v;
+    });
+    if (!matched.length) continue;
+    /* Trailing "?" off the prompt: it is a statement here, not a question. */
+    const label = shown.prompt.replace(/\?+\s*$/, "");
+    lines.push(`${label}: ${matched.map((o) => o.label).join(", ")}`);
+  }
+  return lines;
+}

@@ -1013,3 +1013,471 @@ What went there instead is motion *about them*: `SetupTray`, four slots under th
 fill in as answers resolve — domain, mailboxes, mail-vs-site, what they're bringing across.
 Nothing is predicted; a slot stays empty until the answer earns it. The narrowing becomes
 visible on the page rather than only in the meter.
+
+---
+
+## 03 Sep 2026 — the flow only looked adaptive
+
+Three complaints from a walkthrough ("questions are repeated", "we're not getting more
+information", "the reveal has stuff fixed"). Each turned out to have a separate, provable
+cause, and the first one is the embarrassing one.
+
+### Every business got the same four questions
+
+`nextQuestion`'s fallback is `unresolved.reduce((best, q) => q.weight > best.weight ? q : best)`
+over a static array with static weights. That is a pure function of which signals are resolved,
+so with an empty profile it returns the same answer every time. Simulated:
+
+```
+MAX=4  ->  asked 4: team, surface, channel, sells   never asked: [import, client]
+```
+
+`import` and `client` were **unreachable at MAX_QUESTIONS = 4**, for everyone, always.
+The model's `nextQuestionId` did not save it: App consumed it once and then called
+`setPreferredQuestionId(null)`, so it only ever moved question 1.
+
+CLAUDE.md's "different businesses get different paths" was, until today, false.
+
+**Fixed** by replacing the single pick with `questionPriority` — all six ids ranked — held in
+`engine.priority` and consumed head-first for the whole flow. Every id is still re-checked
+against what is actually unresolved, so the model orders and the engine decides.
+
+### The description was read and then thrown away
+
+`kickOff` seeded `industry`, `brandName` and `teamSize`. None of those is a question signal, so
+all six questions stayed unresolved no matter what someone wrote. Type "orders come through
+Instagram DMs and we need a website" and you were still asked where customers reach you and what
+needs standing up first — the two things you had just said.
+
+**Fixed** with `prefill`: an enum-constrained object using the same value vocabulary as the
+`resolves` payloads, so a prefilled signal is indistinguishable from a tapped one and
+`isResolved` skips its question for free. Capped at `MAX_PREFILL = 2` — pacing, not safety;
+without a cap a chatty description leaves a two-question flow, which reads as giving up.
+**`mailboxCount` is never prefillable**: free text offers headcount, and pricing headcount as
+addresses is the exact bug the `teamSize -> mailboxCount` rename fixed.
+
+Verified live, two businesses, same build:
+
+```
+florist, Instagram, sells online, wants a site
+  prefill  surface=both, customerChannel=[social]   ->  asked team, import, client
+bike shop, phone and walk-ins, no online sales
+  prefill  customerChannel=[offline], sellsOnline=false  ->  asked surface, team, client
+```
+
+### A prefill must be visible or it is not correctable
+
+Skipping a question means an answer nobody gave now sets their plan and their price. The guess
+screen lists what was taken from the text (`describePrefill`), rendered through the same option
+table the question would have used — and through the generated wording when it has landed, so
+the words match what they would have seen. "Not quite" stays a real escape.
+
+### The narrowing counter is no longer a design input
+
+Decision from the walkthrough: the "possible setups" number comes off screen (Moin is replacing
+it with screen-relevant words). `confidence()` stays — it drives the early stop, which is flow
+logic. `remainingSetups()` stays computed, for our own reference only.
+
+This retired a mechanism that had been argued for twice: discounting prefilled signals at half
+weight in `resolvedWeight`, to stop the meter collapsing from 2,401 to 576 before question one.
+That was a cosmetic fix for a cosmetic problem. Checked whether it still mattered for flow — at
+`MAX_PREFILL = 2` the discounted and undiscounted paths produce the same 3-question flow,
+because confidence never reaches the 0.82 early stop before question 3 either way. Dropped.
+
+**MAX_QUESTIONS stays 4.** Raising it to 6 was considered and rejected on measurement: 5 and 6
+are the *same flow*, because the confidence early stop fires after the 5th, and the bank only
+holds six — a cap of 6 means "ask everything", which deletes selection adaptivity entirely.
+4 also keeps Mailchimp (4) and Rinda (3) precedent from `docs/competitor-qualification.md`, sits
+well inside Darrel's 40-65% quiz-completion risk, and preserves the pitch line that four
+questions at the moment of purchase is a different artefact from Microsoft's seven on a
+marketing microsite.
+
+### Neo Lite is not a plan Neo sells
+
+`chooseMailPlan` routed solo, non-importing, mail-only people to **Neo Lite** at ₹59 — a real
+price for a plan no checkout can fulfil. It is in the pricing sheet; it is not in the offering.
+Removed from `plans.json` and `rules.ts`. **The pricing sheet is not the offering** — do not
+re-derive a recommendable plan from `plans.json` without checking it is purchasable.
+
+Consequence to watch: `importIntent` no longer gates any plan, so it now only colours a feature
+bullet. Its 0.15 weight is the least justified in the bank. Flagged, not silently re-tuned,
+because weights are data-derived.
+
+### Site features were three entries, two of which matched everyone
+
+`neo_domain` and `custom_domain` are `matches: () => true`, so every site recommendation showed
+the same bullets. Personalised copy on a feature set that never varied.
+
+The mail half of `features.ts` draws on Neo's JSON config
+(`static.flock.co/meta/plan/feature/config/en-US.json`) — re-verified today: **12 of our 13
+names are byte-identical to its `heading` field**, the exception being `neo_domain`, whose
+heading is templated with a sample domain. **There is no equivalent config for site features.**
+Three plausible paths were probed and all 403'd, and the pricing page fetches no second config;
+the site half of that page is static markup. Captured from their live DOM into
+`src/data/site-features.json` with its read date, and the site bank rebuilt from it.
+
+That capture found a worse bug than the templating:
+
+**Basic has no Contact Forms.** (Plus 1,000, Growth unlimited. Basic carries only "Business
+contact info" — a phone number printed on the page.) `chooseSitePlan` sent every business that
+was *not* selling online to Basic, which is precisely the enquiry-led business whose site exists
+to collect an enquiry. We recommended the one tier that cannot do the job, next to a real price.
+
+Rewritten to gate on how someone is reached rather than whether money moves: offline-and-not-
+selling gets Basic (contact info genuinely is the whole job); anyone needing a form, testimonials
+or their own branding gets Plus; a real catalogue on a multi-person operation gets **Growth**,
+which `plans.json` listed and this function could previously never return (caught by
+`docs/data-findings.md` §9).
+
+This also resolves a tension with our own data. §9 warns that routing every "I take payments"
+answer to Plus over-serves ~two thirds of them, since only 3.5% of orders ever build an order
+form. Both hold. What changed is the *reason* for Plus — **contact** forms, which an enquiry
+business demonstrably needs, rather than **order** forms, which most never touch.
+
+### Still templated on the reveal, and known
+
+`buildRationale()` (4 templates), the plan note about connecting a domain you own, the
+`cancel anytime · you finish the site in Neo's builder` tail, and every section label. The
+`because` strings in `features.ts` are fixed too — generating those, degrading to the fixed
+string, is the obvious next pass and follows the pattern `questionService` already proves.
+
+### Later the same day — Pandora entitlements, and the same bug on the mail side
+
+Darrel supplied per-plan feature entitlements verified from the **Pandora backend**. Saved as
+`src/data/plan-features.json`, and it now outranks both other sources: the flock.co config gives
+Neo's verbatim *names* but says nothing about who gets what, and `site-features.json` was read
+off a marketing table.
+
+**It confirms the site finding independently.** Contact form absent on Basic, 1,000/month on
+Plus, unlimited on Growth — same for testimonials, remove-branding, WhatsApp and subscriptions.
+The `chooseSitePlan` rewrite stands on backend data, not on a pricing page.
+
+**And it found the same fault on the mail side, worse.** Four features we carry are **Max-only**,
+and `chooseMailPlan` can only return Starter or Standard:
+
+| feature | Pandora says | we were showing it to |
+|---|---|---|
+| Invoice Builder | **disabled** on Starter and Standard | anyone selling online |
+| AI Email Writer (`Titan AI`) | Max only | social / personal-email users |
+| Campaign Mode (`Email marketing`) | Max only | anyone selling online |
+| Appointment Booking | Max only — **and it is a MAIL entitlement, not a site one** | offline / non-selling users |
+| Signature Designer | Standard and Max, not Starter | personal-email users on Starter |
+
+So a florist who sells online was being offered **Invoice Builder** as a reason to buy **Neo
+Starter**, which explicitly does not have it. `minMailPlan` now gates these the same way
+`minSitePlan` gates the site half, and `appointment_booking` has been moved to `surface: "mail"`
+where it belongs.
+
+**Open, and deliberately not guessed:** Max is now unreachable in `rules.ts` — the same shape as
+`growth` was this morning — so those four features can never legitimately surface. Either Max
+becomes reachable for a defensible case or they are dead weight. Max is roughly 5x Starter per
+mailbox, so that needs an argument, not a feature match.
+
+**Naming:** Pandora's `Titan MCP` is **Neo MCP** for our purposes. It is disabled on every plan,
+so it can never be a reason to buy and must never be rendered.
+
+### The `because` strings are generated now (03 Sep, later)
+
+The last large piece of the reveal that was templated. Feature *names* were Neo's own and the
+*matching* was deterministic, but the clause after the em dash — the only part that is actually
+personalisation — was hand-written and identical for everyone who matched.
+
+`/api/reasons` (`api/_lib/reasonService.ts`), its own route for the same reason
+questionService is one: **latency placement, not tidiness.** `/api/questions` gates the first
+question screen; reasons are not needed until the reveal, 30s+ away and already waiting behind
+Neo's generator. Adding them to the questions call would have delayed a screen someone is
+looking at, to save a round trip nobody is waiting on.
+
+Third instance of the same three-layer pattern, and it is now the house style:
+
+```
+which feature is shown   FIXED       pickFeatures — profile match AND plan entitlement
+the feature NAME         FIXED       Neo's own verbatim heading
+the `because` clause     GENERATED   withReason, applied AFTER both filters
+```
+
+Applying the overlay after entitlement filtering is the part that matters: a generation can
+change why we say a feature matters, but it cannot introduce a feature, rename one, or slip a
+Max-only feature next to a Starter price.
+
+Measured on the florist: 20 of 20 written, none dropped, and specific —
+`site_contact_forms` came back as *"bouquet enquiries stop getting buried in your Instagram
+DMs"* against the fixed meaning *"enquiries arrive in their inbox instead of getting lost in a
+chat thread"*. Same claim, their words.
+
+One prompt fix on the first run: the model prefixed every clause with `"so that"`, which the
+hand-written strings do not carry — so a run where some lines generated and some fell back
+would have read inconsistently. Fixed in the prompt AND stripped in validation. Worth being
+precise that this is **normalisation, not repair**: it fixes the shape of a string whose meaning
+is unchanged, unlike an unknown option id, where guessing intent is exactly what the drop rule
+forbids.
+
+Snapshot version 4. Four features (invoice builder, AI email writer, campaign mode, appointment
+booking) still get reasons written for them and can never be shown while Max is unreachable —
+a few wasted output tokens, kept so the shape stays stable if Max ever becomes reachable.
+
+### Mailbox count was selecting the plan tier, and it should never have been
+
+Hari, reading the reveal: *"the way we are suggesting plan based on number of mailboxes seem
+wrong."* It was, and the arithmetic is stark.
+
+`chooseMailPlan` read `if (mailboxes >= 5) return standard`. Neo prices mail **per mailbox**, so
+a five-person business was quoted **5 × ₹299 = ₹1,495/mo** where **5 × ₹149 = ₹745/mo** would
+have done. Double, for having five people. At eight mailboxes it was ₹2,392 against ₹1,192.
+
+The only available defence was storage, and Neo's own catalogue kills it. `storage` reads:
+*"Storage space allotted for **each mailbox** that is created."* Per mailbox. Adding mailboxes
+adds storage and can never exhaust a tier. **Count multiplies the bill; letting it also select
+the tier charges for it twice.** Checked before deleting, precisely because "bigger team needs
+the bigger plan" is plausible enough to survive on vibes.
+
+Tier now gates on capability, like `chooseSitePlan` — but deliberately narrower, because the
+two are not symmetric. Basic genuinely *cannot* capture a lead, so Plus was a capability floor.
+Nothing on Starter is broken; Standard is polish, and a weaker reason to upgrade deserves a
+stricter rule. **Standard on exactly one signal:** `customerChannel: personal_email`, because
+Signature Designer is Standard-and-above and "every mail looks like it came from a real
+business" is exactly that person's move off a personal Gmail.
+
+**Growth is now unreachable too, and that is the consistent answer rather than a regression.**
+It was gated this morning on `sellsOnline && mailboxes >= 5` — the identical fault in a hat.
+What separates Growth from Plus is catalogue size (unlimited vs 500 products); a 1-3 person
+business does not have 500 products, and CLAUDE.md scopes this product at 1-3 person businesses
+with no 50-200 branch. Growth and Max are both out of scope **by design**, not oversight. If a
+catalogue-size signal ever exists, that is what should gate Growth — not headcount, not
+mailboxes.
+
+Accepted trade-off, recorded in the code: a capability bump multiplies across mailboxes. In the
+1-3 person range that is ₹150/mo, which is the range we are built for.
+
+Also removed: the dead `lite` branch in `buildRationale`, and `blurb` from the mail plan type.
+`blurb` was typed and rendered nowhere — three hand-written strings in exactly the register
+this project spent the day removing ("Everything, for teams that live in their inbox"). What a
+"why not the cheaper one" line actually needs is the **delta between adjacent tiers**, and
+`plan-features.json` already holds it exactly: Starter→Standard is signature, branding,
+templates, 50 GB; Standard→Max is Invoice Builder, AI Email Writer, Campaign Mode, 100 GB.
+Derive it there rather than hand-writing a second string.
+
+### One call that sees the whole run
+
+Hari: *"we need to make the ai calls better to involve full context throughout the run until
+reveal screen."* Agreed, with one shape rather than the obvious one.
+
+**Not** a model call per question. Question 4's wording reflecting answers 1-3 would cost ~10s
+on the critical path per question, for wording nobody re-reads, and it would put a model
+between someone and the next tap four more times.
+
+**Instead:** one call at the moment the last question is answered, fed the description, every
+answer as displayed, and the plan `rules.ts` has already chosen. It gets ~20s of free cover
+behind Neo's generator and it is the only place full context changes something a person sees.
+
+It **explains** the plan and never selects one. The plan, mailbox count and cheaper-tier delta
+go in as given facts, never as a question — rule 2 held at the exact point it is most tempting
+to break, since this is the model call closest to the money.
+
+Two guards worth naming:
+
+- **No prices, enforced by regex.** The real price is printed directly above the sentence, so a
+  generated figure that disagrees with it is the worst available failure. Any price- or
+  limit-shaped string is refused outright rather than trimmed. Seven cases tested.
+- **`buildRationale` stays.** This is the only model call in the flow with no recorded fallback
+  of its own — the other three degrade to fixed wording, fixed `because` strings and a recorded
+  site. Deleting those four templates would turn a failed generation into a blank line on the
+  one screen CLAUDE.md says must be perfect. The reveal shows the fixed line until this lands.
+
+`whyNotCheaper` is built only from `CHEAPER_TIER`, which is Pandora's entitlements — "what does
+the cheaper plan lack" is precisely the question a model answers plausibly and wrongly. It has
+no fallback and simply does not render if it fails: saying nothing beats hand-waving.
+
+Snapshot version 5.
+
+### The narrowing is real now — candidates, needs and discrimination
+
+Hari: *"i dont think hard rules which dont justify the plans make sense."* Correct, and it
+applied to my own fix from earlier the same day: I deleted `mailboxes >= 5 -> Standard` and
+replaced it with `personal_email -> Standard`, which is better sourced and structurally
+identical — one boolean, a 2x price change, no accumulated evidence.
+
+**`src/lib/candidates.ts` is constraint satisfaction, not scoring.** That is deliberate:
+CLAUDE.md is right that an unauditable score is worse than a short if-chain, and a weighted
+model would have been exactly that. Instead an answer establishes a **need**, a need sets a
+**floor** on a tier which traces to a Pandora entitlement, and we recommend the **cheapest**
+setup meeting every floor. Cheapest-satisfying is the anti-over-serving rule from §9, enforced
+rather than intended.
+
+The reveal now prints the needs that bound. "Why this plan" is derived from what actually
+forced the shape — not a template, not a model's opinion.
+
+**Question choice is expected reduction in surviving candidates**, uniform prior over answers.
+That is the Akinator mechanic and it is arithmetic, which matters: the literature is clear that
+LLMs are inconsistent probabilistic reasoners (arxiv 2605.06915), so belief updates stay in
+code and the model is left to read prose. Weight breaks ties, so the data-derived ordering
+still decides between questions that narrow equally.
+
+**Three bugs the probe caught that reading would not have.**
+
+1. *The first scoring formula was backwards.* It measured Gini impurity of the partition — how
+   EVENLY a question splits the field, not how much it shrinks it. A question that discriminates
+   not at all leaves every option holding the full set, which is perfectly even and scored
+   highest: `import` and `client` outranked `surface`. Balance was being read as information.
+2. *Survivors could hit zero.* "Just email" plus "I sell online" made the needs unsatisfiable,
+   because the site floors were not guarded on mail-only. A contradiction, not a customer.
+3. *`capture_enquiries` fired on an unknown channel.* Inherited from the if-chain, where "the
+   failure is asymmetric" was right because nothing would ever ask. Now something does, and
+   firing on ignorance forced the site floor to Plus before question one — so no later answer
+   could change the outcome and **every question scored zero narrowing**. A need that fires on
+   ignorance makes the whole flow pointless.
+
+Worth recording: **the count can go up.** Learning someone is reached by phone alone removes
+the contact-form floor, so more setups reopen and the price falls (₹508 to ₹418 on a real run).
+Narrowing is the usual direction, not a guarantee — one more reason the on-screen counter was
+the wrong thing to show.
+
+Not done yet: `max` and `growth` are in the candidate set but no need reaches them. That is
+what the six new questions are for, and they are next.
+
+### Max and Growth are reachable, and "discrimination" took three attempts to define
+
+Six new questions, collapsed to three screens. `MAX_QUESTIONS` 4 -> 12 at Hari's call — the
+same decision as making Max reachable, because a 4x price jump cannot be justified on four
+answers.
+
+**Why these questions.** §5 is the most directly useful thing we have: it records which paywall
+someone clicked before paying. `Storage Banner` dominates in EVERY industry at 32-52% of
+conversions; `Read Receipt` is second at 8-12%; everything else is low single digits. So
+storage leads, receipts follow, and the rest are here only because Pandora gates them
+unambiguously.
+
+**Every option describes what they do TODAY.** "Do you send quotes or invoices?" is a fact;
+"would you like to send invoices?" is a feature pitch, and §9 measured people saying yes to
+features they never use — 3.5% of orders ever build an order form.
+
+**Four Max gates became one multi-select, and the probe is why.** As separate yes/no questions,
+a "yes" settled the plan and killed further discrimination while a "no" left every tier open —
+so a plain business answering no to everything was asked SEVEN questions and a consultant who
+invoices was asked THREE. The longest flow went to the people most likely to abandon. Four
+consecutive "do you do X" screens also read as a feature checklist, which is the form feeling
+the whole flow exists to avoid. As one checklist it clears in a single tap on "None of these".
+
+#### The definition of discrimination, wrong twice
+
+1. **Gini impurity of the partition.** Measures how EVENLY a question splits the field, not how
+   much it shrinks it. A question that discriminates not at all leaves every option holding the
+   full set — perfectly even — and scored highest. `import` and `client` outranked `surface`.
+2. **Expected reduction in surviving candidates.** Right in one direction, blind in the other.
+   Learning someone is phone-only REMOVES the contact-form floor, so the set GROWS, expected
+   reduction goes negative and clamps to zero. Result: a phone-and-walk-in business was never
+   asked how customers reach them and was billed **₹657 for Plus instead of ₹567 for Basic**.
+   An engine optimising for a smaller set rather than a better answer.
+3. **Distinct recommendations across the options.** Scores the DECISION, not the set: does the
+   answer change what we recommend, in either direction? Set size was always a proxy, and a
+   proxy that disagreed with the goal.
+
+**And the outcome had to include the mailbox count.** Scoring only the tier pair made `team`
+worth zero — count deliberately does not select a tier — so the engine stopped asking it and
+the largest multiplier on the bill fell back to a default of 2. The recommendation is "Starter,
+two mailboxes, ₹298"; the count is part of it.
+
+**The confidence backstop is gone.** With it, `shouldReveal` fell through to `confidence >= 0.82`
+whenever something still discriminated, which silenced the phone/walk-in question above. A
+threshold that can suppress a question capable of changing the price is not a backstop. The
+stopping rules are now: nothing to ask, nothing worth asking, or the ceiling.
+
+Flow lengths measured after all of it: plain mail-only 5, phone/walk-in with a site 7, Max via
+invoices 5, Growth via catalogue 6. Nine questions in the bank, ceiling of 12, and it does not
+bind.
+
+**Open, and a product call rather than a technical one.** Discrimination is scored over the
+plan and the mailbox count, so `import` and `client` score 0 — they change no price. But they
+DO decide which feature lines appear (one-click import, Add Gmail Account, POP/IMAP), and the
+flow now stops before asking them, so the reveal's "Worth knowing" section is thinner for a
+plain business. Two ways out: fold feature selection into the outcome so any question that
+changes the reveal scores above zero (principled, needs `has`/`Profile` moved to a leaf module
+to avoid an import cycle), or keep asking a bounded couple of extra questions past
+discrimination-exhaustion (cheap, reintroduces an arbitrary number). Not decided by guesswork.
+
+### "Outcome" has to mean the whole reveal, and price has to rank first
+
+Follow-up to the open question above, resolved rather than left as a trade.
+
+Hari asked what the ranking actually optimises, and the honest answer exposed an
+inconsistency. `discrimination` scored the plan and the mailbox count, so `importIntent` and
+`currentClient` scored 0 — no need reads them, and Pandora puts import and Gmail sync on every
+mail tier, so there is genuinely no plan consequence. But they decide which feature lines
+appear. The flow stopped before asking them and the reveal's "Worth knowing" went generic.
+
+That is the same oversight as the mailbox count, noticed for one signal and not the other:
+**the outcome is everything the reveal renders**, not just the price.
+
+Fixing it needed `Profile` and `has` extracted to `src/lib/profile.ts`, a leaf module — without
+it, candidates -> features -> engine -> candidates is an import cycle. Worth doing rather than
+routing around: neither is an engine concept, they are the vocabulary every module shares.
+
+**Then two further corrections, both from the probe rather than from reading.**
+
+*Every flow ran to eight.* Three extra questions bought two better feature lines, which is a
+poor trade against 40-65% quiz completion. `FEATURE_ONLY_BUDGET = 2` caps questions asked after
+the price has settled, and the number is not arbitrary: `pickFeatures` renders exactly two
+bullets, so a third feature-only answer cannot change anything a person reads.
+
+*Feature lines were outranking tiers.* A single combined score put `client` (0.67, it swaps two
+bullets) ahead of `extras` (0.25, it decides whether they need Max) — so "which mail app do you
+use" was asked before the question that changes the price, and the plan never settled early
+enough for the budget to apply. Ranking is now lexicographic: **what changes the price, then
+what changes the reveal, then the data-derived weight.**
+
+Measured after: plain mail-only 6 questions (plan settled at 5), phone/walk-in with a site 8
+(settled at 7), Max via invoices 6 (settled at 5), florist with prefill 5 (settled at 4).
+
+Neat consequence worth recording: the budget rarely binds, because the feature-aware measure
+already stops on its own. `currentClient` goes unasked once `importIntent` has taken one of the
+two bullet slots — `gmail_sync` is priority 7 against `import_email_contacts` at 10, so it
+could never be displayed, so the question scores zero. The measure understands the display it
+is optimising.
+
+### The model can change a price now, and exactly one way
+
+Hari: "can you check if you can make the llm live as well?" -- `api/plan.ts`.
+
+Until this, the model read the description once before a single question was answered and
+everything after was deterministic. `/api/rationale` saw the whole run but only EXPLAINS a
+decision already made, so somebody who typed something revealing into a free-text box changed
+nothing they were charged.
+
+**The power is one-directional: it may raise a floor, never lower one.** `rules.ts` has already
+computed the cheapest setup satisfying every need, and each need is a Pandora entitlement rather
+than an opinion -- going below it would recommend a plan that provably cannot do something they
+said they do. Going above, with a reason, is the case the fixed questions cannot cover: prose.
+
+Three checks, all server-side:
+
+- the entitlement is an **enum**, so constrained decoding makes inventing one impossible;
+- the floor it implies is looked up in **our** table, never taken from the model;
+- the quoted evidence must actually appear in what the person wrote.
+
+**And a fourth, which the first live test forced.** A video studio whose description said
+"enormous 4K video files every single day" had ALSO tapped "Mostly just messages" on the volume
+question -- and the model raised them Starter to Max anyway, reading the description over their
+explicit answer. That is the wrong boundary even when the inference is the better guess:
+overriding a tap tells someone we know their business better than they do, in the direction that
+costs them money. So a citation on a question they answered by tapping is now rejected outright.
+The model fills gaps; it does not correct people about themselves.
+
+Measured live, all four cases:
+
+```
+tapped "mostly just messages"     -> rejected: they answered "volume" themselves
+volume never asked                -> raised to Max, cites storage
+answered in PROSE, nothing tapped -> raised to Max, cites invoice_builder
+ordinary florist                  -> no raise
+```
+
+The third is the point. Free text finally counts for something other than an explanation.
+
+`/api/rationale` now runs after this and is handed the VERIFIED plan -- explaining one the model
+was about to raise would put a sentence on screen describing a different recommendation from the
+price above it. The reveal shows accepted citations as *you said "..."*, quoting them back,
+because the quote is the evidence.
+
+CLAUDE.md rule 2 rewritten to match. It said "the LLM never decides price or plan", which was
+true until today and is now too blunt: the accurate rule is that it never emits a number, may
+only raise, and only with a checked reason. Snapshot v7.

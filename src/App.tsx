@@ -8,7 +8,17 @@ import {
   shouldReveal,
   type EngineState,
 } from "./lib/engine";
-import { buildProfile, fetchQuestionSurface } from "./lib/api";
+import { describePrefill } from "./lib/questions";
+import { buildRunRecord, postRun, downloadRun, debugEnabled } from "./lib/runLog";
+import {
+  buildProfile,
+  fetchQuestionSurface,
+  fetchReasons,
+  fetchRationale,
+  fetchPlanVerdict,
+  type PlanVerdict,
+} from "./lib/api";
+import { recommend } from "./lib/rules";
 import { fetchNeoSite, fixtureFitsDescription, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
@@ -43,10 +53,6 @@ export default function App() {
   const [rawText, setRawText] = useState(restored?.rawText ?? "");
   const [reveal, setReveal] = useState<RevealContent | null>(restored?.reveal ?? null);
   const [summary, setSummary] = useState<string | null>(restored?.summary ?? null);
-  /** The model's suggestion for what to ask next. Advisory — the engine can overrule it. */
-  const [preferredQuestionId, setPreferredQuestionId] = useState<string | null>(
-    restored?.preferredQuestionId ?? null,
-  );
   /**
    * Never restored. A snapshot taken mid-flight would otherwise come back as a spinner with
    * no request behind it; the resume effect below re-fires the work instead.
@@ -66,6 +72,29 @@ export default function App() {
     }
     return restoredSite;
   });
+  /**
+   * Model-written "why this matters to you" clauses, by feature id.
+   *
+   * Needed only at the reveal, so unlike the question surface there is no race to guard: it
+   * has 30s+ to land while Neo's generator runs. Empty means every feature line renders its
+   * hand-written string.
+   */
+  const [reasons, setReasons] = useState<Record<string, string>>(restored?.reasons ?? {});
+  /**
+   * The two sentences under the price, written with the whole run in hand.
+   *
+   * Empty until the last question is answered, and empty forever if that call fails — the
+   * reveal falls back to `buildRationale`, which is why those templates were kept.
+   */
+  const [rationale, setRationale] = useState<{ rationale: string; whyNotCheaper: string }>(
+    restored?.rationale ?? { rationale: "", whyNotCheaper: "" },
+  );
+  /**
+   * The model's verified verdict on the plan — the one place a model can change what someone
+   * pays. Null until it lands, and null forever if it fails, in which case the deterministic
+   * recommendation stands unchanged.
+   */
+  const [verdict, setVerdict] = useState<PlanVerdict | null>(restored?.verdict ?? null);
   /**
    * Options tapped on the question currently on screen, so the meter can react before
    * Continue. Keyed by question id rather than cleared in an effect: an effect would reset it
@@ -87,10 +116,18 @@ export default function App() {
   stageRef.current = stage;
   const siteSeq = useRef(0);
 
-  const conf = useMemo(() => confidence(engine.profile), [engine.profile]);
-  const current = useMemo(
-    () => nextQuestion(engine, preferredQuestionId),
-    [engine, preferredQuestionId],
+  const conf = useMemo(
+    () => confidence(engine.profile, engine.prefilled, engine.prosaic),
+    [engine.profile, engine.prefilled, engine.prosaic],
+  );
+  /* The model's ranking now lives inside `engine` (and so is persisted and overruled there),
+     rather than in a separate state that was consumed once and thrown away. */
+  const current = useMemo(() => nextQuestion(engine), [engine]);
+  /* What the description already answered, in the words the option would have used. Shown on
+     the guess screen so a skipped question is visible and therefore correctable. */
+  const inferred = useMemo(
+    () => describePrefill(engine.profile, engine.prefilled, engine.surface),
+    [engine.profile, engine.prefilled, engine.surface],
   );
 
   /**
@@ -125,6 +162,14 @@ export default function App() {
       /* Question wording, in parallel and deliberately not awaited. It only has to land
          before the FIRST question screen, which is a guess-screen read away, so it never
          gates anything the user is looking at. Neither call blocks the other. */
+      /* Feature reasons. Fired here so it overlaps Neo's generator rather than the questions;
+         nothing on screen waits for it. */
+      if (opts.profile) {
+        void fetchReasons(text).then((r) => {
+          if (Object.keys(r).length) setReasons(r);
+        });
+      }
+
       if (opts.profile) {
         void fetchQuestionSurface(text).then((surface) => {
           if (Object.keys(surface).length === 0) return;
@@ -148,9 +193,20 @@ export default function App() {
         .then((res) => {
           setSummary(res.profile.summary);
           setReveal(res.reveal);
-          if (opts.seedNextQuestion) setPreferredQuestionId(res.nextQuestionId ?? null);
-          // Seed the engine with what the free text alone told us. This is why the ring
-          // opens partly filled rather than empty.
+          /**
+           * Seed the engine with what the free text alone told us.
+           *
+           * `prefill` is the important addition. Before it, only industry/brandName/teamSize
+           * were seeded — none of which is a question signal — so every one of the six
+           * questions stayed unresolved no matter what someone wrote. Type "we take cake
+           * orders over Instagram and need a website" and you were still asked where
+           * customers reach you and what needs standing up first. That is the "we're not
+           * getting more information" complaint, and this is the line that fixes it.
+           *
+           * The values are already validated server-side against the same vocabulary the
+           * `resolves` payloads use, so a prefilled signal is indistinguishable from a tapped
+           * one and `isResolved` skips its question for free.
+           */
           setEngine((prev) => ({
             ...prev,
             /* Guess-screen meter line. Question wording comes from fetchQuestionSurface. */
@@ -160,7 +216,12 @@ export default function App() {
               industry: res.profile.industry,
               brandName: res.profile.domainStem,
               ...(res.profile.teamSize ? { teamSize: res.profile.teamSize } : {}),
+              ...(res.prefill ?? {}),
             },
+            prefilled: res.prefilledQuestionIds ?? [],
+            /* Only on a fresh run. Re-seeding a ranking mid-flow would point the engine back
+               at ground it has already covered — the ranking was computed before any answer. */
+            ...(opts.seedNextQuestion ? { priority: res.questionPriority ?? [] } : {}),
           }));
           setLoading(false);
         })
@@ -219,10 +280,50 @@ export default function App() {
     });
   }, [restored, kickOff]);
 
+  /**
+   * Post the run record once, on arrival at the reveal.
+   *
+   * A ref rather than a state flag because StrictMode double-invokes effects in development,
+   * and this must post once per run, not twice. Waits for `rationale` so the record carries the
+   * generated explanation — it lands a few seconds after the reveal, and a record missing it
+   * cannot tell us whether that call worked.
+   */
+  const postedRun = useRef(false);
+  useEffect(() => {
+    if (stage !== "reveal" || postedRun.current || !rawText || !reveal) return;
+    /* Give the rationale call its moment. If it never lands the record still posts, with the
+       empty strings that themselves say the call failed. */
+    const timer = setTimeout(() => {
+      if (postedRun.current) return;
+      postedRun.current = true;
+      const rec = recommend(engine.profile, reveal.mailboxes.length);
+      void postRun(
+        buildRunRecord({
+          engine,
+          businessText: rawText,
+          mode: import.meta.env.VITE_LLM_MODE ?? "replay",
+          plan: {
+            mailPlan: rec.mailPlan.id,
+            sitePlan: rec.sitePlan?.id ?? null,
+            mailboxes: rec.mailboxes,
+            cycle: rec.cycle,
+            monthlyInr: rec.monthlyInr,
+          },
+          viableSetups: rec.viable.length,
+          needs: rec.needs.map((n) => ({ id: n.id, because: n.because, entitlement: n.entitlement })),
+          reasons,
+          rationale,
+          verdict,
+        }),
+      );
+    }, 12000);
+    return () => clearTimeout(timer);
+  }, [stage, rawText, reveal, engine, reasons, rationale, verdict]);
+
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
-    saveSnapshot({ stage, engine, rawText, reveal, summary, preferredQuestionId, neoSite });
-  }, [stage, engine, rawText, reveal, summary, preferredQuestionId, neoSite]);
+    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, reasons, rationale, verdict });
+  }, [stage, engine, rawText, reveal, summary, neoSite, reasons, rationale, verdict]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("is-reveal", stage === "reveal");
@@ -239,11 +340,73 @@ export default function App() {
   const answer = useCallback(
     (questionId: string, optionIds: string[], freeText?: string) => {
       const next = applyAnswer(engine, questionId, optionIds, freeText);
-      setPreferredQuestionId(null); // consumed; engine picks from here on
       setEngine(next);
-      setStage(shouldReveal(next) ? "reveal" : "question");
+      const done = shouldReveal(next);
+      setStage(done ? "reveal" : "question");
+
+      /**
+       * Last answer in: ask for the explanation, with everything we now know.
+       *
+       * The only model call fired after screen 1, because it is the only one that needs the
+       * answers. It gets ~20s of cover behind Neo's generator, and the reveal renders the
+       * fixed rationale until it lands — so nothing waits and nothing is blank.
+       *
+       * The plan goes in as a FACT. `recommend` has already run here, on the same profile the
+       * reveal will use, so the model is told what was chosen and never asked to choose.
+       */
+      if (done && rawText) {
+        const rec = recommend(next.profile, reveal?.mailboxes.length ?? 2);
+        const answers = (next.trail ?? []).map((t) => ({
+          question: t.prompt,
+          /* Free text is the answer when nothing was tapped — and it is the whole reason this
+             call exists, since no fixed rule can read it. */
+          answer:
+            t.options
+              .filter((o) => t.pickedOptionIds.includes(o.id))
+              .map((o) => o.label)
+              .join(", ") || (t.freeText ?? ""),
+        }));
+
+        /**
+         * Plan first, then the explanation of whatever the plan turned out to be.
+         *
+         * Sequential on purpose: `/api/rationale` is handed the plan as a FACT, so it must be
+         * handed the FINAL one. Explaining a plan the model was about to raise would put a
+         * sentence on screen describing a different recommendation from the price above it.
+         * Both fit inside Neo's 22-38s generator, so nothing on screen waits.
+         */
+        void fetchPlanVerdict({
+          businessText: rawText,
+          answers,
+          mailTier: rec.mailPlan.id,
+          siteTier: rec.sitePlan?.id ?? "none",
+          /* Only questions where an option was actually tapped. A question answered in prose
+             is exactly what the model is FOR, so those are deliberately absent. */
+          answeredByTap: (next.trail ?? [])
+            .filter((t) => t.pickedOptionIds.length > 0)
+            .map((t) => t.id),
+        }).then((v) => {
+          if (v?.raised) setVerdict(v);
+          const finalRec = recommend(
+            next.profile,
+            reveal?.mailboxes.length ?? 2,
+            v?.raised ? { mail: v.mailTier, site: v.siteTier } : null,
+          );
+          return fetchRationale({
+            businessText: rawText,
+            answers,
+            mailPlanId: finalRec.mailPlan.id,
+            mailPlanName: finalRec.mailPlan.name,
+            sitePlanId: finalRec.sitePlan?.id ?? null,
+            sitePlanName: finalRec.sitePlan?.name ?? null,
+            mailboxes: finalRec.mailboxes,
+          });
+        }).then((r) => {
+          if (r && (r.rationale || r.whyNotCheaper)) setRationale(r);
+        });
+      }
     },
-    [engine],
+    [engine, rawText, reveal],
   );
 
   const rejectGuess = useCallback(() => {
@@ -268,9 +431,43 @@ export default function App() {
     setReveal(null);
     setSummary(null);
     setNeoSite(null);
-    setPreferredQuestionId(null);
+    setReasons({});
+    setRationale({ rationale: "", whyNotCheaper: "" });
+    setVerdict(null);
     setError(null);
   }, []);
+
+  /**
+   * `?debug=1` — hand the whole run over as a file.
+   *
+   * Not a feature and never shown to a visitor. It is the best bug report anyone can give us:
+   * the generated wording, every answer, the plan and every degradation, in one file that can
+   * be read rather than reproduced.
+   */
+  const debug = debugEnabled();
+  const saveRun = useCallback(() => {
+    if (!reveal) return;
+    const rec = recommend(engine.profile, reveal.mailboxes.length);
+    downloadRun(
+      buildRunRecord({
+        engine,
+        businessText: rawText,
+        mode: import.meta.env.VITE_LLM_MODE ?? "replay",
+        plan: {
+          mailPlan: rec.mailPlan.id,
+          sitePlan: rec.sitePlan?.id ?? null,
+          mailboxes: rec.mailboxes,
+          cycle: rec.cycle,
+          monthlyInr: rec.monthlyInr,
+        },
+        viableSetups: rec.viable.length,
+        needs: rec.needs.map((n) => ({ id: n.id, because: n.because, entitlement: n.entitlement })),
+        reasons,
+        rationale,
+        verdict,
+      }),
+    );
+  }, [engine, rawText, reveal, reasons, rationale, verdict]);
 
   const stepNumber = engine.asked.length + 1;
   const screenKey = stage === "question" ? `q-${current?.id ?? "none"}` : stage;
@@ -310,6 +507,13 @@ export default function App() {
         </motion.div>
       </AnimatePresence>
 
+      {/* Debug-only. Positioned out of the flow so it cannot disturb a screenshot or a demo. */}
+      {debug && stage === "reveal" && (
+        <button className="btn btn-ghost debug-save" onClick={saveRun}>
+          Download this run
+        </button>
+      )}
+
       <main className={`stage${stage === "reveal" ? " stage-reveal" : ""}`}>
         <AnimatePresence mode="wait">
           <motion.div
@@ -339,6 +543,7 @@ export default function App() {
               <Guess
                 summary={summary}
                 teamSize={engine.profile.teamSize as number | undefined}
+                inferred={inferred}
                 loading={loading}
                 error={error}
                 onConfirm={() => {
@@ -374,6 +579,9 @@ export default function App() {
                 profile={engine.profile}
                 businessText={rawText}
                 neoSite={neoSite}
+                reasons={reasons}
+                rationale={rationale}
+                verdict={verdict}
                 onRestart={restart}
               />
             )}

@@ -83,88 +83,119 @@ async function withTimeout(url: string, init: RequestInit = {}): Promise<Respons
 }
 
 /**
- * Titan's partner token, minted on demand and cached until just before it expires.
+ * Titan's Partner Panel session token, minted on demand and cached until it expires.
  *
- * `POST https://bll.titan.email/partner/token/generate` — Titan's partner auth endpoint, and
- * the availability check sits behind it. Two levels of credential are involved and it is easy
- * to conflate them:
+ * The real contract, supplied 2026-09-03, differs from every guess worth making — which is
+ * why none of it is inferred here:
  *
- *   1. A PARTNER CREDENTIAL we hold, sent to mint a token. The endpoint answered
- *      `{"code":"UNAUTHENTICATED","attrs":{"detail":"Auth header missing"}}` to an empty POST
- *      on 2026-09-03, so the mint call is itself authenticated. Its header NAME is
- *      configurable because nobody has told us what it is — do not guess one in code.
- *   2. The SHORT-LIVED TOKEN it returns, sent to the availability check.
+ *   POST https://api.titan.email/fa/mail/login
+ *   Content-Type: application/json
+ *   origin: https://app.titan.email          <- REQUIRED, not decoration
+ *   { email, password, device: "browser", iid, rp: { brand: "Titan" } }
+ *   -> { "session": "eyJhbGciOi...", "status": "success" }
  *
- * Both stay server-side. Neither is ever logged, included in an error message, or returned
- * to the caller — a token in a `reportDegraded` string would reach the browser console, and
- * from there anywhere. Errors carry status codes only.
+ * Then the session goes to the check as **`x-auth-token: <session>`** — not
+ * `Authorization: Bearer`, which is what an earlier version of this file assumed.
+ *
+ * Three consequences worth stating, because each one is a trap:
+ *
+ * 1. **The mint credential is a real Titan login**, email and password, not an API key. It is
+ *    read from the environment and never logged, never echoed into an error, never returned to
+ *    the caller. A failed login raises the STATUS CODE ONLY: the body of a rejected auth
+ *    response can contain what it rejected.
+ * 2. **The response carries no `expiresIn`.** The session is a JWT, so its own `exp` claim is
+ *    read instead of assuming a TTL — see `jwtExpiryMs`. The claim is only *read*, never
+ *    trusted for authorisation; the worst a bad value can do is make us re-mint.
+ * 3. **This is a login endpoint.** Re-minting on every request would be a credential-stuffing
+ *    traffic pattern against Titan's own auth. That is the real reason the cache and the
+ *    proportional refresh skew below matter — not latency.
  */
-const TOKEN_URL_DEFAULT = "https://bll.titan.email/partner/token/generate";
+const TOKEN_URL_DEFAULT = "https://api.titan.email/fa/mail/login";
+/** Titan's login rejects the request without it. */
+const TOKEN_ORIGIN_DEFAULT = "https://app.titan.email";
+/** Identifies this caller in Titan's session records. Ours, so it is attributable to us. */
+const TOKEN_IID_DEFAULT = "server-findmyneo-001";
+/** The header the Partner Panel API expects. Not `Authorization`. */
+const CHECK_AUTH_HEADER_DEFAULT = "x-auth-token";
 
 /**
  * Refresh this long before the stated expiry, so a token cannot die mid-request.
  *
  * Proportional, not a flat 60s. A flat skew wider than the token's own lifetime makes every
- * cached token look already-expired, so every single request re-mints — which turns a cache
- * into a load generator pointed at an auth endpoint. Caught against a stub issuing 2-second
- * tokens: three requests produced three mints and the cache never once hit.
+ * cached token look already-expired, so every request re-mints — which against a LOGIN
+ * endpoint is a credential-stuffing traffic shape, not merely wasteful. Caught against a stub
+ * issuing 2-second tokens: three requests produced three mints and the cache never once hit.
  *
  * Half the lifetime for short tokens, capped at a minute for long ones.
  */
 const TOKEN_SKEW_CAP_MS = 60 * 1000;
 const skewFor = (lifetimeMs: number): number => Math.min(TOKEN_SKEW_CAP_MS, lifetimeMs / 2);
-/** Used when the mint response states no expiry. Short on purpose: re-minting is cheap. */
+
+/** Used only when the session is not a JWT and states no expiry. */
 const TOKEN_FALLBACK_TTL_MS = 5 * 60 * 1000;
 
 let tokenCache: { token: string; expiresAt: number; skewMs: number } | null = null;
 
-/** Only ever called with a value we did not receive from a response body. */
-function tokenAuthHeaders(): Record<string, string> {
-  const value = process.env.NEO_PARTNER_AUTH;
-  if (!value) return {};
-  const name = process.env.NEO_PARTNER_AUTH_HEADER ?? "Authorization";
-  return { [name]: value };
+/**
+ * Read `exp` out of a JWT payload without verifying the signature.
+ *
+ * Reading is the only thing happening: nothing here authorises anything, so an unverified
+ * claim is safe to use. The worst a forged or corrupt value can do is make us mint a fresh
+ * token sooner than necessary. Returns null for anything that is not a JWT with a sane `exp`,
+ * and the caller falls back to a short fixed TTL.
+ */
+function jwtExpiryMs(token: string): number | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const pad = parts[1].length + ((4 - (parts[1].length % 4)) % 4);
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/").padEnd(pad, "=");
+    const exp = (JSON.parse(atob(b64)) as { exp?: unknown }).exp;
+    if (typeof exp !== "number" || !Number.isFinite(exp)) return null;
+    const ms = exp * 1000;
+    /* Ignore an expiry already in the past or absurdly far out — either means we misread it. */
+    const lifetime = ms - Date.now();
+    return lifetime > 0 && lifetime < 30 * 24 * 60 * 60 * 1000 ? ms : null;
+  } catch {
+    return null;
+  }
 }
 
 async function mintToken(): Promise<string | null> {
-  const value = process.env.NEO_PARTNER_AUTH;
-  /* No partner credential means no token can be minted. Return null rather than throw so the
-     caller falls through to the probe: a missing credential is a configuration state, not an
-     incident, and the reveal must still render. */
-  if (!value) return null;
+  const email = process.env.NEO_PARTNER_EMAIL;
+  const password = process.env.NEO_PARTNER_PASSWORD;
+  /* No credential means no session can be minted. Return null rather than throw so the caller
+     falls through to the probe: unconfigured is a deployment state, not an incident. */
+  if (!email || !password) return null;
 
-  const url = process.env.NEO_COSITE_TOKEN_URL ?? TOKEN_URL_DEFAULT;
-  const body = process.env.NEO_PARTNER_BODY;
-
-  const res = await withTimeout(url, {
+  const res = await withTimeout(process.env.NEO_COSITE_TOKEN_URL ?? TOKEN_URL_DEFAULT, {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      ...tokenAuthHeaders(),
+      origin: process.env.NEO_PARTNER_ORIGIN ?? TOKEN_ORIGIN_DEFAULT,
     },
-    /* `{}` rather than no body: the endpoint reads JSON, and some gateways reject a POST with
-       Content-Type set and nothing behind it. */
-    body: body ?? "{}",
+    body: JSON.stringify({
+      email,
+      password,
+      device: "browser",
+      iid: process.env.NEO_PARTNER_IID ?? TOKEN_IID_DEFAULT,
+      rp: { brand: "Titan" },
+    }),
   });
-  /* Status only. The body of a failed auth response can echo the credential back. */
-  if (!res.ok) throw new Error(`partner token mint -> ${res.status}`);
+  /* Status only — never the body, which can echo the credential back. */
+  if (!res.ok) throw new Error(`partner session mint -> ${res.status}`);
 
   const json = (await res.json()) as Record<string, unknown>;
-  const token =
-    json.token ?? json.accessToken ?? json.access_token ?? json.jwt ?? (json.data as Record<string, unknown> | undefined)?.token;
-  if (typeof token !== "string" || !token) throw new Error("partner token mint returned no token");
+  /* `session` is Titan's field. The others are kept so a differently-shaped deployment does
+     not need a code change, but `session` is the documented one. */
+  const token = json.session ?? json.token ?? json.accessToken ?? json.access_token;
+  if (typeof token !== "string" || !token) {
+    /* Deliberately does not include the body: on a partial success it may carry the session. */
+    throw new Error(`partner session mint returned no session (status=${String(json.status)})`);
+  }
 
-  /* Seconds is the near-universal unit for expiresIn; `exp` is a JWT-style absolute epoch. */
-  const expiresIn = json.expiresIn ?? json.expires_in ?? json.ttl;
-  const absolute = json.exp;
-  const expiresAt =
-    typeof expiresIn === "number" && expiresIn > 0
-      ? Date.now() + expiresIn * 1000
-      : typeof absolute === "number" && absolute > 0
-        ? absolute * 1000
-        : Date.now() + TOKEN_FALLBACK_TTL_MS;
-
+  const expiresAt = jwtExpiryMs(token) ?? Date.now() + TOKEN_FALLBACK_TTL_MS;
   tokenCache = { token, expiresAt, skewMs: skewFor(expiresAt - Date.now()) };
   return token;
 }
@@ -178,15 +209,25 @@ async function partnerToken(forceRefresh = false): Promise<string | null> {
 }
 
 /**
- * Neo's real check, when someone configures it.
+ * Neo's real check.
  *
- * `NEO_COSITE_CHECK_URL` may contain `{stem}` or `{domain}`; if it contains neither, the
- * domain is appended as `?domain=`. Auth is a minted partner token when `NEO_PARTNER_AUTH`
- * is set, or a static `NEO_COSITE_CHECK_TOKEN` when the check needs no minting.
+ *   GET https://bll.titan.email/internal/neo/v2/check-domain-availability
+ *   x-auth-token: <session from mintToken>
  *
- * Deliberately loose about the response shape — nobody has handed us the contract yet, so
- * accept the spellings this kind of endpoint normally uses rather than guess one and fail
- * closed on the others.
+ * `NEO_COSITE_CHECK_URL` may contain `{stem}` or `{domain}`; with neither, the domain is
+ * appended as `?domain=`. **The query parameter name is a guess** — Titan supplied the path
+ * but not the parameter — so put the real one in the env var as a template rather than
+ * relying on the default.
+ *
+ * As of 2026-09-03 this path answers `{"error":"UnRegisteredEndpoint","statusCode":404}` from
+ * the public internet, while `/internal/ip-to-country` on the same host answers 200. So the
+ * route is not exposed on the public edge, and no token will change that — see the note in
+ * `.env.example`. The ladder in `checkCoSite` means a 404 here degrades to the probe rather
+ * than breaking the reveal, which is why this can ship before the access question is settled.
+ *
+ * Response reading is deliberately loose: the shape has not been supplied either, so accept
+ * the spellings this kind of endpoint normally uses rather than guess one and fail closed on
+ * all the others.
  */
 async function askNeo(stem: string, domain: string): Promise<CoSiteResult | null> {
   const template = process.env.NEO_COSITE_CHECK_URL;
@@ -196,25 +237,31 @@ async function askNeo(stem: string, domain: string): Promise<CoSiteResult | null
     ? template.replace(/\{stem\}/g, encodeURIComponent(stem)).replace(/\{domain\}/g, encodeURIComponent(domain))
     : `${template}${template.includes("?") ? "&" : "?"}domain=${encodeURIComponent(domain)}`;
 
-  const call = async (bearer: string | null): Promise<Response> =>
+  const headerName = process.env.NEO_COSITE_AUTH_HEADER ?? CHECK_AUTH_HEADER_DEFAULT;
+
+  const call = async (token: string | null): Promise<Response> =>
     withTimeout(url, {
       headers: {
         Accept: "application/json",
-        ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
+        /* Titan's Partner Panel reads `x-auth-token`. An earlier version of this file sent
+           `Authorization: Bearer` — the near-universal convention, and wrong here. */
+        ...(token ? { [headerName]: token } : {}),
+        origin: process.env.NEO_PARTNER_ORIGIN ?? TOKEN_ORIGIN_DEFAULT,
       },
     });
 
   const staticToken = process.env.NEO_COSITE_CHECK_TOKEN;
-  let bearer = staticToken ?? (await partnerToken());
-  let res = await call(bearer ?? null);
+  let token = staticToken ?? (await partnerToken());
+  let res = await call(token ?? null);
 
-  /* One retry with a freshly minted token on 401/403, and only when the token was minted —
-     a static token that is rejected will be rejected again, so retrying it just doubles the
-     latency. A cached token can expire between two requests in the same instance, and that
-     is a routine race, not an incident. */
-  if ((res.status === 401 || res.status === 403) && !staticToken && process.env.NEO_PARTNER_AUTH) {
-    bearer = await partnerToken(true);
-    res = await call(bearer ?? null);
+  /* One retry with a freshly minted session on 401/403, and only when the session was minted.
+     A static token that is rejected will be rejected again, so retrying it doubles the latency
+     for nothing — and against a login endpoint an unconditional retry is a bad habit to build.
+     A cached session expiring between two requests in the same instance is a routine race. */
+  const canRemint = !staticToken && !!process.env.NEO_PARTNER_EMAIL;
+  if ((res.status === 401 || res.status === 403) && canRemint) {
+    token = await partnerToken(true);
+    res = await call(token ?? null);
   }
 
   if (!res.ok) throw new Error(`neo cosite check -> ${res.status}`);
@@ -223,7 +270,7 @@ async function askNeo(stem: string, domain: string): Promise<CoSiteResult | null
   /* Positive and negative spellings both appear in the wild, and they mean opposite things.
      Read whichever is actually present; if none is, say unknown rather than assume free. */
   const positive = body.available ?? body.isAvailable;
-  const negative = body.taken ?? body.exists ?? body.isTaken;
+  const negative = body.taken ?? body.exists ?? body.isTaken ?? body.registered;
   const available =
     typeof positive === "boolean" ? positive : typeof negative === "boolean" ? !negative : null;
 

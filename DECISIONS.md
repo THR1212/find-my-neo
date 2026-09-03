@@ -1412,3 +1412,65 @@ the wrong thing to show.
 
 Not done yet: `max` and `growth` are in the candidate set but no need reaches them. That is
 what the six new questions are for, and they are next.
+
+---
+
+### 2026-09-03 · The real Titan contract, and the endpoint that isn't reachable yet
+
+Darrel supplied the actual contract, and **almost every convention I had assumed was wrong.**
+Recording the diff, because each item is the sort of thing that gets re-guessed:
+
+| | Assumed | Actual |
+|---|---|---|
+| Mint URL | `bll.titan.email/partner/token/generate` | `api.titan.email/fa/mail/login` |
+| Mint auth | a header, name unknown | **email + password in the JSON body** |
+| Extra header | none | **`origin: https://app.titan.email`, required** |
+| Token field | `token` / `accessToken` | **`session`** |
+| Check auth | `Authorization: Bearer` | **`x-auth-token`** |
+| Expiry | `expiresIn` in the response | **absent — it is a JWT, read `exp`** |
+
+`Authorization: Bearer` is the near-universal convention and it is simply not what this API
+uses. Worth remembering as a case where the conventional guess was confidently wrong; the stub
+now asserts the absence of that header so it cannot creep back.
+
+**The mint credential is a real Titan login.** Not an API key — a Partner Panel email and
+password, so it is a far more sensitive secret than `DOMSCAN_API_KEY`. It lives only in
+`.env.local` and Vercel's env, is never logged, never echoed into an error, and never returned
+to the caller. Failed logins raise the **status code only**, because the body of a rejected
+auth response can contain what it rejected. The session's `exp` claim is *read* but never
+trusted for authorisation — the worst a bad value can do is make us re-mint early.
+
+**Re-minting is rate-limited by design, not for latency.** This is a *login* endpoint: minting
+per request is a credential-stuffing traffic shape against Titan's own auth. That is the real
+justification for the cache and the proportional refresh skew, and it is why the 401 retry is
+conditional (a rejected static token will be rejected again; retrying it unconditionally is a
+bad habit to build against `/login`).
+
+**The blocker, and it is not ours to fix.**
+`GET https://bll.titan.email/internal/neo/v2/check-domain-availability` returns
+
+    {"error":"UnRegisteredEndpoint","desc":"Endpoint not Registered","statusCode":404}
+
+from the public internet — while `/internal/ip-to-country` on the **same host** returns 200.
+So the host is reachable, the `/internal/` prefix is routable, and this specific route is not
+exposed on that edge. The 404 arrives *before* any auth check, so **no token will fix it**:
+either the route is internal-network-only (a Vercel function is not inside Titan's network) or
+it sits behind a different gateway. Two path variants were tried to rule out a typo in the
+version segment, and then probing stopped — enumerating paths against an internal API is not
+something to do at volume.
+
+Also still unknown: the **query parameter name** (Titan gave the path, not the parameter) and
+the **response shape**. The reader accepts `available` / `isAvailable` / `taken` / `exists` /
+`registered` so a reasonable shape works without a code change.
+
+This ships anyway because the ladder degrades a 404 to the HTTP probe, so the reveal stays
+correct and the `.co.site` row still renders as free — it just makes no availability claim.
+
+**Verified against a stub asserting Titan's documented contract exactly** (origin header,
+payload shape, `session` response, `x-auth-token`, real JWT `exp`): one login serves four
+checks; invalidating sessions produces `check 401 → login → check OK`; a 2-second JWT re-mints
+where a 1800-second one does not, which proves `exp` is being read rather than a fixed TTL; and
+an opaque non-JWT session and a malformed JWT payload both fall back without throwing.
+
+**Reverse if:** Titan exposes a public availability endpoint that needs no login exchange —
+then the whole minting layer is dead weight and `NEO_COSITE_CHECK_TOKEN` or no auth is simpler.

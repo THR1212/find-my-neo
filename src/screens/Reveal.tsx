@@ -4,8 +4,6 @@ import { availableFromLookup, lookupDomains, type DomainInfo } from "../lib/doma
 import { pickFeatures, type FeatureSurface } from "../lib/features";
 import { recommend, CYCLE_LABEL } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
-import NeoSitePreview from "../components/NeoSitePreview";
-import NeoSiteGenerating from "../components/NeoSiteGenerating";
 import SetupStory from "../components/SetupStory";
 import { block as blockData, type NeoSite } from "../lib/neoSite";
 import type { Profile } from "../lib/engine";

@@ -155,7 +155,11 @@ export const NEEDS: Need[] = [
   {
     id: "room_for_big_files",
     because: "you send large files often",
-    entitlement: "storage",
+    /* `drive_storage`, not `storage`. Mailbox storage is 15/50/100 GB — present on every tier,
+       so citing it made this a cap dressed as a gate. Neo Drive is the real difference:
+       Pandora has it ABSENT from Starter, 1,024 MB on Standard and 51,200 MB on Max. A 1 GB
+       Drive does not hold "large files, often"; a 50 GB one does. */
+    entitlement: "drive_storage",
     /* Storage is PER MAILBOX (Neo's own catalogue: "allotted for each mailbox that is
        created"), so this is about what one person sends, not how many people there are. */
     minMail: "max",
@@ -164,7 +168,18 @@ export const NEEDS: Need[] = [
   {
     id: "room_for_attachments",
     because: "you send photos and documents",
-    entitlement: "storage",
+    /**
+     * `drive_storage`, and this is the one Hari caught.
+     *
+     * It cited `storage` — mailbox storage, which Neo publishes as 15/50/100 GB. Starter HAS
+     * 15 GB, so the need doubled the price for something the cheaper tier already did: a cap
+     * read as a gate, the same error as read receipts earlier that day.
+     *
+     * The floor is right; the citation was wrong. Pandora — the source of truth — has Neo
+     * Drive **absent from Starter** entirely. Somewhere to put files you send is a real
+     * presence gate at Standard, which is what this need was always reaching for.
+     */
+    entitlement: "drive_storage",
     minMail: "standard",
     when: (p) => has(p, "attachmentVolume", "docs"),
   },

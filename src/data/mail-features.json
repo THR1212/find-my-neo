@@ -1,12 +1,13 @@
 {
   "_source": "neo.space/pricing-and-plan, full Starter/Standard/Max comparison, read 2026-09-03",
-  "_note": "THE CUSTOMER-FACING TABLE. plan-features.json is Pandora, the backend entitlements, and CLAUDE.md calls that the higher authority. It is — for what the product DOES. This file is what the customer can check, and where the two disagree we must not print the Pandora answer: a promise Neo's own pricing page contradicts is the one kind of error a judge can catch live. Four disagreements found on 03 Sep, listed in _conflictsWithPandora.",
+  "_note": "Neo's PUBLISHED comparison table. plan-features.json (Pandora) is the source of truth and wins wherever the two differ — confirmed by Hari 03 Sep. This file is the marketing simplification: it is the customer's mental model and a useful cross-check, not an authority. Where the page shows MAX ONLY and Pandora shows lower, the page is under-stating for a compact table.",
   "_conflictsWithPandora": {
     "signature_builder": "pricing page: MAX ONLY. plan-features.json: 'STANDARD and MAX'. Our `look_established` need forces STANDARD citing this.",
     "drive_storage": "pricing page: Drive is MAX ONLY. plan-features.json: 'Standard (1,024) and Max (51,200). Absent from Starter.'",
     "ai_summary": "pricing page: MAX ONLY. plan-features.json: 'All three, limit 4 on Starter and Standard.'",
     "advanced_tracking": "pricing page: MAX ONLY. plan-features.json: 'All three, limited: Starter 5, Standard 5, Max unlimited.'",
-    "sendLimitPerDay": "pricing page: Starter 500 / Standard 1000 / Max 1000 per day. plan-features.json sendLimitPerDay: max 2000. Nothing reads it today."
+    "sendLimitPerDay": "pricing page: Starter 500 / Standard 1000 / Max 1000 per day. plan-features.json sendLimitPerDay: max 2000. Nothing reads it today.",
+    "_resolution": "PANDORA WINS on all five. Recorded so nobody re-derives them from the page and 'corrects' the code in the wrong direction. What this table IS good for: catching a floor we assert that NEITHER source supports — which is how the attachments mis-citation was found."
   },
   "rows": [
     {

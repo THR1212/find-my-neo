@@ -45,18 +45,23 @@ Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
    we recommended it, with a real price, until 03 Sep. Check a plan is purchasable before
    `rules.ts` can return it.
 
-   **THREE SOURCES, AND THEY DISAGREE.** `plan-features.json` is Pandora, the backend
-   entitlements — authoritative for what the product DOES. `site-features.json` and
-   `mail-features.json` are Neo's own published comparison tables — authoritative for what the
-   customer is TOLD, and the only thing a judge can check live. Five disagreements are recorded
-   in `mail-features.json._conflictsWithPandora`, including Signature Designer, which Pandora
-   puts on Standard and the pricing page puts on Max only. **Where they conflict, do not print
-   the Pandora answer**: a promise Neo's own page contradicts is the worst error this product
-   can make. Resolve it with someone who has access; do not pick by feel.
+   **PANDORA IS THE SOURCE OF TRUTH.** `plan-features.json` is the backend entitlement data and
+   it wins, full stop — Hari confirmed this on 03 Sep when I had it backwards. The published
+   comparison tables (`site-features.json`, `mail-features.json`) are Neo's own marketing
+   simplification of the same thing: useful as a cross-check and as the customer's mental
+   model, never as the authority. Five places they differ are recorded in
+   `mail-features.json._conflictsWithPandora` — the pricing page puts Signature Designer, Drive,
+   AI Summary and Advanced Tracking on Max only, and Pandora has all four lower. **Believe
+   Pandora.** The tables earn their place by catching the opposite error: a floor we assert
+   that neither source supports.
 
-   **A cap is not a gate.** Twice on 03 Sep a need forced a higher tier for something the
-   cheaper tier already had — read receipts (Starter has 50/month) and attachments (Starter has
-   15 GB). Before adding a floor, check the feature is ABSENT below it, not merely smaller.
+   **A cap is not a gate — and cite the entitlement that is actually absent.** Twice on 03 Sep
+   a need forced a higher tier for something the cheaper tier already had. Read receipts were a
+   real mistake (Starter has 50/month; the floor was removed). Attachments were a mis-CITATION:
+   the need was reaching for Neo Drive, which Pandora has **absent from Starter**, but named
+   `storage`, which is mailbox storage at 15/50/100 GB and present everywhere. The floor was
+   right and the reason was wrong, which is harder to catch than a wrong floor. Before adding
+   one, name the entitlement that is ABSENT below it, not the one that is merely smaller.
 3. **No API key ever reaches the browser.** All model calls go through `api/*` serverless functions.
 4. **Every external call must degrade, never block.** Three of them now: the LLM (`api/_lib/llm.ts`,
    replay mode), Neo's site generator (`api/_lib/neoSite.ts`, falls back to a *recorded real*

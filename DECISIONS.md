@@ -1449,11 +1449,24 @@ removing them blind would make the tier unreachable.
 | `advanced_tracking` | MAX ONLY | "All three, limited" |
 | `sendLimitPerDay` | Max 1000/day | max 2000 |
 
-The first matters most: `look_established` forces Standard citing Signature Designer, which
-Neo's own pricing page says is Max-only. CLAUDE.md rule 2 now says that where the two disagree
-we do not print the Pandora answer — Pandora is authoritative for what the product DOES, the
-pricing page for what the customer is TOLD, and only the second is checkable by a judge in the
-room. **Unresolved on purpose.** It needs someone with access to say which source is stale.
+**Resolved the same evening: Pandora wins, full stop.** Hari confirmed it, and my
+recommendation — "where they conflict, do not print the Pandora answer" — was wrong. The
+published table is Neo's marketing simplification of the same data, compact enough that four
+features it shows as Max-only are available lower. `look_established` citing Signature Designer
+for Standard is therefore CORRECT, and Standard is reachable honestly.
+
+That also resolves the attachments question, and not by removing the need. The floor was right
+and the CITATION was wrong: it named `storage`, which is mailbox storage at 15/50/100 GB and
+present on every tier, when what it was reaching for is **Neo Drive — absent from Starter**
+in Pandora. Both storage needs now cite `drive_storage`, in `candidates.ts` and in the model's
+own entitlement enum. A mis-citation under a correct floor is harder to catch than a wrong
+floor, which is why CLAUDE.md rule 2 now says to name the entitlement that is ABSENT below the
+line, never the one that is merely smaller.
+
+  'photos and documents'      standard  room_for_attachments [drive_storage]
+  'moving off personal email' standard  look_established [signature_builder]
+  'large files often'         max       room_for_big_files [drive_storage]
+  invoiced last month         max       bill_from_your_inbox [invoice_builder]
 
 ### A regression of my own, caught by Hari
 

@@ -1648,12 +1648,22 @@ a.btn {
   display: none;
 }
 
+/* Centred like the left column, so the two halves read as a pair rather than one hanging from
+   the top and one floating in the middle. */
 .setup-story {
-  gap: 10px;
+  gap: 12px;
+  justify-content: center;
+  justify-content: safe center;
 }
 
+/* Sized to its content, NOT `flex: 1`.
+   Stretching the card to the full column height does not stretch the website inside it — the
+   site has a fixed number of blocks — so the difference showed up as a 200px slab of white
+   between Neo's footer line and the bottom border, and pushed the template row onto the edge
+   of the viewport. `0 1 auto` lets it shrink on a short screen and stop at its natural height
+   on a tall one. */
 .reveal-preview {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -1669,7 +1679,7 @@ a.btn {
 }
 
 .reveal-preview .neo-site {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   margin: 0;
   overflow: hidden;
@@ -1677,12 +1687,14 @@ a.btn {
   flex-direction: column;
 }
 
-/* Capped: on a tall column an uncapped hero grows until the card stops reading as a website
-   and starts reading as a photo with a caption. */
+/* A real height rather than a percentage: the card is content-sized now, so a percentage
+   would resolve against a height that depends on this element — circular, and it collapses.
+   vh keeps it proportionate on a laptop without letting the photo take over the card. */
 .reveal-preview .neo-site-hero {
-  flex: 1 1 42%;
-  min-height: 110px;
-  max-height: 40%;
+  flex: 0 1 auto;
+  height: clamp(120px, 21vh, 230px);
+  min-height: 90px;
+  max-height: none;
   aspect-ratio: auto;
 }
 
@@ -1806,11 +1818,11 @@ a.btn {
 
 /* --- Template snapshots under the generated site ------------------------- */
 
-/* Fixed height, not flexible: the pane above is `flex: 1`, so anything auto-sized down here
-   gets squeezed off the bottom of a locked viewport instead of shrinking the preview. */
+/* Fixed height so it cannot be squeezed off the bottom of a locked viewport by the preview
+   above it. */
 .tpl-shots {
   flex: 0 0 auto;
-  height: 92px;
+  height: 96px;
   display: flex;
   flex-direction: column;
 }

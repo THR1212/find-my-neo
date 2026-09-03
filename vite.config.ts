@@ -1,3 +1,5 @@
+import { appendFile } from "node:fs/promises";
+
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 
@@ -25,6 +27,48 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
       for (const k of ["LLM_MODE", "LLM_MODEL", "LLM_API_KEY", "LLM_BASE_URL"]) {
         if (env[k]) process.env[k] = env[k];
       }
+
+      /**
+       * Completed runs, appended to `runs.jsonl` (gitignored).
+       *
+       * The dev sink writes a FILE rather than printing, because this is the artefact for
+       * refining: one JSON object per line, so `analysis/` can read it with the same Python
+       * Darrel already uses, and it survives the terminal scrolling away. Production posts the
+       * same record to api/run.ts, which logs instead.
+       */
+      server.middlewares.use("/api/run", (req, res) => {
+        let body = "";
+        req.on("data", (c) => (body += c));
+        req.on("end", () => {
+          /* One object per line — a newline inside the JSON would break JSONL. Re-serialising
+             also validates the body, so a malformed post is dropped with a message rather
+             than corrupting the file for every run after it. */
+          let line = "";
+          try {
+            line = JSON.stringify(JSON.parse(body || "{}")) + "\n";
+          } catch {
+            console.error("[run] dropped an unparseable body");
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
+          void appendFile("runs.jsonl", line, "utf8")
+            .then(() => {
+              try {
+                const r = JSON.parse(body);
+                console.error(
+                  "[run]",
+                  `${r.sid} asked=${(r.trail ?? []).length} prefilled=${(r.prefilled ?? []).join(",") || "-"} -> runs.jsonl`,
+                );
+              } catch {
+                console.error("[run] appended (unparseable summary)");
+              }
+            })
+            .catch((err) => console.error("[run] could not append:", String(err)));
+          res.statusCode = 204;
+          res.end();
+        });
+      });
 
       // Client error / degradation sink. Mirrors api/log.ts; prints to the dev terminal.
       server.middlewares.use("/api/log", (req, res) => {

@@ -10,6 +10,7 @@ import {
   type EngineState,
 } from "./lib/engine";
 import { describePrefill } from "./lib/questions";
+import { buildRunRecord, postRun, downloadRun, debugEnabled } from "./lib/runLog";
 import { buildProfile, fetchQuestionSurface, fetchReasons, fetchRationale } from "./lib/api";
 import { recommend } from "./lib/rules";
 import { fetchNeoSite, type NeoSite } from "./lib/neoSite";
@@ -231,6 +232,43 @@ export default function App() {
     });
   }, [restored, kickOff]);
 
+  /**
+   * Post the run record once, on arrival at the reveal.
+   *
+   * A ref rather than a state flag because StrictMode double-invokes effects in development,
+   * and this must post once per run, not twice. Waits for `rationale` so the record carries the
+   * generated explanation — it lands a few seconds after the reveal, and a record missing it
+   * cannot tell us whether that call worked.
+   */
+  const postedRun = useRef(false);
+  useEffect(() => {
+    if (stage !== "reveal" || postedRun.current || !rawText || !reveal) return;
+    /* Give the rationale call its moment. If it never lands the record still posts, with the
+       empty strings that themselves say the call failed. */
+    const timer = setTimeout(() => {
+      if (postedRun.current) return;
+      postedRun.current = true;
+      const rec = recommend(engine.profile, reveal.mailboxes.length);
+      void postRun(
+        buildRunRecord({
+          engine,
+          businessText: rawText,
+          mode: import.meta.env.VITE_LLM_MODE ?? "replay",
+          plan: {
+            mailPlan: rec.mailPlan.id,
+            sitePlan: rec.sitePlan?.id ?? null,
+            mailboxes: rec.mailboxes,
+            cycle: rec.cycle,
+            monthlyInr: rec.monthlyInr,
+          },
+          reasons,
+          rationale,
+        }),
+      );
+    }, 12000);
+    return () => clearTimeout(timer);
+  }, [stage, rawText, reveal, engine, reasons, rationale]);
+
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
     saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, reasons, rationale });
@@ -313,6 +351,35 @@ export default function App() {
     setError(null);
   }, []);
 
+  /**
+   * `?debug=1` — hand the whole run over as a file.
+   *
+   * Not a feature and never shown to a visitor. It is the best bug report anyone can give us:
+   * the generated wording, every answer, the plan and every degradation, in one file that can
+   * be read rather than reproduced.
+   */
+  const debug = debugEnabled();
+  const saveRun = useCallback(() => {
+    if (!reveal) return;
+    const rec = recommend(engine.profile, reveal.mailboxes.length);
+    downloadRun(
+      buildRunRecord({
+        engine,
+        businessText: rawText,
+        mode: import.meta.env.VITE_LLM_MODE ?? "replay",
+        plan: {
+          mailPlan: rec.mailPlan.id,
+          sitePlan: rec.sitePlan?.id ?? null,
+          mailboxes: rec.mailboxes,
+          cycle: rec.cycle,
+          monthlyInr: rec.monthlyInr,
+        },
+        reasons,
+        rationale,
+      }),
+    );
+  }, [engine, rawText, reveal, reasons, rationale]);
+
   const showMeter = stage === "guess" || stage === "question" || stage === "reveal";
   const stepNumber = engine.asked.length + 1;
 
@@ -338,6 +405,13 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Debug-only. Positioned out of the flow so it cannot disturb a screenshot or a demo. */}
+      {debug && stage === "reveal" && (
+        <button className="btn btn-ghost debug-save" onClick={saveRun}>
+          Download this run
+        </button>
+      )}
 
       <main className="stage">
         <AnimatePresence mode="wait">

@@ -1274,3 +1274,14 @@ a.btn {
   margin-top: 4px;
   opacity: 0.85;
 }
+
+/* ?debug=1 only — out of the layout flow so it cannot disturb a demo or a screenshot. */
+.debug-save {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 6;
+  font-size: 12px;
+  padding: 6px 10px;
+  opacity: 0.75;
+}

@@ -89,7 +89,23 @@ export function installErrorLogging(): void {
  *
  * Not an error: nothing is broken for the user. It is a signal that something upstream is.
  */
+/**
+ * Every degradation this run, in order, so the run record can carry them.
+ *
+ * In memory only and never cleared: a run is one page life, and the record is posted at the
+ * reveal. This is what turns "the reveal looked wrong" into "the domain lookup timed out and
+ * the questions call fell back to the fixed bank", which is the difference between a bug
+ * report you can act on and one you can only sympathise with.
+ */
+const degradations: { what: string; detail?: string; at: number }[] = [];
+
+/** Read-only view for the run record. */
+export function collectedDegradations(): { what: string; detail?: string; at: number }[] {
+  return degradations.slice();
+}
+
 export function reportDegraded(what: string, detail?: string): void {
+  degradations.push({ what, ...(detail ? { detail: detail.slice(0, 300) } : {}), at: Date.now() });
   report({
     message: `degraded: ${what}`,
     source: "degradation",

@@ -270,11 +270,25 @@ which also tags the client-side error lines from the same session:
 - `[questions]` — `surfaced`, `dropped`, `droppedDetail`.
 - `[client-error]` — degradations reported from the browser.
 
+**One record per completed run** is posted at the reveal (`src/lib/runLog.ts` → `/api/run`).
+In dev it is appended to a gitignored **`runs.jsonl`** — one JSON object per line, which is the
+artefact to refine against: `analysis/` can read it with the same Python Darrel already uses.
+In production `api/run.ts` writes a compact `[run]` summary plus a clipped `[run-full]`, because
+Vercel truncates long lines and the summary must always survive.
+
+It carries the description, `prefilled`, `priority`, every question **as displayed** with what
+was picked, the plan, all 20 generated reasons, the rationale, and every degradation. That is
+what makes per-question drop-off measurable — the number Darrel's 40-65% completion benchmark
+says matters most, and the one we would otherwise be guessing at if MAX_QUESTIONS rises.
+
+`?debug=1` adds a **Download this run** button on the reveal, which hands the same record over
+as a file. It is the best bug report anyone can give us.
+
 In-session, `engine.trail` (`QuestionTrace`) records every question **as displayed**, with
 `origin: fixed | generated`. Generated wording makes every run different, so without it a bug
 report is unreproducible. It already caught one false alarm: a plan showing 8 mailboxes looked
 like a bug until the trail showed the click had genuinely landed on "More than five".
-**It is still only in memory — nothing posts or displays it.**
+**Since 03 Sep the run record reads it** — before that it died with the tab.
 
 ---
 

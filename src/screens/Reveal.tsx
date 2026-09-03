@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import type { DomainOption, RevealContent } from "../lib/session";
 import {
   availableFromLookup,
@@ -483,17 +484,41 @@ export default function Reveal({
               * quote we verified against their own words, and folding a quote into generated
               * prose would make it look written rather than found.
               */}
-            {rationale?.because ? (
-              <p className="plan-because">{rationale.because}</p>
-            ) : (
-              rec.needs.length > 0 && (
-                <ul className="plan-needs">
-                  {rec.needs.map((n) => (
-                    <li key={n.id}>{n.because}</li>
-                  ))}
-                </ul>
-              )
-            )}
+            {/**
+              * Cross-faded, because this block UPGRADES under the reader.
+              *
+              * The reveal renders the instant the last question is answered — `rec` is
+              * deterministic, so nothing waits — and `/api/rationale` lands a few seconds
+              * later. When it does, three bullets are replaced by one sentence: a hard swap
+              * and a height change, in a paragraph someone is mid-way through reading.
+              *
+              * This is the only content on the screen that changes after it appears, so it is
+              * the only place a transition is doing real work rather than decoration.
+              * `mode="wait"` so the outgoing block clears before the incoming one measures,
+              * which is what stops the height jump.
+              */}
+            <AnimatePresence mode="wait" initial={false}>
+              {rationale?.because ? (
+                <motion.p
+                  key="because"
+                  className="plan-because"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  {rationale.because}
+                </motion.p>
+              ) : (
+                rec.needs.length > 0 && (
+                  <motion.ul key="needs" className="plan-needs" exit={{ opacity: 0 }}>
+                    {rec.needs.map((n) => (
+                      <li key={n.id}>{n.because}</li>
+                    ))}
+                  </motion.ul>
+                )
+              )}
+            </AnimatePresence>
             {verdict?.raised && verdict.cites.length > 0 && (
               <ul className="plan-needs">
                 {verdict.cites.map((c) => (

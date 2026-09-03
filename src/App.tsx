@@ -251,7 +251,7 @@ export default function App() {
 
       <AnimatePresence>
         <motion.div
-          className="meter-dock"
+          className={`meter-dock${stage === "reveal" ? " meter-dock-reveal" : ""}`}
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}

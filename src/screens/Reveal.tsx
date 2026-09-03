@@ -4,7 +4,7 @@ import { availableFromLookup, lookupDomains, type DomainInfo } from "../lib/doma
 import { pickFeatures, type FeatureSurface } from "../lib/features";
 import { recommend, CYCLE_LABEL } from "../lib/rules";
 import { buildHandoffUrl } from "../lib/handoff";
-import SetupStory from "../components/SetupStory";
+import SetupStory, { IdentityStrip } from "../components/SetupStory";
 import { block as blockData, type NeoSite } from "../lib/neoSite";
 import type { Profile } from "../lib/engine";
 import { playSetupReady, playSound, unlockSound } from "../sound";
@@ -280,6 +280,8 @@ export default function Reveal({
             ))}
           </div>
 
+          <IdentityStrip domain={domainName} locals={locals} />
+
           <div className="plan-card">
             <p className="reveal-label">Recommended plan</p>
             <div className="plan-name">
@@ -320,12 +322,7 @@ export default function Reveal({
           </div>
         </section>
 
-        <SetupStory
-          domain={domainName}
-          locals={locals}
-          showSite={showSite}
-          neoSite={neoSite}
-        />
+        <SetupStory domain={domainName} showSite={showSite} neoSite={neoSite} />
       </div>
     </div>
   );

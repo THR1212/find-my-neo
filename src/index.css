@@ -1525,7 +1525,8 @@ a.btn {
   height: 100dvh;
   min-height: 0;
   align-content: stretch;
-  padding: 64px 20px 12px;
+  /* Extra top padding so the right-docked meter sits above the site window. */
+  padding: 96px 20px 12px;
   overflow: hidden;
 }
 
@@ -1545,14 +1546,28 @@ a.btn {
   overflow: hidden;
 }
 
+.meter-dock-reveal {
+  left: auto;
+  /* Flush to the right of the 1180px stage — above the preview, not on it. */
+  right: max(20px, calc((100vw - min(1180px, calc(100vw - 40px))) / 2 + 20px));
+  transform: none;
+  top: 18px;
+}
+
 .reveal-split {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.1fr);
-  gap: 20px;
+  /* Wider left column so Addresses + professional email sit above the plan. */
+  grid-template-columns: minmax(0, 1.38fr) minmax(0, 0.62fr);
+  gap: 16px 32px;
   align-items: stretch;
   overflow: hidden;
+}
+
+.setup-story {
+  /* Nudge the site builder right so the identity strip has room on the left. */
+  margin-left: 20px;
 }
 
 .reveal-setup,
@@ -1622,6 +1637,10 @@ a.btn {
 
 .setup-story {
   gap: 10px;
+}
+
+.reveal-setup .story-strip {
+  margin: 8px 0 4px;
 }
 
 .reveal-preview {
@@ -1768,6 +1787,10 @@ a.btn {
     gap: 10px;
   }
 
+  .setup-story {
+    margin-left: 0;
+  }
+
   .reveal-preview {
     min-height: 0;
   }
@@ -1778,6 +1801,16 @@ a.btn {
 }
 
 @media (max-width: 640px) {
+  .meter-dock-reveal {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+  }
+
+  .stage-reveal {
+    padding-top: 88px;
+  }
+
   .reveal-cta {
     flex-direction: column;
     align-items: stretch;

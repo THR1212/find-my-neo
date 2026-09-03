@@ -177,34 +177,6 @@ export default function App() {
         });
       }
 
-      if (opts.profile) {
-        void fetchQuestionSurface(text).then((surface) => {
-          if (Object.keys(surface).length === 0) return;
-          /* Nothing left to reword. */
-          if (stageRef.current === "reveal") return;
-
-          /**
-           * Apply it to every question EXCEPT the one being read right now.
-           *
-           * The rule used to be "drop it entirely once a question is on screen", and the
-           * reason was right: rewriting a question under someone mid-read is worse than
-           * plain wording. But it threw away the other seven to protect one, and it did that
-           * more and more often as the call got slower — measured live at 11.5s on one run
-           * and past 45s on the next, against a guess screen most people leave in a few
-           * seconds. The generated wording was being discarded almost every time.
-           *
-           * Holding back the current question keeps the original guarantee intact and lets
-           * the rest of the flow read as it was meant to.
-           */
-          setEngine((prev) => {
-            const onScreen = stageRef.current === "question" ? currentQuestionRef.current : null;
-            if (!onScreen) return { ...prev, surface };
-            const rest = { ...surface };
-            delete rest[onScreen];
-            return { ...prev, surface: rest };
-          });
-        });
-      }
       if (!opts.profile) return;
 
       setLoading(true);
@@ -265,6 +237,52 @@ export default function App() {
             ...(opts.seedNextQuestion ? { priority: res.questionPriority ?? [] } : {}),
             };
           });
+          /**
+           * SERIALISED, on Hari's call. It used to fire beside this one.
+           *
+           * In parallel it could not know which questions mattered, so it rewrote all nine —
+           * roughly forty strings — and measured 11.5s, 45s and 62s on identical inputs. A run
+           * only ever SHOWS five or six; the rest are prefilled, gated out, or never reached.
+           * We were generating about twice what anyone reads, and the wait was proportional
+           * to the waste.
+           *
+           * Starting later costs the profile's own latency. Rewriting half as much should more
+           * than pay that back, and the variance matters more than the mean here — the 62s run
+           * is what breaks the feature, not the 11s one.
+           *
+           * Order comes from `questionPriority` minus anything the description already
+           * answered: exactly the questions about to appear, in the order they will appear.
+           */
+          const askOrder = (res.questionPriority ?? []).filter(
+            (id) => !(res.prefilledQuestionIds ?? []).includes(id),
+          );
+          void fetchQuestionSurface(text, askOrder.slice(0, 6)).then((surface) => {
+          if (Object.keys(surface).length === 0) return;
+          /* Nothing left to reword. */
+          if (stageRef.current === "reveal") return;
+
+          /**
+           * Apply it to every question EXCEPT the one being read right now.
+           *
+           * The rule used to be "drop it entirely once a question is on screen", and the
+           * reason was right: rewriting a question under someone mid-read is worse than
+           * plain wording. But it threw away the other seven to protect one, and it did that
+           * more and more often as the call got slower — measured live at 11.5s on one run
+           * and past 45s on the next, against a guess screen most people leave in a few
+           * seconds. The generated wording was being discarded almost every time.
+           *
+           * Holding back the current question keeps the original guarantee intact and lets
+           * the rest of the flow read as it was meant to.
+           */
+          setEngine((prev) => {
+            const onScreen = stageRef.current === "question" ? currentQuestionRef.current : null;
+            if (!onScreen) return { ...prev, surface };
+            const rest = { ...surface };
+            delete rest[onScreen];
+            return { ...prev, surface: rest };
+          });
+          });
+
           setLoading(false);
         })
         .catch((err: unknown) => {

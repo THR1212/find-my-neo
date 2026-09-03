@@ -157,7 +157,6 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
          guess screen never waits on question generation — see questionService's header. */
       for (const [path, fn] of [
         ["/api/profile", handleProfile],
-        ["/api/questions", handleQuestions],
         ["/api/reasons", handleReasons],
       ] as const) {
         server.middlewares.use(path, async (req, res) => {
@@ -187,6 +186,37 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
       /* Takes a whole object rather than a bare businessText, so it cannot share the loop
          above. Same handler the Vercel function uses. */
       /* Object-bodied like /api/rationale, so it cannot share the businessText loop either. */
+      /**
+       * Out of the loop above, because it takes a THIRD argument.
+       *
+       * The loop calls `fn(businessText, sid)`. `/api/questions` now also takes the list of
+       * question ids to rewrite, and leaving it in the loop would have dropped that silently:
+       * production would rewrite five questions and localhost all nine, which is the same
+       * dev/prod signature drift that has cost three separate bugs in this file.
+       */
+      server.middlewares.use("/api/questions", async (req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        if (req.method !== "POST") {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: "method not allowed" }));
+          return;
+        }
+        let raw = "";
+        req.on("data", (c) => (raw += c));
+        req.on("end", async () => {
+          try {
+            const parsed = JSON.parse(raw || "{}") as { businessText?: unknown; wantIds?: unknown };
+            const sid = String(req.headers["x-fmn-session"] ?? "none").slice(0, 24);
+            const { status, body } = await handleQuestions(parsed.businessText, sid, parsed.wantIds ?? []);
+            res.statusCode = status;
+            res.end(JSON.stringify(body));
+          } catch (err) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: String(err) }));
+          }
+        });
+      });
+
       server.middlewares.use("/api/plan", async (req, res) => {
         res.setHeader("Content-Type", "application/json");
         if (req.method !== "POST") {

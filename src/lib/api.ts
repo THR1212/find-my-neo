@@ -295,13 +295,23 @@ export async function fetchReasons(businessText: string): Promise<Record<string,
  * Never rejects. An empty surface is a complete answer — every question falls back to the
  * fixed bank in questions.ts, which is exactly what shipped before this existed.
  */
-export async function fetchQuestionSurface(businessText: string): Promise<SurfaceMap> {
+export async function fetchQuestionSurface(
+  businessText: string,
+  /**
+   * The questions this run will actually ask, in order. Empty rewrites all of them.
+   *
+   * Sent so the model rewrites five or six instead of nine. The call was measured at 11.5s,
+   * 45s and 62s on identical inputs — reasoning-token variance on a body roughly twice the
+   * size of what anyone reads, since the rest are prefilled, gated out, or never reached.
+   */
+  wantIds: string[] = [],
+): Promise<SurfaceMap> {
   if (MODE === "replay") return {};
   try {
     const res = await fetch("/api/questions", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-fmn-session": sessionId() },
-      body: JSON.stringify({ businessText }),
+      body: JSON.stringify({ businessText, wantIds }),
     });
     if (!res.ok) throw new Error(`${res.status}`);
     const body = (await res.json()) as { surface?: SurfaceMap };

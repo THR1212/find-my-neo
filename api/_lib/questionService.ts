@@ -114,14 +114,45 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
  * The current label goes in too, because the model is not just picking an id: it has to
  * preserve what that option MEANS while changing how it reads.
  */
-const SHAPE_FOR_PROMPT = Object.entries(QUESTION_SHAPE)
-  .map(([qid, q]) => {
-    const opts = Object.entries(q.options)
-      .map(([oid, label]) => `      ${oid} = currently "${label}"`)
-      .join("\n");
-    return `  questionId "${qid}" — currently "${q.prompt}"\n${opts}`;
-  })
-  .join("\n");
+/**
+ * Built per request, over only the questions this run will actually ASK.
+ *
+ * It used to be a module constant covering all nine, because the call fired in parallel with
+ * `/api/profile` and so could not know which mattered. A run only ever SHOWS five or six; the
+ * rest are prefilled, gated out, or never reached before the reveal.
+ *
+ * ## THIS DOES NOT MAKE IT FASTER, and I predicted that it would
+ *
+ * Measured on the same business text, same model, varying only the number of questions asked
+ * for:
+ *
+ *     nine  16s     five  58s     two   9s     nine  18s
+ *
+ * There is no relationship between payload size and latency worth acting on. The spread
+ * inside one size is larger than the difference between sizes, which says the cost is
+ * REASONING tokens — the model deliberating before it writes — and that does not scale with
+ * how much it is asked to write. Halving the output bought nothing.
+ *
+ * What it does buy, and the reason it stays: the model rewrites only what someone will read,
+ * in the order they will read it, and we stop paying for roughly half an answer nobody sees.
+ * Latency has to be solved somewhere else — the 75s ceiling and applying late wording to
+ * questions not yet on screen are what actually contain it.
+ *
+ * An empty list means all of them, so a caller with no ranking to offer keeps the old
+ * behaviour.
+ */
+function shapeForPrompt(ids: string[]): string {
+  const wanted = ids.length ? ids.filter((id) => id in QUESTION_SHAPE) : Object.keys(QUESTION_SHAPE);
+  return wanted
+    .map((qid) => {
+      const q = QUESTION_SHAPE[qid];
+      const opts = Object.entries(q.options)
+        .map(([oid, label]) => `      ${oid} = currently "${label}"`)
+        .join("\n");
+      return `  questionId "${qid}" — currently "${q.prompt}"\n${opts}`;
+    })
+    .join("\n");
+}
 
 interface ModelQuestion {
   questionId: string;
@@ -247,10 +278,13 @@ const SYSTEM = [
   "returns, is worth having. Return an empty hint when all you would be writing is the label",
   "again in other words.",
   "",
-  "These are the nine questions and their EXACT ids. Use these ids verbatim. Do not invent an",
+  "These are the questions and their EXACT ids. Use these ids verbatim. Do not invent an",
   "id, do not add or drop options, and keep each option meaning what it means now:",
-  SHAPE_FOR_PROMPT,
+  "__SHAPE__",
 ].join("\n");
+
+/** The system prompt for one request. `__SHAPE__` is the only per-run part. */
+const systemFor = (ids: string[]) => SYSTEM.replace("__SHAPE__", shapeForPrompt(ids));
 
 /**
  * Keep only what is provably safe, and say what was thrown away.
@@ -327,19 +361,33 @@ function validateQuestions(raw: ModelQuestion[] | undefined): {
 export async function handleQuestions(
   businessTextRaw: unknown,
   sid = "none",
+  /**
+   * Which questions to rewrite, in the order the flow will ask them.
+   *
+   * Empty means all of them. The client sends this after the profile call lands, because that
+   * is the first moment anything knows which questions this run will actually reach —
+   * `questionPriority` minus whatever the description already prefilled.
+   */
+  wantIdsRaw: unknown = [],
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const startedAt = Date.now();
   const businessText = String(businessTextRaw ?? "").slice(0, 2000);
   if (businessText.trim().length < 8) {
     return { status: 400, body: { error: "businessText too short" } };
   }
+  /* Validated against our own table, never trusted: an unknown id is dropped rather than
+     passed to the model, and an empty result falls back to rewriting everything. */
+  const wantIds = (Array.isArray(wantIdsRaw) ? wantIdsRaw : [])
+    .map((v) => String(v))
+    .filter((id) => id in QUESTION_SHAPE)
+    .slice(0, 9);
 
   let questions: ModelQuestion[] = [];
   let reason = "";
   try {
     const out = await complete<{ questions: ModelQuestion[] }>({
       key: "questions",
-      system: SYSTEM,
+      system: systemFor(wantIds),
       user: businessText,
       schema: SCHEMA as unknown as Record<string, unknown>,
       schemaName: "question_surface",

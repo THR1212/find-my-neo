@@ -142,6 +142,33 @@ not a request we can fix from here.
 
 `POST` returns `HTTP method not allowed`, so it is `GET`-only.
 
+### The `500` is not the namespace, and not a missing `partnerId`
+
+Both were checked, because both were plausible. Neither changes anything — the staging namespace
+domain we were given behaves exactly like the production-namespace ones:
+
+```
+domainName=14test.costaging.site                      500  InternalServerError
+domainName=14test.costaging.site&partnerId=71         500  InternalServerError
+domainName=test.costaging.site&partnerId=71           500  InternalServerError
+domainName=zzqx7v9nonexistent.costaging.site&partnerId=71   500  InternalServerError
+domainName=foo.co.site&partnerId=71                   500  InternalServerError
+
+partnerId as a header instead (x-partner-id / partnerId / x-partner)   500  all three
+
+domainName=notadomain                                 INVALID_DOMAIN   <- validation still runs
+```
+
+The last line matters: `INVALID_DOMAIN` proves the request still reaches the handler's own
+validation, so the `500` is downstream of everything we control. It is identical for a domain
+that exists, one that does not, the staging namespace, the production namespace, with and without
+`partnerId`, and with `partnerId` in three header spellings.
+
+**One thing we cannot rule out from here: the token is `p_54:` while the partnerId we were given
+is 71.** If the service resolves partner 54 from the token and then needs partner 71's namespace,
+that mismatch could be the whole cause — and testing it needs a `p_71:` token, which we do not
+have.
+
 ### The plural parameter needs a form we have not guessed
 
 `domainNames` accepts the repeated-parameter form (`?domainNames=a&domainNames=b`) far enough to
@@ -158,14 +185,28 @@ reveal in one call.
 0903_084321_2_XpCjoadC4o   domainName=test.co.site -> 500
 0903_084322_2_yznXQpQ2Np   domainName=zzqx...co.site -> 500
 0903_083024_3_8I4W9letpB   prod, no auth header  -> 401
+
+0903_085754_2_MC5sQwFnvr   14test.costaging.site&partnerId=71 -> 500
+0903_085755_2_CtwkEHtxEp   14test.costaging.site (no partnerId) -> 500
+0903_085756_2_1tQT6eYoFk   foo.co.site&partnerId=71 -> 500
+0903_085757_2_T7us9WBztN   zzqx7v9nonexistent.costaging.site&partnerId=71 -> 500
+0903_085758_2_jU6oxuRqME   test.costaging.site&partnerId=71 -> 500
 ```
 
 ## What we need
 
 **Q1 — Why does the handler return `500` for every valid domain?**
-`flockmail-bll.flock-staging.com`, `GET`, partner token `p_54:…`, `?domainName=foo.co.site`.
-Request IDs above. The domain-format validation works (`INVALID_DOMAIN` on a bare stem), so we
-are past every layer we can influence. *This is now the only blocker.*
+`flockmail-bll.flock-staging.com`, `GET`, partner token `p_54:…`,
+`?domainName=14test.costaging.site`. Request IDs above. `INVALID_DOMAIN` on a malformed input
+proves we reach the handler's validation, so the `500` sits downstream of everything we control.
+Ruled out already: the namespace (`costaging.site` behaves like `co.site`), a missing `partnerId`
+(as a query parameter and in three header spellings), and whether the domain exists.
+*This is the only blocker.*
+
+**Q1a — Does the `p_54:` token need to match partnerId 71?**
+We were given a `p_54:` token and told the partnerId is 71. If the service resolves partner 54
+from the token and then needs 71, that mismatch could be the entire cause. **Testing it needs a
+`p_71:` token** — please send one, or confirm 54 is correct.
 
 **Q2 — Is there a production equivalent of the staging host, and a production partner token?**
 We were given `flockmail-bll.flock-staging.com` with a staging token. `bll.titan.email` returns

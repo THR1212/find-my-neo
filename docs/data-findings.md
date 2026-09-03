@@ -8,20 +8,28 @@ the one that was computed from source** — but read the caveats, because two of
 sources turn out not to be representative.
 
 Scripts: `analysis/scripts/persona_stats.py`, `analysis/scripts/retention_cuts.py`,
-`analysis/scripts/athena_retention.py`. Machine-readable output:
-`analysis/output/findings.json`, `analysis/output/retention_cuts.json`,
-`analysis/output/athena_findings.json`.
+`analysis/scripts/field_coverage.py`, `analysis/scripts/athena_retention.py`,
+`analysis/scripts/site_usage.py`. Machine-readable output: the matching `.json` files in
+`analysis/output/`.
 Raw exploration log for the V2 dashboard: `analysis/output/titan-persona-notes.md`.
+Competitor research lives separately in `docs/competitor-qualification.md`.
 
 ## Sources
 
 | Source | Unit | Size | Notes |
 |---|---|---|---|
 | `Neo_vs_Non-neo_clients.xlsx`, `Sheet13` | order | 13,968 rows | persona fields; 2023-03-15 → 2024-02-21 |
+| `Neo_vs_Non-neo_clients.xlsx`, `Retention-Raw` | order | 33,024 → 18,399 deduped | retention + the §4 claims |
 | `Titan Persona Analysis - V2` (CSV + 8pp PDF) | domain | 5,661 / 1.3M | dashboard export; **filters change between pages** |
 | `persona data with athena.xlsx`, `athena_data` | account | 153,673 | retention + segments; joins to persona on domain |
+| `neo site order data.xlsx`, `athena site data` | order | 44,581 | site feature usage; **only 723 on a paid plan** (§9) |
 
-All three live in the gitignored `analysis/data/`. None are committed.
+All of them live in the gitignored `analysis/data/`. None are committed.
+
+**They do not agree with each other**, and that is the most important thing on this page.
+Retention is measured differently in each (end-state flag, monthly cohort flags, 3-way status),
+the populations differ, and two of the five are not representative. Compare orderings between
+segments; do not carry a level from one source into a sentence about another.
 
 ---
 
@@ -375,9 +383,13 @@ Every number in that paragraph is computed in this repo, with `n`, from source.
 
 ## Still not done
 
-- **The co.site vs custom-domain contradiction** (§1b) — confirmed in one source,
-  reversed in the other, and the strategy doc disagrees with both. Needs resolving
-  before it is quoted.
+- **The co.site vs custom-domain contradiction now has three readings and no winner:**
+  `Retention-Raw` says co.site 42.9% vs custom 29.5% (§1b), Athena reverses it (custom 38.2%
+  vs co.site 33.4%, §4), and the site data says neither — custom 54.2% vs co.site 56.0%, a
+  1.8pt gap (§9). The 2026 strategy doc assumes the opposite of the first. **Do not quote
+  this in any direction.** Note §9 does find a real domain signal, just not that one:
+  `domain_ownership_verified` is +16pt. "Did they finish connecting a domain" looks like the
+  variable that matters, not "which kind of domain did they get".
 - **Mailbox count** is flat in `Retention-Raw` and steeply negative in Athena (§1d).
   One of the two measures is not what we think it is.
 - The dashboard's per-industry revenue (p4), mail volume (p5), NPS (p6) and feature
@@ -385,3 +397,86 @@ Every number in that paragraph is computed in this repo, with `n`, from source.
 - **Worth requesting:** a Neo-filtered Athena export with `last_paywall_clicked_free` /
   `last_paywall_clicked_pro` at row level. The paywall fields only exist as dashboard
   aggregates today, and they are the strongest basis we have for ordering quiz questions.
+
+---
+
+## 9. What people actually do with a Neo site (added 2026-09-03)
+
+Source: `neo site order data.xlsx`, sheet `athena site data` — 44,581 orders, 16 usable
+feature flags, 3-way retention status, Titan's taxonomy alongside Neo's raw free text.
+Script: `analysis/scripts/site_usage.py`. Output: `analysis/output/site_usage.json`.
+
+**Gating caveats.** Only **723 of 44,581 orders are on a paid site plan** (basic 322, plus 279,
+growth 122) — everything else is beta or free, so plan-level numbers are directional.
+`freeplan_site` is 97.8% published and 93.5% retained, which looks like a plan granted *after*
+publishing rather than one that causes it. `used_external_links` duplicates
+`used_site_published` (differ on 2 of 44,581 rows) — one signal, not two. `used_dns_record` is
+constant 0. Retention is a 3-way flag on a different population, so compare orderings with the
+rest of this doc, not levels.
+
+### Generating a site is not the value moment. Publishing is.
+
+| | n | retained |
+|---|---|---|
+| generated ✗, published ✗ | 31,545 | 47.8% |
+| **generated ✗, published ✓** | 5,589 | **91.7%** |
+| generated ✓, published ✗ | 3,915 | 55.6% |
+| generated ✓, published ✓ | 3,532 | 63.5% |
+
+**Publishing lift +32.1pt — the largest of any flag. Generating lift +4.9pt — near nothing.**
+And among people who published, those who never touched the generator retain *best*.
+
+This is uncomfortable for us, because the reveal is built around Neo's generated site. It does
+not sink the idea — our value is the qualification, and the generated site is a demo beat that
+makes the reveal land. But **"we show them a generated site" is not a retention argument**, and
+should not be made into one. If anything the data says the CTA's job is to get someone to
+*publish*, and the handoff should be framed that way.
+
+Caveat before this gets quoted: the 5,589 who published without generating may include orders
+that predate the generator. This is not a clean experiment.
+
+### Feature adoption — what a site question can sensibly be about
+
+Top: `used_site_builder` 46.2%, `used_site_app` 45.7%, `used_image_upload` 23.6%,
+`used_image` 21.7%, `used_site_published` 20.5%, `used_site_generated` 16.7%.
+
+Bottom, and these are the ones to **not** spend a question on: `used_order_form` **3.5%**,
+`used_seo_setup` **1.6%**, `used_connect_domain` **0.4%**.
+
+More than half of all orders never open the builder at all.
+
+### `sellsOnline → Plus` survives, but it over-serves
+
+| plan | n | order form | published | retained |
+|---|---|---|---|---|
+| basic | 322 | 15.8% | 81.7% | 41.0% |
+| growth | 122 | 25.4% | 78.7% | 45.1% |
+| plus | 279 | **31.2%** | 82.4% | 63.4% |
+
+Order-form use rises with tier, so the **direction** of `chooseSitePlan` is supported. But even
+on Plus only ~31% ever build one, and across all orders it is 3.5%. Sending every "yes, I take
+payments" answer to Plus over-serves roughly two thirds of them.
+
+Also worth noting: **`growth` exists in `plans.json` but `chooseSitePlan` can never return it.**
+There is a middle tier the recommender cannot reach.
+
+### Domain ownership is a real signal
+
+`domain_ownership_verified` true → **67.3%** retained (n=11,452) vs **51.1%** false (n=33,129),
+a +16pt gap. But raw offering barely separates: custom domain 54.2% vs co.site 56.0% — which is
+a *third* reading of the co.site question, and it lands closer to "no meaningful difference"
+than either earlier source. See the open contradiction below.
+
+### The free-text industry field, one product-generation later, is worse
+
+| | This sheet | `Sheet13` (2023-24) |
+|---|---|---|
+| distinct values | **8,016** | 5,318 |
+| rows | 17,527 | 13,833 |
+| distinct share | **45.7%** | 38.4% |
+| appearing exactly once | **82.9%** | 77.8% |
+
+Same failure, larger. And the same sheet carries `industry` (17 values) and `sub_industry`
+(104) — **Titan has already mapped this data to a clean taxonomy**; Neo's own field is still
+collecting free text next to it. That is the strongest single-sheet version of our argument:
+the fix exists inside the same table as the problem.

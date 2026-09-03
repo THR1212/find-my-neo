@@ -15,9 +15,12 @@ import type { NeoClip } from "../lib/neoMedia";
 export default function NeoProductLoop({
   clip,
   active = true,
+  variant = "row",
 }: {
   clip: NeoClip;
   active?: boolean;
+  /** `hero` is the wait-screen treatment: film on top, name underneath. */
+  variant?: "row" | "hero";
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const reduceMotion = useReducedMotion();
@@ -39,7 +42,7 @@ export default function NeoProductLoop({
 
   return (
     <motion.figure
-      className="neo-loop"
+      className={`neo-loop${variant === "hero" ? " neo-loop-hero" : ""}`}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}

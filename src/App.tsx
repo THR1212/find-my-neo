@@ -518,7 +518,7 @@ export default function App() {
         <AnimatePresence mode="wait">
           <motion.div
             key={screenKey}
-            className={`screen${stage === "reveal" ? " screen-wide" : ""}`}
+            className={`screen${stage === "reveal" ? " screen-wide" : ""}${stage === "guess" && loading ? " screen-wait" : ""}`}
             variants={variants}
             initial="enter"
             animate="center"

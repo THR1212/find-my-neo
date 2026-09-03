@@ -1768,9 +1768,22 @@ Unknown plan is treated as Starter, not as "show everything".
 
 **The other looks were not viewable.** Email+site stacked the generated site above a 96px
 thumbnail strip. The strip was clipped by the locked viewport, so "other looks Neo can apply"
-could not actually be looked at. That row is gone. The site builder pane is now two equal
-templates side by side: the generated site, and one other look from the reel, both filling the
-column.
+could not actually be looked at. That row is gone. The site builder pane is two equal
+generator cards side by side: the generated site in browser chrome (hero, copy, products),
+and one other look from Neo's template reel in the same chrome. Both fill the column.
 
 **Reverse if:** Neo ships Starter-tier films for Invoice/Bookings, or the reveal is allowed to
 scroll.
+
+---
+
+### 2026-09-03 · Profile wait is a product reel, not three dots
+
+The guess held on "Working it out…" for the ~10s profile call. That is the first pause in
+the flow and it was empty. `ProductWait` loops Neo's own mail films plus a two-template
+beat — the same vendored assets the reveal already shows — so the wait is a look at the
+product. It loops because we do not know when the profile will land (unlike the site
+generator loader, which must not loop). `prefers-reduced-motion` holds on the first beat.
+
+**Reverse if:** the profile call is consistently under ~2s, at which point the reel would
+feel slower than the thing it is covering.

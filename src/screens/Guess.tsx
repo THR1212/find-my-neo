@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { LineIn, ScreenIn } from "../components/ScreenIn";
+import ProductWait from "../components/ProductWait";
 
 /**
  * The guess. The first of two moments carrying the pitch — the tool reflects the business
@@ -58,19 +59,7 @@ export default function Guess({
   if (loading) {
     return (
       <ScreenIn>
-        <LineIn>
-          <p className="eyebrow">Reading that back</p>
-        </LineIn>
-        <LineIn>
-          <h1 style={{ color: "var(--text-faint)" }}>Working it out…</h1>
-        </LineIn>
-        <LineIn>
-          <div className="dots" aria-label="Loading">
-            <i />
-            <i />
-            <i />
-          </div>
-        </LineIn>
+        <ProductWait />
       </ScreenIn>
     );
   }

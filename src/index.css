@@ -494,6 +494,112 @@ h1 {
   }
 }
 
+/* --- Wait: product reel while the profile generates ---------------------- */
+/* The guess used to hold on three dots for the ~10s profile call. That gap is
+   now a short loop of Neo's own films and two template shots — same assets the
+   reveal already shows, so the wait is about the product rather than a spinner. */
+
+.product-wait {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.product-wait h1 {
+  font-size: clamp(22px, 3.2vw + 8px, 34px);
+  margin: 0 0 8px;
+}
+
+.product-wait .lede {
+  margin-bottom: 18px;
+}
+
+.product-wait-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 280px;
+  height: min(46vh, 380px);
+}
+
+.product-wait-beat {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.product-wait-beat .neo-loop-hero {
+  flex: 1;
+  min-height: 0;
+}
+
+.product-wait-templates {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.product-wait-tpl-pair {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.product-wait-tpl {
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.product-wait-tpl + .product-wait-tpl {
+  border-left: 1px solid var(--border);
+}
+
+.product-wait-tpl img {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+.product-wait-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 12px 14px 14px;
+}
+
+.product-wait-pips {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.product-wait-pips li {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.product-wait-pips li.on {
+  background: var(--accent);
+}
+
 /* --- Narrowing meter ---------------------------------------------------- */
 /* The gamification. Docked top-centre so it stays in view across every screen —
    watching the count collapse IS the mechanic, so it must never scroll away. */
@@ -1574,7 +1680,11 @@ a.btn {
 }
 
 .stage-reveal:has(.tpl-pair) .screen-wide {
-  width: min(1400px, 100%);
+  width: min(1440px, 100%);
+}
+
+.screen-wait {
+  width: min(880px, 100%);
 }
 
 .stage-reveal {
@@ -1623,10 +1733,10 @@ a.btn {
   overflow: hidden;
 }
 
-/* Email+site: the visual is two landscape templates. Cap the recommendation column so
-   those two cards get the leftover width instead of sharing the row 50/50. */
+/* Email+site: the visual is two full site cards. Cap the recommendation column so
+   those two generator outputs get the leftover width. */
 .reveal-split:has(.tpl-pair) {
-  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
 }
 
 .reveal-setup,
@@ -1737,8 +1847,8 @@ a.btn {
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
+  gap: 14px;
+  align-items: stretch;
   overflow: hidden;
 }
 
@@ -1747,21 +1857,20 @@ a.btn {
   width: 100%;
   margin: 0;
   min-height: 0;
-  aspect-ratio: 560 / 357;
-  max-height: 100%;
-  height: auto;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-page);
+  background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
 }
 
-.tpl-pane-generated .neo-site,
-.tpl-pane-generated .neo-gen {
+.tpl-pane .neo-site,
+.tpl-pane .neo-gen {
   flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
   margin: 0;
   border: 0;
   border-radius: 0;
@@ -1770,15 +1879,11 @@ a.btn {
   overflow: hidden;
 }
 
-.tpl-pane-generated .neo-site-chrome,
-.tpl-pane-generated .neo-site-body,
-.tpl-pane-generated .neo-site-foot {
-  display: none;
-}
-
 .tpl-pane-generated .neo-site-hero {
-  flex: 1 1 auto;
-  height: 100%;
+  flex: 0 1 auto;
+  aspect-ratio: 16 / 9;
+  max-height: 38%;
+  height: auto;
   min-height: 0;
 }
 
@@ -1791,12 +1896,14 @@ a.btn {
 }
 
 .tpl-pane-generated .neo-site-body {
-  flex: 0 0 auto;
-  padding: 10px 12px 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 14px 10px;
 }
 
-.tpl-pane-generated .neo-site-products {
-  display: none;
+.tpl-pane-generated .neo-site-heading {
+  font-size: clamp(15px, 1vw + 12px, 18px);
 }
 
 .tpl-pane-generated .neo-site-desc {
@@ -1806,26 +1913,43 @@ a.btn {
   overflow: hidden;
 }
 
-.tpl-pane-shot img {
-  flex: 1 1 auto;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
+.tpl-pane-generated .neo-site-cta {
+  margin-top: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.tpl-pane-generated .neo-site-products {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tpl-pane-generated .neo-product img {
+  aspect-ratio: 4 / 3;
   min-height: 0;
+  height: auto;
+}
+
+.tpl-look-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.tpl-look-page img {
+  width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: top center;
   display: block;
 }
 
-.tpl-pane-caption,
-.tpl-pane-shot figcaption {
+.tpl-pane .neo-site-chrome,
+.tpl-pane .neo-site-foot {
   flex: 0 0 auto;
-  margin: 0;
-  padding: 8px 10px 9px;
-  font-size: 11px;
-  color: var(--neo-text-muted);
-  border-top: 1px solid var(--neo-border);
 }
 
 .story-kicker {
@@ -1910,6 +2034,32 @@ a.btn {
   color: var(--neo-text-muted);
 }
 
+.neo-loop-hero {
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.neo-loop-hero .neo-loop-frame {
+  min-height: 180px;
+  height: 100%;
+}
+
+.neo-loop-hero figcaption {
+  padding: 12px 14px 14px;
+}
+
+.neo-loop-hero .neo-loop-name {
+  font-size: 15px;
+}
+
+.neo-loop-hero .neo-loop-caption {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 /* --- Question-screen setup tray ------------------------------------------ */
 /* Motion about THEM, not about the product: slots fill as answers land. Deliberately not a
    product film — see the header of SetupTray.tsx. */
@@ -1976,6 +2126,20 @@ a.btn {
 
   .tpl-pair {
     gap: 8px;
+  }
+
+  .tpl-pane-generated .neo-site-desc,
+  .tpl-pane-generated .neo-site-cta {
+    display: none;
+  }
+
+  .tpl-pane-generated .neo-product span {
+    display: none;
+  }
+
+  .product-wait-stage {
+    height: min(38vh, 280px);
+    min-height: 200px;
   }
 
   .plan-card {

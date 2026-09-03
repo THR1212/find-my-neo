@@ -9,7 +9,8 @@ import { clipsFor } from "../lib/neoMedia";
  * Right pane.
  *
  * Two different jobs, decided by what they asked for:
- *   site + mail -> two big templates side by side: Neo's generated site, and one other look
+ *   site + mail -> two full generator cards side by side: Neo's generated site
+ *                 (chrome, hero, copy, products) and one other template look
  *   mail only   -> product films for features THIS mail plan actually includes
  *
  * The films used to rank by profile only, so a Starter recommendation could loop Invoice
@@ -51,9 +52,10 @@ export default function SetupStory({
       <div className="tpl-pair">
         <div className="tpl-pane tpl-pane-generated">
           {neoSite ? <NeoSitePreview site={neoSite} delay={0} /> : <NeoSiteGenerating />}
-          <p className="tpl-pane-caption">Generated for you</p>
         </div>
-        <NeoTemplateShots seed={domain} />
+        <div className="tpl-pane tpl-pane-shot">
+          <NeoTemplateShots seed={domain} />
+        </div>
       </div>
     </aside>
   );

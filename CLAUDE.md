@@ -34,6 +34,11 @@ Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
 2. **The LLM never decides price or plan.** It emits a structured profile object only.
    `src/lib/rules.ts` maps profile → plan deterministically. Pricing lives in `src/data/plans.json`.
    Same for features: `src/lib/features.ts` is a fixed bank using Neo's own verbatim names.
+   **The pricing sheet is not the offering.** Neo Lite is in the sheet and Neo does not sell it;
+   we recommended it, with a real price, until 03 Sep. Check a plan is purchasable before
+   `rules.ts` can return it. Mail feature names come from Neo's JSON config; **site feature
+   names have no config** and are captured in `src/data/site-features.json` — re-read the live
+   page before quoting a site limit.
 3. **No API key ever reaches the browser.** All model calls go through `api/*` serverless functions.
 4. **Every external call must degrade, never block.** Three of them now: the LLM (`api/_lib/llm.ts`,
    replay mode), Neo's site generator (`api/_lib/neoSite.ts`, falls back to a *recorded real*
@@ -56,10 +61,12 @@ Budget prompt-iteration time on the guess screen and the reveal only.
 1. Hook — on the pricing page, opens a full-screen overlay
 2. Free text — "What's your business?" (the only real input, and what justifies an LLM)
 3. The guess — profile reflected back, confirm or correct
-4. **Adaptive questions** — the engine asks whichever unresolved signal narrows most.
-   The model *suggests* which to ask next; `engine.ts` overrules it if that signal is already
-   resolved or the id isn't real. Stops when confident, or at 4. Different businesses get
-   different paths.
+4. **Adaptive questions** — the model returns `questionPriority` (all six ids, ranked for this
+   business) and `prefill` (signals the free text already answered). `engine.ts` consumes the
+   ranking head-first for the WHOLE flow and re-checks every id against what is unresolved.
+   Stops when confident, or at 4. Different businesses genuinely get different paths — this was
+   only aspirational until 03 Sep; see DECISIONS.
+   **Never prefill `mailboxCount`** — free text offers headcount, which is not an address count.
    Questions are **multi-select where the world is** (`question.multi`) and most carry a
    **free-text box**. Free text alone resolves the signal — someone who types instead of
    picking has still answered.
@@ -67,7 +74,10 @@ Budget prompt-iteration time on the guess screen and the reveal only.
    why-this-plan features, and the plan + real price quietly underneath
 
 **Do not reintroduce a fixed screen order.** The adaptivity is the product.
-The narrowing meter (5,318 → single digits) is the gamification and must stay visible throughout.
+
+The narrowing meter shows **words, not a count** (03 Sep). The "possible setups" number is off
+screen: `confidence()` still drives the early stop, and `remainingSetups()` is still computed,
+but neither is a design input any more. Do not reason about pacing from the counter.
 
 **Never compare a profile value with `===`.** Multi-select means a value may be an array; use
 `has()` from `engine.ts`. A direct equality check silently stops matching and nothing fails

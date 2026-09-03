@@ -958,3 +958,130 @@ Also confirmed in the same run, and it retroactively justifies preferring Neo's 
 classifier returned `industryKey=ecommerce_retail`, while our hand-built map holds
 `ecommerce_and_retail` for the same meaning. **Different format.** Which of the two the builder
 accepts is now moot — we send back the key Neo itself produced.
+
+---
+
+## 03 Sep 2026 — the flow only looked adaptive
+
+Three complaints from a walkthrough ("questions are repeated", "we're not getting more
+information", "the reveal has stuff fixed"). Each turned out to have a separate, provable
+cause, and the first one is the embarrassing one.
+
+### Every business got the same four questions
+
+`nextQuestion`'s fallback is `unresolved.reduce((best, q) => q.weight > best.weight ? q : best)`
+over a static array with static weights. That is a pure function of which signals are resolved,
+so with an empty profile it returns the same answer every time. Simulated:
+
+```
+MAX=4  ->  asked 4: team, surface, channel, sells   never asked: [import, client]
+```
+
+`import` and `client` were **unreachable at MAX_QUESTIONS = 4**, for everyone, always.
+The model's `nextQuestionId` did not save it: App consumed it once and then called
+`setPreferredQuestionId(null)`, so it only ever moved question 1.
+
+CLAUDE.md's "different businesses get different paths" was, until today, false.
+
+**Fixed** by replacing the single pick with `questionPriority` — all six ids ranked — held in
+`engine.priority` and consumed head-first for the whole flow. Every id is still re-checked
+against what is actually unresolved, so the model orders and the engine decides.
+
+### The description was read and then thrown away
+
+`kickOff` seeded `industry`, `brandName` and `teamSize`. None of those is a question signal, so
+all six questions stayed unresolved no matter what someone wrote. Type "orders come through
+Instagram DMs and we need a website" and you were still asked where customers reach you and what
+needs standing up first — the two things you had just said.
+
+**Fixed** with `prefill`: an enum-constrained object using the same value vocabulary as the
+`resolves` payloads, so a prefilled signal is indistinguishable from a tapped one and
+`isResolved` skips its question for free. Capped at `MAX_PREFILL = 2` — pacing, not safety;
+without a cap a chatty description leaves a two-question flow, which reads as giving up.
+**`mailboxCount` is never prefillable**: free text offers headcount, and pricing headcount as
+addresses is the exact bug the `teamSize -> mailboxCount` rename fixed.
+
+Verified live, two businesses, same build:
+
+```
+florist, Instagram, sells online, wants a site
+  prefill  surface=both, customerChannel=[social]   ->  asked team, import, client
+bike shop, phone and walk-ins, no online sales
+  prefill  customerChannel=[offline], sellsOnline=false  ->  asked surface, team, client
+```
+
+### A prefill must be visible or it is not correctable
+
+Skipping a question means an answer nobody gave now sets their plan and their price. The guess
+screen lists what was taken from the text (`describePrefill`), rendered through the same option
+table the question would have used — and through the generated wording when it has landed, so
+the words match what they would have seen. "Not quite" stays a real escape.
+
+### The narrowing counter is no longer a design input
+
+Decision from the walkthrough: the "possible setups" number comes off screen (Moin is replacing
+it with screen-relevant words). `confidence()` stays — it drives the early stop, which is flow
+logic. `remainingSetups()` stays computed, for our own reference only.
+
+This retired a mechanism that had been argued for twice: discounting prefilled signals at half
+weight in `resolvedWeight`, to stop the meter collapsing from 2,401 to 576 before question one.
+That was a cosmetic fix for a cosmetic problem. Checked whether it still mattered for flow — at
+`MAX_PREFILL = 2` the discounted and undiscounted paths produce the same 3-question flow,
+because confidence never reaches the 0.82 early stop before question 3 either way. Dropped.
+
+**MAX_QUESTIONS stays 4.** Raising it to 6 was considered and rejected on measurement: 5 and 6
+are the *same flow*, because the confidence early stop fires after the 5th, and the bank only
+holds six — a cap of 6 means "ask everything", which deletes selection adaptivity entirely.
+4 also keeps Mailchimp (4) and Rinda (3) precedent from `docs/competitor-qualification.md`, sits
+well inside Darrel's 40-65% quiz-completion risk, and preserves the pitch line that four
+questions at the moment of purchase is a different artefact from Microsoft's seven on a
+marketing microsite.
+
+### Neo Lite is not a plan Neo sells
+
+`chooseMailPlan` routed solo, non-importing, mail-only people to **Neo Lite** at ₹59 — a real
+price for a plan no checkout can fulfil. It is in the pricing sheet; it is not in the offering.
+Removed from `plans.json` and `rules.ts`. **The pricing sheet is not the offering** — do not
+re-derive a recommendable plan from `plans.json` without checking it is purchasable.
+
+Consequence to watch: `importIntent` no longer gates any plan, so it now only colours a feature
+bullet. Its 0.15 weight is the least justified in the bank. Flagged, not silently re-tuned,
+because weights are data-derived.
+
+### Site features were three entries, two of which matched everyone
+
+`neo_domain` and `custom_domain` are `matches: () => true`, so every site recommendation showed
+the same bullets. Personalised copy on a feature set that never varied.
+
+The mail half of `features.ts` draws on Neo's JSON config
+(`static.flock.co/meta/plan/feature/config/en-US.json`) — re-verified today: **12 of our 13
+names are byte-identical to its `heading` field**, the exception being `neo_domain`, whose
+heading is templated with a sample domain. **There is no equivalent config for site features.**
+Three plausible paths were probed and all 403'd, and the pricing page fetches no second config;
+the site half of that page is static markup. Captured from their live DOM into
+`src/data/site-features.json` with its read date, and the site bank rebuilt from it.
+
+That capture found a worse bug than the templating:
+
+**Basic has no Contact Forms.** (Plus 1,000, Growth unlimited. Basic carries only "Business
+contact info" — a phone number printed on the page.) `chooseSitePlan` sent every business that
+was *not* selling online to Basic, which is precisely the enquiry-led business whose site exists
+to collect an enquiry. We recommended the one tier that cannot do the job, next to a real price.
+
+Rewritten to gate on how someone is reached rather than whether money moves: offline-and-not-
+selling gets Basic (contact info genuinely is the whole job); anyone needing a form, testimonials
+or their own branding gets Plus; a real catalogue on a multi-person operation gets **Growth**,
+which `plans.json` listed and this function could previously never return (caught by
+`docs/data-findings.md` §9).
+
+This also resolves a tension with our own data. §9 warns that routing every "I take payments"
+answer to Plus over-serves ~two thirds of them, since only 3.5% of orders ever build an order
+form. Both hold. What changed is the *reason* for Plus — **contact** forms, which an enquiry
+business demonstrably needs, rather than **order** forms, which most never touch.
+
+### Still templated on the reveal, and known
+
+`buildRationale()` (4 templates), the plan note about connecting a domain you own, the
+`cancel anytime · you finish the site in Neo's builder` tail, and every section label. The
+`because` strings in `features.ts` are fixed too — generating those, degrading to the fixed
+string, is the obvious next pass and follows the pattern `questionService` already proves.

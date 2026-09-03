@@ -1509,3 +1509,42 @@ earlier entry above. The §9 table itself was always right; the prose summarisin
 **Consequence for the demo:** without endpoint access there is no honest path to a green badge
 on a `.co.site` name. The row still renders, still says Free, and says nothing about
 availability — which is correct, and worth stating plainly rather than papering over.
+
+---
+
+### 2026-09-03 · Login verified against production; the 404 is confirmed to be routing, not auth
+
+Credentials configured and the flow exercised end to end. Three findings.
+
+**1. The login works, and the session is not what the documentation says.**
+`POST api.titan.email/fa/mail/login` returns 200 with the documented payload. But Titan's own
+example shows `"session": "eyJhbGciOi..."` — a JWT — and a real Partner Panel login returns
+**`1:G8lW…`: 34 characters, one segment, opaque**, with no expiry field anywhere in the
+response. So `jwtExpiryMs` returns null on the actual path and `TOKEN_FALLBACK_TTL_MS` decides
+the cache lifetime. Raised 5 min → 30 min, and the justification is the retry, not the number:
+we cannot know the real TTL because nothing states it, but an over-long guess is self-healing
+(an expired session 401s, which re-mints and retries transparently) while an under-long guess
+has no safety net and just logs in again — every five minutes per serverless instance, against
+Titan's own auth endpoint. Correctness comes from the 401 retry; the number only trades login
+volume against one extra round trip after a real expiry.
+
+Also in the response: `is2FAEnabled: false`. If 2FA is ever enabled on that account this flow
+breaks entirely, which is one more argument for a service credential over a human login.
+
+**2. The 404 is definitively routing, not auth or parameters.** With a real, valid session in
+`x-auth-token`, `/internal/neo/v2/check-domain-availability` still answers
+`{"error":"UnRegisteredEndpoint","statusCode":404}` — tried with `domain=`, `domainName=` and
+`name=`. All three identical. Combined with `/internal/ip-to-country` returning 200 on the same
+host, the route simply is not exposed on the public edge. Nothing on our side can fix it, and
+the parameter-name question is moot until it is: a 404 cannot tell us which parameter it wanted.
+
+Verified the whole real path degrades correctly: login succeeds, check 404s, ladder falls to the
+probe, reveal renders all four domains with `.co.site` marked free. No errors, no unhandled
+rejections, and neither the password nor the session appears anywhere in the dev-server log.
+
+**3. DomScan `/v1/status` has recovered.** It returned `results: []` with
+`determinacy_rate: 0` for every stem earlier today (including `google`); it now returns three
+authoritative results with `determinacy_rate: 1`. So the availability badge renders again on
+the registrable TLDs. Nothing was changed on our side — it was an upstream outage, and the code
+degraded correctly throughout, which is the useful part. Worth re-checking before the demo
+rather than assuming either state.

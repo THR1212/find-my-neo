@@ -106,9 +106,12 @@ async function withTimeout(url: string, init: RequestInit = {}): Promise<Respons
  *    read from the environment and never logged, never echoed into an error, never returned to
  *    the caller. A failed login raises the STATUS CODE ONLY: the body of a rejected auth
  *    response can contain what it rejected.
- * 2. **The response carries no `expiresIn`.** The session is a JWT, so its own `exp` claim is
- *    read instead of assuming a TTL — see `jwtExpiryMs`. The claim is only *read*, never
- *    trusted for authorisation; the worst a bad value can do is make us re-mint.
+ * 2. **The response carries no expiry of any kind**, and the session is NOT a JWT despite the
+ *    documented `eyJhbGciOi...` example — a real login returns an opaque `1:G8lW…`, 34
+ *    characters, one segment (measured 2026-09-03). `jwtExpiryMs` is kept for accounts that
+ *    may differ, but in practice `TOKEN_FALLBACK_TTL_MS` decides the lifetime and the 401
+ *    retry provides the correctness. Where a JWT *is* returned its `exp` is only *read*, never
+ *    trusted for authorisation; the worst a bad value can do is make us re-mint early.
  * 3. **This is a login endpoint.** Re-minting on every request would be a credential-stuffing
  *    traffic pattern against Titan's own auth. That is the real reason the cache and the
  *    proportional refresh skew below matter — not latency.
@@ -134,8 +137,27 @@ const CHECK_AUTH_HEADER_DEFAULT = "x-auth-token";
 const TOKEN_SKEW_CAP_MS = 60 * 1000;
 const skewFor = (lifetimeMs: number): number => Math.min(TOKEN_SKEW_CAP_MS, lifetimeMs / 2);
 
-/** Used only when the session is not a JWT and states no expiry. */
-const TOKEN_FALLBACK_TTL_MS = 5 * 60 * 1000;
+/**
+ * Used when the session is not a JWT and states no expiry — which, measured against
+ * production on 2026-09-03, is the ACTUAL case rather than the exceptional one.
+ *
+ * Titan's own documentation shows `"session": "eyJhbGciOi..."`, i.e. a JWT. A real login as a
+ * Partner Panel user returns `1:G8lW…` — 34 characters, one segment, opaque, and the response
+ * carries no expiry field of any kind. So `jwtExpiryMs` returns null in practice and this
+ * value decides the cache lifetime. It is kept for the accounts that may genuinely get a JWT;
+ * it is not the path to plan around.
+ *
+ * 30 minutes, not 5, and the justification is the retry rather than the number. We do not know
+ * the real TTL and cannot: nothing in the response states it. But an over-long guess is
+ * self-healing — an expired session makes the check answer 401, which re-mints and retries
+ * transparently (verified). An under-long guess has no such safety net; it just logs in again,
+ * and doing that every five minutes per serverless instance against Titan's own auth endpoint
+ * is the credential-stuffing traffic shape this cache exists to avoid.
+ *
+ * So: correctness comes from the 401 retry, and this number only trades login volume against
+ * one extra round trip on the first request after a real expiry.
+ */
+const TOKEN_FALLBACK_TTL_MS = 30 * 60 * 1000;
 
 let tokenCache: { token: string; expiresAt: number; skewMs: number } | null = null;
 

@@ -1,3 +1,5 @@
+import { has, type Profile } from "./profile";
+
 /**
  * The question bank.
  *
@@ -31,6 +33,7 @@ export type SignalId =
   | "teamSize"
   | "importIntent"
   | "currentClient"
+  | "inboxTools"
   | "surface"
   | "customerChannel"
   | "sellsOnline"
@@ -76,6 +79,14 @@ export interface Question {
    * Leave false where the options are mutually exclusive (team size, mail-only vs mail+site).
    */
   multi?: boolean;
+  /**
+   * Ask this only when the profile says it is worth asking.
+   *
+   * Added 03 Sep for the `extras` split. Absent means always askable, which is every other
+   * question. The engine checks it in BOTH `nextQuestion` and `shouldReveal` — a question that
+   * is unaskable must not be picked, and must not hold the flow open waiting to be picked.
+   */
+  askOnly?: (p: Profile) => boolean;
   /**
    * Free-text box under the options. Neo's survey has "Others (free text)" on its multi-selects
    * and it is where the interesting answers live — 6.6% of their Q1 responses. It is also the
@@ -323,6 +334,57 @@ QUESTIONS.push(
   },
   {
     /**
+     * THE GATE. One binary, and it is the only thing besides storage that can reach Max.
+     *
+     * ## Why this exists, from our own data
+     *
+     * docs/data-findings.md §5 records real paywall clicks, and it is the most directly useful
+     * thing we have: **Storage Banner is the dominant trigger in every single industry at
+     * 32-52%**, Read Receipt is #2 at 8-12%, and *everything else is low single digits*. Its
+     * own conclusion: "Storage and mailbox headroom deserve a question; most of the feature
+     * list does not."
+     *
+     * `extras` was doing the opposite. Three of its options — invoicing, campaigns, bookings —
+     * each forced Max on a single tick, and **none of those three appears in the paywall data
+     * at all**. So the one question that most often set the price was keyed to features almost
+     * nobody upgrades for, and a solo operator who tapped one went Rs418 -> Rs868.
+     *
+     * ## Why the answer is not simply to delete the floors
+     *
+     * Pandora is unambiguous that Invoice Builder, Campaign Mode and Appointment Booking are
+     * Max-only. Someone who genuinely runs their week out of those needs Max, and recommending
+     * Standard would be selling them a plan that cannot do the job. Both facts are true at
+     * once: the entitlement really is Max, and almost nobody upgrades because of it.
+     *
+     * So the fix is not to change what Max contains, it is to stop inferring that someone
+     * needs it. This asks. Two deliberate steps now stand between a person and Max — say yes
+     * here, then name which — instead of one tick on a five-item checklist.
+     *
+     * NEVER PREFILLABLE. It is the gate; reading it out of a description would put the whole
+     * point back. It is absent from PREFILL_VALUES in profileService for that reason.
+     */
+    id: "inbox",
+    signal: "inboxTools",
+    prompt: "Should Neo run any of this for you?",
+    sub: "Quotes and invoices, campaigns to past customers, or a booking calendar.",
+    /* Heavier than `extras` was, because this is now the question that decides the tier. */
+    weight: 0.22,
+    options: [
+      {
+        id: "no",
+        label: "No, just email and a site",
+        hint: "You can add these later",
+        resolves: { inboxTools: false },
+      },
+      {
+        id: "yes",
+        label: "Yes, that would save me time",
+        resolves: { inboxTools: true },
+      },
+    ],
+  },
+  {
+    /**
      * FOUR Max gates in ONE multi-select, and the reason is drop-off asymmetry.
      *
      * These were four separate yes/no questions and the probe showed why that fails: a "yes"
@@ -342,6 +404,9 @@ QUESTIONS.push(
      */
     id: "extras",
     signal: "extras",
+    /* Detail, not a gate. Only reached after an explicit yes on `inbox`, so the Max floors
+       below it now require two deliberate answers rather than one stray tick. */
+    askOnly: (p) => has(p, "inboxTools", true),
     /**
      * "REGULAR PART OF YOUR WORK", NOT "DO YOU DO THIS TODAY".
      *
@@ -360,8 +425,8 @@ QUESTIONS.push(
      * both depend on. What changed is that they now describe the work rather than the mail
      * feature: someone who quotes jobs recognises themselves whether or not they email a PDF.
      */
-    prompt: "Which of these are a regular part of your work?",
-    sub: "Only what you actually do often. Leave the rest — you can add it any time.",
+    prompt: "Which of them?",
+    sub: "Pick what you actually do often — it decides which tools you get.",
     weight: 0.2,
     multi: true,
     freeText: { placeholder: "Something else you do a lot of?" },

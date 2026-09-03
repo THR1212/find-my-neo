@@ -170,6 +170,32 @@ export const NEEDS: Need[] = [
   },
   {
     /**
+     * THE FLOOR SITS ON THE GATE, not only on the detail behind it — and the first attempt at
+     * this split got it wrong in a way worth recording.
+     *
+     * `inbox` was added as a binary in front of `extras`, and `extras` gated on it. But every
+     * need keyed on `extras` values, so answering `inbox` moved no floor, `discrimination`
+     * scored it ZERO, and the engine — correctly, by its own rule — never asked it. Which
+     * gated `extras` out permanently. A florist who genuinely invoices came back Starter: the
+     * split had not made Max rarer, it had made it unreachable.
+     *
+     * A gate question has to be worth asking on its own terms. So the yes answer carries the
+     * floor, and the three needs below only explain WHICH thing earned it.
+     */
+    id: "runs_from_the_inbox",
+    because: "you want Neo running quotes, campaigns or bookings for you",
+    entitlement: "invoice_builder",
+    minMail: "max",
+    /* Only while the detail is unanswered. Once they name which, that need carries the reason
+       and this one would be a second, vaguer sentence saying the same thing. */
+    when: (p) =>
+      has(p, "inboxTools", true) &&
+      !has(p, "extras", "invoices") &&
+      !has(p, "extras", "campaigns") &&
+      !has(p, "extras", "bookings"),
+  },
+  {
+    /**
      * One need per Max entitlement, all reading the same multi-select answer.
      *
      * Kept as four separate needs rather than one, because the `because` line must name the

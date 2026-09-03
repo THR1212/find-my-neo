@@ -80,6 +80,13 @@ const QUESTION_SHAPE: Record<string, { prompt: string; options: Record<string, s
       heavy: "Large files, often",
     },
   },
+  inbox: {
+    prompt: "Should Neo run any of this for you?",
+    options: {
+      no: "No, just email and a site",
+      yes: "Yes, that would save me time",
+    },
+  },
   extras: {
     prompt: "Which of these are a regular part of your work?",
     options: {

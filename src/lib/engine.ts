@@ -202,10 +202,25 @@ export function remainingSetups(
  * Ranked by what an answer would actually change, with the model's ordering breaking ties.
  * The model gets to make the flow feel intelligent; it does not get to break it.
  */
-export function nextQuestion(state: EngineState): Question | null {
-  const unresolved = QUESTIONS.filter(
-    (q) => !isResolved(state.profile, q.signal) && !state.asked.includes(q.id),
+/**
+ * Questions that could be put on screen right now.
+ *
+ * Unresolved, not already asked, AND not gated out by `askOnly`. That last clause is why this
+ * is a function rather than two copies of a filter: `nextQuestion` and `shouldReveal` MUST
+ * agree. If only the picker honoured the gate, `shouldReveal` would keep the flow open waiting
+ * for a question that can never be chosen, and the run would stall on the last screen.
+ */
+function askable(state: EngineState): Question[] {
+  return QUESTIONS.filter(
+    (q) =>
+      !isResolved(state.profile, q.signal) &&
+      !state.asked.includes(q.id) &&
+      (q.askOnly ? q.askOnly(state.profile) : true),
   );
+}
+
+export function nextQuestion(state: EngineState): Question | null {
+  const unresolved = askable(state);
   if (unresolved.length === 0) return null;
 
   /* Choose from the FIXED bank — weights and signals are never model-touched — then overlay
@@ -348,9 +363,7 @@ export function shouldReveal(state: EngineState): boolean {
 
   /* Nothing left that would move the plan. Anything still unasked only colours the reveal, so
      asking it is drop-off we caused for no change in what we recommend. */
-  const unresolved = QUESTIONS.filter(
-    (q) => !isResolved(state.profile, q.signal) && !state.asked.includes(q.id),
-  );
+  const unresolved = askable(state);
   /* Anything left that would change the PLAN is always worth asking — that is what they pay. */
   if (unresolved.some((q) => discrimination(state.profile, q, "plan") > 1e-9)) return false;
 

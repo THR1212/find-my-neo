@@ -71,6 +71,10 @@ const QUESTION_IDS = [
      `questionPriority` is enum-constrained, so the model could not RANK them at all, and the
      adaptivity built around them would have been half-disabled while looking fine. */
   "volume",
+  /* The gate that decides the mail tier. Rankable and rewordable, but deliberately absent
+     from PREFILL_VALUES below: inferring it from a description is the thing the split exists
+     to stop. */
+  "inbox",
   "extras",
   "catalogue",
 ] as const;
@@ -259,7 +263,7 @@ const SCHEMA = {
       maxItems: 9,
       items: { type: "string", enum: [...QUESTION_IDS] },
       description:
-        "All nine question ids, each exactly once, ordered by how much asking it would tell " +
+        "All eight question ids, each exactly once, ordered by how much asking it would tell " +
         "us about THIS business that the description does not already say. Put a question " +
         "LAST if the description already answers it.",
     },

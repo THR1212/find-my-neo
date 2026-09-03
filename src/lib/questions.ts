@@ -365,8 +365,12 @@ QUESTIONS.push(
      */
     id: "inbox",
     signal: "inboxTools",
-    prompt: "Should Neo run any of this for you?",
-    sub: "Quotes and invoices, campaigns to past customers, or a booking calendar.",
+    /* NAMES THE THINGS IN THE PROMPT. It was "Should Neo run any of this for you?" with the
+       list in the sub-line, and the model — free to reword — produced "Should Neo help manage
+       any of this?", where "this" refers to nothing on screen above it. A prompt that depends
+       on its own sub-line to mean anything gives the rewrite nothing to hold on to. */
+    prompt: "Want Neo handling quotes, campaigns or bookings?",
+    sub: "Invoices and quotes, messages to past customers, or a booking calendar.",
     /* Heavier than `extras` was, because this is now the question that decides the tier. */
     weight: 0.22,
     options: [

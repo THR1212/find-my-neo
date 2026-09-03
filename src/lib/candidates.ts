@@ -186,13 +186,20 @@ export const NEEDS: Need[] = [
     because: "you want Neo running quotes, campaigns or bookings for you",
     entitlement: "invoice_builder",
     minMail: "max",
-    /* Only while the detail is unanswered. Once they name which, that need carries the reason
-       and this one would be a second, vaguer sentence saying the same thing. */
-    when: (p) =>
-      has(p, "inboxTools", true) &&
-      !has(p, "extras", "invoices") &&
-      !has(p, "extras", "campaigns") &&
-      !has(p, "extras", "bookings"),
+    /**
+     * ONLY WHILE `extras` IS UNANSWERED. This is a gap-filler, not a second opinion.
+     *
+     * It read "yes AND none of the three Max extras present", which is also true once the
+     * detail HAS been answered and none of them was chosen. Run cz3npnaz at 16:06: they
+     * answered yes, were asked which, picked only "Check whether mail was opened" — a feature
+     * on every tier — and were charged Max ₹599 for it. The question they answered to say
+     * "none of the expensive things" was read as "all of them".
+     *
+     * `extras === undefined` is the honest test: cover the yes whose detail we never asked,
+     * and step aside the moment they tell us. Note it cannot use `has()` — the question is
+     * whether the signal exists at all, not what it holds.
+     */
+    when: (p) => has(p, "inboxTools", true) && p.extras === undefined,
   },
   {
     /**

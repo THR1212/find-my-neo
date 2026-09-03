@@ -84,6 +84,28 @@ export interface EngineState {
   profile: Profile;
   /** Question ids already answered, in order. */
   asked: string[];
+  /**
+   * Question ids the FREE TEXT already answered, so the engine never asks them.
+   *
+   * These signals are in `profile` with exactly the values a tap would have produced, so
+   * `isResolved` already skips them and nothing downstream can tell the difference. The list
+   * is kept separately for two reasons: the guess screen shows what we inferred, so a wrong
+   * inference is correctable rather than silently priced; and a log line saying which
+   * questions were skipped is the only evidence that the flow is adapting at all.
+   *
+   * Never contains `team` — mailbox count is never inferred. See profileService's PREFILL.
+   */
+  prefilled?: string[];
+  /**
+   * The model's ranking of all six questions, most worth asking first.
+   *
+   * Consumed head-first for the WHOLE flow, not just the first question. The single
+   * `nextQuestionId` it replaces was applied once and then discarded, which left questions
+   * 2-4 to `nextQuestion`'s weight fallback — a reduce over a fixed array with fixed weights,
+   * so every business on earth got team, surface, channel, sells in that order and `import`
+   * and `client` were unreachable. This is what makes the paths actually differ.
+   */
+  priority?: string[];
   /** Anything typed into a question's free-text box, by question id. */
   freeText: FreeTextAnswers;
   /**
@@ -136,7 +158,7 @@ export function remainingSetups(profile: Profile): number {
  * is still unresolved — otherwise we fall back to the heaviest unresolved question. The model
  * gets to make the flow feel intelligent; it does not get to break it.
  */
-export function nextQuestion(state: EngineState, preferredId?: string | null): Question | null {
+export function nextQuestion(state: EngineState): Question | null {
   const unresolved = QUESTIONS.filter(
     (q) => !isResolved(state.profile, q.signal) && !state.asked.includes(q.id),
   );
@@ -145,10 +167,31 @@ export function nextQuestion(state: EngineState, preferredId?: string | null): Q
   /* Choose from the FIXED bank — weights and signals are never model-touched — then overlay
      the model's wording on the winner. Choosing and wording are separate powers on purpose. */
   let chosen: Question | null = null;
-  if (preferredId) {
-    const preferred = QUESTION_BY_ID.get(preferredId);
-    if (preferred && unresolved.includes(preferred)) chosen = preferred;
+
+  /**
+   * The model's ranking, head-first, for the whole flow.
+   *
+   * Every id is re-checked against `unresolved` here, so a hallucinated id, a duplicate, or a
+   * question whose signal the free text already answered is skipped rather than trusted. The
+   * model orders; the engine still decides what is askable.
+   */
+  for (const id of state.priority ?? []) {
+    const q = QUESTION_BY_ID.get(id);
+    if (q && unresolved.includes(q)) {
+      chosen = q;
+      break;
+    }
   }
+
+  /**
+   * Fallback: heaviest unresolved question.
+   *
+   * Worth knowing what this alone produces, because it WAS the whole selection logic until
+   * 03 Sep: a reduce over a fixed array with fixed weights returns the same answer every
+   * time, so every business got team, surface, channel, sells in that order and `import` and
+   * `client` were unreachable at MAX_QUESTIONS = 4. It is a sane default for when the model
+   * had no opinion; it is not adaptivity, and it should not be the common path.
+   */
   if (!chosen) {
     chosen = unresolved.reduce((best, q) => (q.weight > best.weight ? q : best), unresolved[0]);
   }

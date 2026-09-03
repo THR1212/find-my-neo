@@ -28,11 +28,21 @@ export interface ProfileResult {
   profile: Profile;
   reveal: RevealContent;
   /**
-   * Which question the model thinks is most worth asking first, given what the free text
-   * already revealed. Advisory only — engine.ts overrules it if that signal is already
-   * resolved or the id isn't real, so a bad suggestion can't break the flow.
+   * All six question ids, ranked most-worth-asking-first for THIS business.
+   *
+   * Replaced `nextQuestionId`, which was a single pick that App consumed once and discarded —
+   * leaving questions 2, 3 and 4 to the engine's fixed weight order, which is identical for
+   * every business. Advisory still: engine.ts re-checks every id against what is actually
+   * unresolved, so a hallucinated or already-answered id is skipped rather than trusted.
    */
-  nextQuestionId?: string | null;
+  questionPriority?: string[];
+  /**
+   * Signals the free text already answered, in the same value vocabulary a tapped option
+   * would have produced. Merged straight into the profile.
+   */
+  prefill?: Record<string, string | string[] | boolean>;
+  /** The question ids `prefill` closes — recorded so the guess screen can show them. */
+  prefilledQuestionIds?: string[];
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -69,8 +79,7 @@ export async function buildProfile(businessText: string): Promise<ProfileResult>
   if (MODE === "replay") {
     warnIfReplayInProduction();
     await sleep(REPLAY_DELAY_MS);
-    const { profile, reveal, nextQuestionId } = demoFixture as unknown as ProfileResult;
-    return { profile, reveal, nextQuestionId };
+    return demoFixture as unknown as ProfileResult;
   }
 
   try {
@@ -133,7 +142,12 @@ function derivedFallback(businessText: string): ProfileResult {
       domainStem: stem,
       suggestedMailboxes: ["hello", "contact"],
     },
-    nextQuestionId: null,
+    /* Empty, not guessed: the call never happened, so we know nothing about this business.
+       The engine's weight order is the honest default, and skipping a question on a fact we
+       never read would be inventing an answer. */
+    questionPriority: [],
+    prefill: {},
+    prefilledQuestionIds: [],
     reveal: {
       domains: [
         { name: `${stem}.com`, available: null, priceInr: null, recommended: true },

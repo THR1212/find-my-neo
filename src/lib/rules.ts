@@ -74,25 +74,82 @@ function chooseCycle(profile: Profile): BillingCycle {
   return "yearly";
 }
 
-function chooseMailPlan(profile: Profile, mailboxes: number): MailPlanJson {
-  // Solo, no import, no site — Lite is genuinely enough, and saying so builds trust.
-  const solo = mailboxes <= 1;
-  /* has() rather than === : multi-select answers arrive as arrays. */
-  const importing =
-    profile.importIntent !== undefined && !has(profile, "importIntent", "none");
-  if (solo && !importing && has(profile, "surface", "mail")) return byId(MAIL, "lite");
-
+/**
+ * Starter is the floor. There is nothing below it.
+ *
+ * This used to drop a solo, non-importing, mail-only person onto **Neo Lite** at ₹59. Lite is
+ * in Neo's pricing sheet but **Neo does not sell it** (confirmed 03 Sep 2026), so that branch
+ * recommended a plan, showed its real price, and handed the person to a checkout that cannot
+ * fulfil it — the worst class of error this project can make, because everything else on the
+ * reveal is defensible and this one number quietly was not.
+ *
+ * The lesson is more general than the plan: **the pricing sheet is not the offering.** Do not
+ * re-derive a recommendable plan from `plans.json` without checking it is actually purchasable.
+ *
+ * Note what this removes: `importIntent` no longer gates any plan at all. It now only colours
+ * a feature bullet, which makes its 0.15 weight the least justified in the bank — see the
+ * note in questions.ts. Flagged rather than silently re-tuned, because weights are data-derived.
+ */
+function chooseMailPlan(_profile: Profile, mailboxes: number): MailPlanJson {
   // Bigger teams get more storage and the fuller feature set.
   if (mailboxes >= 5) return byId(MAIL, "standard");
 
   return byId(MAIL, "starter");
 }
 
-function chooseSitePlan(profile: Profile): SitePlanJson | null {
+/**
+ * Site plan. Gated on what each tier can actually DO, not on storage.
+ *
+ * Rewritten 03 Sep 2026 against Neo's own site feature table (`src/data/site-features.json`,
+ * read from their pricing page), which corrected a real mis-recommendation:
+ *
+ *   **Basic has no Contact Forms at all.** Plus gets 1,000, Growth unlimited. Basic carries
+ *   only "Business contact info" — a phone number and address printed on the page.
+ *
+ * The old rule sent everyone who was NOT selling online to Basic. That is precisely the
+ * enquiry-led business — "no, they enquire, then we arrange it" — whose site exists to
+ * collect an enquiry. We were recommending the one tier that cannot capture a lead, and
+ * saying so on a screen next to a real price.
+ *
+ * The honest split is by how someone is reached, not by whether money moves:
+ *   - reachable offline (phone, walk-ins) and not selling -> Basic genuinely is enough;
+ *     business contact info is the whole job, and Basic does it.
+ *   - anyone who needs a form, testimonials, a subscribe box or their own branding -> Plus.
+ *   - a real catalogue on a multi-person operation -> Growth.
+ *
+ * On Growth: it was previously UNREACHABLE — `plans.json` lists it and this function could
+ * never return it (docs/data-findings.md §9 caught this). It is a catalogue-size tier
+ * (unlimited products/services/gallery, premium fonts, priority support), so it is gated on
+ * selling online AND enough mailboxes to imply someone is minding the shop.
+ *
+ * The caveat that belongs next to this, from our own data: §9 finds only 3.5% of all orders
+ * ever build an order form, 31% even on Plus, and warns that routing every "I take payments"
+ * answer to Plus over-serves roughly two thirds of them. That warning stands. What changed is
+ * the REASON for Plus — contact forms, which an enquiry business demonstrably needs, rather
+ * than order forms, which most never touch. If we later get per-plan conversion data, this is
+ * the function to revisit first.
+ */
+function chooseSitePlan(profile: Profile, mailboxes: number): SitePlanJson | null {
   if (has(profile, "surface", "mail")) return null;
-  // Selling online means products, images and a contact path — Basic's 1 GB gets tight.
-  if (has(profile, "sellsOnline", true)) return byId(SITE, "plus");
-  return byId(SITE, "basic");
+
+  const sells = has(profile, "sellsOnline", true);
+  if (sells && mailboxes >= 5) return byId(SITE, "growth");
+  if (sells) return byId(SITE, "plus");
+
+  /* Not selling. Basic only if they are genuinely reachable without a form — someone whose
+     customers phone them or walk in. Everyone else needs the form Basic does not have. */
+  const offlineOnly =
+    has(profile, "customerChannel", "offline") &&
+    !has(profile, "customerChannel", "social") &&
+    !has(profile, "customerChannel", "personal_email") &&
+    !has(profile, "customerChannel", "site");
+  if (offlineOnly) return byId(SITE, "basic");
+
+  /* Includes the case where the channel question was never asked. Unknown defaults to the
+     tier that can capture a lead, because the failure is asymmetric: recommending Plus to
+     someone who needed Basic costs them money they can downgrade, while recommending Basic to
+     someone who needed a form gives them a site that cannot do its one job. */
+  return byId(SITE, "plus");
 }
 
 export function recommend(profile: Profile, suggestedMailboxes: number): Recommendation {
@@ -106,7 +163,7 @@ export function recommend(profile: Profile, suggestedMailboxes: number): Recomme
   );
   const cycle = chooseCycle(profile);
   const mailPlan = chooseMailPlan(profile, mailboxes);
-  const sitePlan = chooseSitePlan(profile);
+  const sitePlan = chooseSitePlan(profile, mailboxes);
 
   const mailUnit = mailPlan.inr[cycle] ?? mailPlan.inr.monthly ?? null;
   const siteUnit = sitePlan ? (sitePlan.inr[cycle] ?? sitePlan.inr.monthly ?? null) : 0;

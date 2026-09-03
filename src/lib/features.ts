@@ -140,14 +140,98 @@ export const FEATURES: Feature[] = [
     priority: 4,
   },
 
-  /* --- Site --- */
+  /* --- Site ---
+   *
+   * SOURCE IS DIFFERENT FROM THE MAIL HALF ABOVE, and that matters when you add one.
+   *
+   * Mail features come from Neo's JSON config (the 49-entry file named at the top of this
+   * file), so their names are the API's own `heading` verbatim. **There is no equivalent
+   * config for site features** — three plausible paths were probed and all 403'd, and the
+   * pricing page fetches no second config. Neo's site features exist only as static markup in
+   * their pricing page's "AI Site Pricing" comparison table.
+   *
+   * That table is captured in `src/data/site-features.json` with its read date. Names below
+   * are its verbatim `feature-name` cells. Before adding one, check it there — and re-read the
+   * live page if you are about to quote a limit to anyone at Neo, because a marketing page
+   * changes without warning.
+   *
+   * There used to be three entries here and two of them were `matches: () => true`, so every
+   * site recommendation on earth showed the same bullets. That is the "the reveal is
+   * templated" complaint in its purest form: personalised copy sitting on top of a feature
+   * set that never varied.
+   */
+  {
+    id: "site_contact_forms",
+    name: "Contact Forms",
+    surface: "site",
+    /* THE most important row in Neo's site table: Basic has none at all (Plus 1000, Growth
+       unlimited). See rules.ts — this is why an enquiry-led business cannot be sent to Basic. */
+    because: "enquiries land in your inbox instead of a DM you'll scroll past",
+    matches: (p) =>
+      is(p, "sellsOnline", false) ||
+      is(p, "customerChannel", "social") ||
+      is(p, "customerChannel", "personal_email"),
+    priority: 10,
+  },
+  {
+    id: "site_products",
+    name: "List your products",
+    surface: "site",
+    because: "your products on a page you can send someone, priced and in one place",
+    matches: (p) => is(p, "sellsOnline", true),
+    priority: 9,
+  },
+  {
+    id: "site_services",
+    name: "List your services",
+    surface: "site",
+    because: "what you do and what it costs, without retyping it into every message",
+    matches: (p) => is(p, "sellsOnline", false) && !is(p, "customerChannel", "offline"),
+    priority: 8,
+  },
   {
     id: "appointment_booking",
     name: "Appointment Booking",
     surface: "site",
     because: "people pick a slot themselves instead of messaging back and forth",
     matches: (p) => is(p, "sellsOnline", false) || is(p, "customerChannel", "offline"),
-    priority: 9,
+    priority: 8,
+  },
+  {
+    id: "site_whatsapp",
+    name: "WhatsApp",
+    surface: "site",
+    /* Plus and above. Neo's own generated sites carry a WhatsApp widget — observed in a real
+       run, see docs/neo-product-facts.md — so this is a fact about the product, not a claim. */
+    because: "the chat button your customers already expect, on the site itself",
+    matches: (p) => is(p, "customerChannel", "social"),
+    priority: 7,
+  },
+  {
+    id: "site_testimonials",
+    name: "Testimonials",
+    surface: "site",
+    because: "the word-of-mouth you already have, where a stranger can read it",
+    matches: (p) => is(p, "customerChannel", "offline") || is(p, "customerChannel", "personal_email"),
+    priority: 6,
+  },
+  {
+    id: "site_analytics",
+    name: "Visitor analytics",
+    surface: "site",
+    /* On every site plan including Basic — safe to show to anyone with a site. */
+    because: "you find out whether anyone actually came, not just that it's live",
+    matches: (p) => is(p, "customerChannel", "site"),
+    priority: 5,
+  },
+  {
+    id: "site_branding",
+    name: "Remove Neo Branding",
+    surface: "site",
+    /* Absent on Basic. Only worth surfacing to someone already heading for Plus. */
+    because: "the page reads as yours, with nobody else's name in the footer",
+    matches: (p) => is(p, "sellsOnline", true) || is(p, "customerChannel", "site"),
+    priority: 4,
   },
   {
     id: "neo_site",
@@ -157,7 +241,7 @@ export const FEATURES: Feature[] = [
        system prompt says "one-page landing website". Never imply multi-page. */
     because: "a one-page site generated from what you just told us, yours to edit",
     matches: (p) => is(p, "customerChannel", "social") || is(p, "surface", "both"),
-    priority: 8,
+    priority: 3,
   },
   {
     id: "neo_domain",
@@ -165,10 +249,11 @@ export const FEATURES: Feature[] = [
     surface: "site",
     /* Catalogue heading is templated ("maxdesigns.co.site domain"), so this one is
        necessarily paraphrased — but the SUBSTANCE is exact: neo_domain is the free
-       .co.site subdomain, confirmed by walking the funnel. */
+       .co.site subdomain, confirmed by walking the funnel.
+       Last-resort fallback: matches everyone, so it must stay the lowest site priority. */
     because: "somewhere to publish today, before you commit to buying a domain",
     matches: () => true,
-    priority: 3,
+    priority: 1,
   },
   {
     id: "custom_domain",

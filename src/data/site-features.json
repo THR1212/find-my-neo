@@ -1,0 +1,40 @@
+{
+  "_source": "Neo's own public pricing comparison table, https://www.neo.space/pricing-and-plan ('AI Site Pricing' tab), read from the live DOM 03 Sep 2026. These are Neo's verbatim feature names and their real per-plan values.",
+
+  "_why": "The MAIL half of that page is driven by a JSON config (static.flock.co/meta/plan/feature/config/en-US.json, 49 features) which features.ts already draws on. The SITE half has no such config — it is static markup in the Webflow page. This file is that table, captured, so the site features in features.ts are as traceable as the mail ones instead of being paraphrased from memory.",
+
+  "_recheck": "A marketing page changes without warning. Re-read the table before quoting a limit to anyone at Neo; treat the gating (what is absent on a plan) as more durable than the numbers.",
+
+  "plans": ["basic", "plus", "growth"],
+
+  "features": [
+    { "category": "AI powered", "name": "AI website generation", "basic": "20 times", "plus": "500 times", "growth": "Unlimited - Latest AI model" },
+    { "category": "AI powered", "name": "AI copy assist", "basic": "50 times", "plus": "500 times", "growth": "Unlimited - Latest AI model" },
+
+    { "category": "Site customizations", "name": "Templates", "basic": "All", "plus": "All", "growth": "All" },
+    { "category": "Site customizations", "name": "Font themes", "basic": "Standard Fonts", "plus": "Standard Fonts", "growth": "Premium Fonts" },
+    { "category": "Site customizations", "name": "Color themes", "basic": "Yes", "plus": "Yes", "growth": "Curated for Template" },
+    { "category": "Site customizations", "name": "Stock images", "basic": "50", "plus": "Unlimited", "growth": "High quality images" },
+    { "category": "Site customizations", "name": "Image gallery", "basic": "10 images", "plus": "500 images", "growth": "Unlimited" },
+    { "category": "Site customizations", "name": "List your products", "basic": "10 products", "plus": "500 products", "growth": "Unlimited" },
+    { "category": "Site customizations", "name": "List your services", "basic": "10 services", "plus": "500 services", "growth": "Unlimited" },
+    { "category": "Site customizations", "name": "YouTube video", "basic": true, "plus": true, "growth": true },
+    { "category": "Site customizations", "name": "Testimonials", "basic": null, "plus": "6", "growth": "Unlimited" },
+
+    { "category": "Visitors", "name": "Visitor analytics", "basic": true, "plus": true, "growth": true },
+    { "category": "Visitors", "name": "Contact Forms", "basic": null, "plus": "1000", "growth": "Unlimited" },
+    { "category": "Visitors", "name": "Email Subscription", "basic": null, "plus": true, "growth": true },
+    { "category": "Visitors", "name": "WhatsApp", "basic": null, "plus": true, "growth": true },
+    { "category": "Visitors", "name": "Business contact info", "basic": true, "plus": true, "growth": true },
+
+    { "category": "Others", "name": "Remove Neo Branding", "basic": null, "plus": true, "growth": true },
+    { "category": "Others", "name": "Support", "basic": "Support 24x7", "plus": "Support 24x7", "growth": "Priority Chat support 24x7" }
+  ],
+
+  "_findings": {
+    "contactFormsAreNotOnBasic": "The single most important line in this table. Basic has NO contact form — only 'Business contact info' (a phone number and address on the page). chooseSitePlan used to send every enquiry-led business to Basic, which is precisely the business whose site exists to collect an enquiry. Fixed in rules.ts 03 Sep 2026.",
+    "basicIsThinnerThanItLooks": "Basic also has no testimonials, no email subscription, no WhatsApp, and carries Neo branding. It is a presence page, not a lead-capture page.",
+    "growthIsForCatalogueSize": "Growth's real separations are unlimited products/services/gallery, premium fonts and priority support. It is a bigger-catalogue plan, not a better-quality one.",
+    "tensionWithOurOwnData": "docs/data-findings.md §9 says only 3.5% of all orders ever build an order form (31% even on Plus), and warns that sending every 'I take payments' answer to Plus over-serves ~two thirds of them. Both are true: Plus is over-recommended by a coarse rule AND Basic genuinely cannot capture a lead. The resolution is that Plus is justified by CONTACT forms, not by ORDER forms — a different and better reason than the one we had."
+  }
+}

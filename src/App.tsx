@@ -42,10 +42,6 @@ export default function App() {
   const [rawText, setRawText] = useState(restored?.rawText ?? "");
   const [reveal, setReveal] = useState<RevealContent | null>(restored?.reveal ?? null);
   const [summary, setSummary] = useState<string | null>(restored?.summary ?? null);
-  /** The model's suggestion for what to ask next. Advisory — the engine can overrule it. */
-  const [preferredQuestionId, setPreferredQuestionId] = useState<string | null>(
-    restored?.preferredQuestionId ?? null,
-  );
   /**
    * Never restored. A snapshot taken mid-flight would otherwise come back as a spinner with
    * no request behind it; the resume effect below re-fires the work instead.
@@ -70,10 +66,9 @@ export default function App() {
 
   const conf = useMemo(() => confidence(engine.profile), [engine.profile]);
   const remaining = useMemo(() => remainingSetups(engine.profile), [engine.profile]);
-  const current = useMemo(
-    () => nextQuestion(engine, preferredQuestionId),
-    [engine, preferredQuestionId],
-  );
+  /* The model's ranking now lives inside `engine` (and so is persisted and overruled there),
+     rather than in a separate state that was consumed once and thrown away. */
+  const current = useMemo(() => nextQuestion(engine), [engine]);
 
   /**
    * Fire the two slow calls for `text`.
@@ -117,9 +112,20 @@ export default function App() {
         .then((res) => {
           setSummary(res.profile.summary);
           setReveal(res.reveal);
-          if (opts.seedNextQuestion) setPreferredQuestionId(res.nextQuestionId ?? null);
-          // Seed the engine with what the free text alone told us. This is why the ring
-          // opens partly filled rather than empty.
+          /**
+           * Seed the engine with what the free text alone told us.
+           *
+           * `prefill` is the important addition. Before it, only industry/brandName/teamSize
+           * were seeded — none of which is a question signal — so every one of the six
+           * questions stayed unresolved no matter what someone wrote. Type "we take cake
+           * orders over Instagram and need a website" and you were still asked where
+           * customers reach you and what needs standing up first. That is the "we're not
+           * getting more information" complaint, and this is the line that fixes it.
+           *
+           * The values are already validated server-side against the same vocabulary the
+           * `resolves` payloads use, so a prefilled signal is indistinguishable from a tapped
+           * one and `isResolved` skips its question for free.
+           */
           setEngine((prev) => ({
             ...prev,
             profile: {
@@ -127,7 +133,12 @@ export default function App() {
               industry: res.profile.industry,
               brandName: res.profile.domainStem,
               ...(res.profile.teamSize ? { teamSize: res.profile.teamSize } : {}),
+              ...(res.prefill ?? {}),
             },
+            prefilled: res.prefilledQuestionIds ?? [],
+            /* Only on a fresh run. Re-seeding a ranking mid-flow would point the engine back
+               at ground it has already covered — the ranking was computed before any answer. */
+            ...(opts.seedNextQuestion ? { priority: res.questionPriority ?? [] } : {}),
           }));
           setLoading(false);
         })
@@ -183,8 +194,8 @@ export default function App() {
 
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
-    saveSnapshot({ stage, engine, rawText, reveal, summary, preferredQuestionId, neoSite });
-  }, [stage, engine, rawText, reveal, summary, preferredQuestionId, neoSite]);
+    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite });
+  }, [stage, engine, rawText, reveal, summary, neoSite]);
 
   /**
    * Apply an answer and decide where to go next.
@@ -196,7 +207,6 @@ export default function App() {
   const answer = useCallback(
     (questionId: string, optionIds: string[], freeText?: string) => {
       const next = applyAnswer(engine, questionId, optionIds, freeText);
-      setPreferredQuestionId(null); // consumed; engine picks from here on
       setEngine(next);
       setStage(shouldReveal(next) ? "reveal" : "question");
     },
@@ -225,7 +235,6 @@ export default function App() {
     setReveal(null);
     setSummary(null);
     setNeoSite(null);
-    setPreferredQuestionId(null);
     setError(null);
   }, []);
 

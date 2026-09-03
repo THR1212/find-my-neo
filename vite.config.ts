@@ -238,5 +238,12 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
 export default defineConfig(({ mode }) => {
   // "" prefix loads every var, not just VITE_*. These stay server-side — see above.
   const env = loadEnv(mode, process.cwd(), "");
-  return { plugins: [react(), domainApiPlugin(env)] };
+  return {
+    plugins: [react(), domainApiPlugin(env)],
+    server: {
+      /* Cursor's preview proxy hits the pod as *.cursorvm.com, which Vite 6+ rejects unless
+         listed. `true` is correct here: this is a demo origin, not a LAN-exposed secret. */
+      allowedHosts: true,
+    },
+  };
 });

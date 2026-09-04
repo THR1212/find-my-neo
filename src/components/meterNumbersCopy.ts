@@ -182,7 +182,11 @@ const TRADE_BY_INDUSTRY: Record<string, TradeVoice> = {
   "Travel & Hospitality": { folk: "Hosts like yours", setup: "Your host setup" },
   "Recreation & Sports": { folk: "Clubs like yours", setup: "Your club setup" },
   "Manufacturing & Industrial": { folk: "Makers like yours", setup: "Your workshop setup" },
-  Construction: { folk: "Builders like yours", setup: "Your site setup" },
+  /* NOT "Your site setup". A building site is not a website, but this product uses "site" to
+     mean exactly one thing on every other screen — and a locksmith who had just answered
+     "Just email, no website" was shown "Your site setup" on the reveal. The one word we cannot
+     borrow for a second meaning is the one already load-bearing in our own vocabulary. */
+  Construction: { folk: "Builders like yours", setup: "Your trade setup" },
 };
 
 function tradeVoice(profile: MeterProfile): TradeVoice {

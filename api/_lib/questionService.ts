@@ -237,7 +237,7 @@ function clip(text: string, max: number): string {
   const lastSpace = cut.lastIndexOf(" ");
   const trimmed = lastSpace > max * 0.5 ? cut.slice(0, lastSpace) : cut;
   /* Trailing punctuation left dangling by the trim reads as a typo. */
-  return trimmed.replace(/[\s,;:.\-]+$/, "");
+  return trimmed.replace(/[\s,;:.-]+$/, "");
 }
 
 function addsNothing(hint: string, context: string): boolean {

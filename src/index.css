@@ -2257,3 +2257,30 @@ html:has(.stage-reveal) #root {
   font-size: 12.5px;
   color: var(--text-faint);
 }
+
+/* A LONE ITEM MUST NOT STRETCH. `.loop-stack` uses `grid-auto-rows: minmax(0, 1fr)`, so with
+   one child that child takes the whole pane — a mail-only Starter reveal, where only one film
+   is entitlement-legal and `custom_domain` has no artwork, showed a single phone mockup blown
+   up to full height and cropped off at the right edge.
+   The class was already on the element and nothing targeted it. Two items still split the
+   pane; one is capped and centred, so it reads as a card rather than a background. */
+
+.loop-stack-1 {
+  grid-auto-rows: minmax(0, 0.62fr);
+  align-content: center;
+}
+
+.loop-stack-2 {
+  grid-auto-rows: minmax(0, 0.86fr);
+  align-content: center;
+}
+
+/* CONTAIN, not cover, in the mail-only pane.
+   These films carry TEXT — "Blazing fast apps" — and the pane's cards are portrait while the
+   footage is landscape, so `cover` cropped the first word off every one of them. Letterboxing
+   against the film's own background colour is invisible; a half-eaten headline is not. The
+   wait reel and the site pane keep `cover`, where the frames are wide and nothing is clipped. */
+
+.setup-story-mail .neo-loop-frame video {
+  object-fit: contain;
+}

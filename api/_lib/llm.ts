@@ -132,6 +132,33 @@ export async function complete<T>({
     { timeout: timeoutMs, maxRetries },
   );
 
+  /**
+   * Token usage, per call, so the cost story is measured rather than asserted.
+   *
+   * The pitch quotes a budget and the project has a real ceiling on it, and until now nothing
+   * recorded what a run actually spends — the figure was arrived at by dividing the bill by a
+   * guess at the number of runs. `cached` matters more than it looks: the system prompts are
+   * long and identical across sessions, and cached input bills at a tenth of fresh input, so a
+   * warm prompt is most of the difference between the first run of the day and the rest.
+   */
+  const u = res.usage;
+  if (u) {
+    const cached = u.prompt_tokens_details?.cached_tokens ?? 0;
+    console.error(
+      "[llm-usage]",
+      JSON.stringify({
+        key,
+        model: model(),
+        in: u.prompt_tokens,
+        cached,
+        out: u.completion_tokens,
+        /* Reasoning is billed as output and is invisible in `completion_tokens` alone — it is
+           also what silently ate the ceiling twice, so it is worth seeing next to the rest. */
+        reasoning: u.completion_tokens_details?.reasoning_tokens ?? 0,
+      }),
+    );
+  }
+
   const choice = res.choices[0];
   if (choice?.finish_reason === "length") {
     throw new Error(

@@ -45,6 +45,9 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
         "NEO_PARTNER_SESSION",
         "NEO_PARTNER_PANEL_URL",
         "NEO_PARTNER_PANEL_UA",
+        /* Opt-in for the Partner Panel domain lookup. Absent = off, which is the safe state:
+           see checkTitanOrder. Forwarded here so localhost and production agree. */
+        "NEO_PARTNER_PANEL_LOOKUP",
       ]) {
         if (env[k]) process.env[k] = env[k];
       }

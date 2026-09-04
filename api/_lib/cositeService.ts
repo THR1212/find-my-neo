@@ -546,6 +546,26 @@ async function probe(domain: string): Promise<CoSiteResult> {
  * admin session is not evidence that a name is free, nor that it is taken.
  */
 export async function checkTitanOrder(domain: string): Promise<{ domain: string; taken: boolean | null }> {
+  /**
+   * OFF UNLESS EXPLICITLY ENABLED, and that default is the whole point.
+   *
+   * This function is reached from `/api/domains?titan=<domain>`, which is a public route on a
+   * public deployment. Backed by a Partner Panel admin session it answers, for ANY domain, a
+   * clean yes/no on whether Titan holds an order for it — which is an enumeration oracle over
+   * the customer list, exactly the thing Reveal.tsx's header and this file's own notes warned
+   * against on 03 Sep. Verified live on 04 Sep: google.com -> taken, zoho.com -> free.
+   *
+   * The rate limit below bounds volume; it does not stop the disclosure. Since the feature is
+   * a nice-to-have (not recommending a name Neo already sold) and the exposure is over customer
+   * data, the safe state is the default and turning it on is a deliberate act.
+   *
+   * `null` degrades to exactly the behaviour before this existed: no name is filtered, the
+   * manual check adds the domain as before, and nothing on screen says anything.
+   */
+  if (process.env.NEO_PARTNER_PANEL_LOOKUP !== "1") {
+    return { domain, taken: null };
+  }
+
   const key = `titan:${domain}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS && hit.value.available !== null) {

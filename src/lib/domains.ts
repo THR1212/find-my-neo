@@ -99,7 +99,24 @@ export function availableFromLookup(
   }
 
   const seen = new Set(preferredAvailable.map((r) => r.domain));
-  const extras = live.filter((r) => r.available === true && !seen.has(r.domain));
+  const stemOf = (name: string) => name.split(".")[0] ?? name;
+
+  /**
+   * Backfill prefers a name we are not already showing, over another ending of one we are.
+   *
+   * Without this the gap left by a taken `.com` gets filled by the FIRST suggestion's `.in`,
+   * because that is simply the order the lookup returns. So three genuinely different names
+   * from the model — bandratickets, cinemareserve, movienightpasses — would still render as
+   * two names, one of them twice, which is the same complaint the multi-stem work set out to
+   * fix, just one step further down.
+   *
+   * A stable sort on "is this stem already on screen", so within each group the lookup's own
+   * order (and therefore the model's ranking) still decides.
+   */
+  const shownStems = new Set(preferredAvailable.map((r) => stemOf(r.domain)));
+  const extras = live
+    .filter((r) => r.available === true && !seen.has(r.domain))
+    .sort((a, b) => Number(shownStems.has(stemOf(a.domain))) - Number(shownStems.has(stemOf(b.domain))));
 
   /* `.co.site` gets the LAST slot, reserved, rather than competing for a place in the ranking.
      Neither of the obvious alternatives works:

@@ -61,6 +61,12 @@ export default function Reveal({
     cites: { entitlement: string; evidence: string }[];
   } | null;
   onRestart: () => void;
+  /**
+   * Claim: hand the checkout exactly what this screen was showing.
+   *
+   * `rec` is the recommendation on screen — the solved plan, or the cheaper one if they
+   * took it. Passing `solved` would bill them for the plan they just declined.
+   */
   onClaim: (order: CheckoutOrder) => void;
 }) {
   const [chosenName, setChosenName] = useState<string | null>(null);
@@ -335,6 +341,7 @@ export default function Reveal({
   }
 
   const mailboxCount = Math.max(reveal.mailboxes.length, answeredMailboxes ?? 0);
+
   const surfaces: FeatureSurface[] = showSite ? ["mail", "site"] : ["mail"];
   const solved = recommend(
     profile,
@@ -355,6 +362,20 @@ export default function Reveal({
     ? priceAs(swap.mail, swap.site, solved.mailboxes, solved.cycle)
     : null;
   const rec = swappedPrice ? { ...solved, ...swappedPrice } : solved;
+
+  /**
+   * At most three addresses listed, however many are billed.
+   *
+   * Capped HERE and not in CSS, and the difference matters: a `display: none` on the fourth
+   * row hides something the price line directly references, so the card reads "4 x Rs599"
+   * above a list of two and nothing on screen reconciles them. The "+N more" note below the
+   * list is the existing machinery for exactly that mismatch — counting against what is
+   * SHOWN rather than what the model named makes it cover this case too.
+   *
+   * Three because the list is making a point ("we named these for your business"), and the
+   * fourth row repeats it while costing the vertical space the total needs on a laptop.
+   */
+  const shownMailboxes = reveal.mailboxes.slice(0, Math.min(rec.mailboxes, 3));
 
   /* First-cycle price for a .co.site name — 0 today, but derived, so a two-year cycle
      stops it saying "Free" without anyone remembering to. */
@@ -544,7 +565,7 @@ export default function Reveal({
               */}
             {/* See the note below the list: we bill `rec.mailboxes` and the model may have named
                 fewer, so the difference is stated rather than left for the reader to notice. */}
-            {reveal.mailboxes.slice(0, rec.mailboxes).map((m) => (
+            {shownMailboxes.map((m) => (
               <div key={m.address} className="mailbox">
                 <span className="mailbox-address">
                   {m.address.split("@")[0]}
@@ -564,11 +585,11 @@ export default function Reveal({
               * address for them — and not by billing three, because four is what they asked
               * for and each one costs the same to add.
               */}
-            {rec.mailboxes > reveal.mailboxes.length && (
+            {rec.mailboxes > shownMailboxes.length && (
               <p className="mailbox-extra">
-                +{rec.mailboxes - reveal.mailboxes.length} more address
-                {rec.mailboxes - reveal.mailboxes.length === 1 ? "" : "es"} on your plan — name
-                {rec.mailboxes - reveal.mailboxes.length === 1 ? " it" : " them"} when you set up.
+                +{rec.mailboxes - shownMailboxes.length} more address
+                {rec.mailboxes - shownMailboxes.length === 1 ? "" : "es"} on your plan — name
+                {rec.mailboxes - shownMailboxes.length === 1 ? " it" : " them"} when you set up.
               </p>
             )}
           </div>
@@ -814,6 +835,13 @@ export default function Reveal({
           </div>
 
           <div className="row reveal-cta">
+            {/**
+              * `rec`, NOT `solved`, and that is the whole point of passing it.
+              *
+              * `rec` is what this screen is showing — the solved recommendation, or the cheaper
+              * plan if they took it. Handing the checkout `solved` would bill them for the plan
+              * they just declined, with the screen they declined it on still behind them.
+              */}
             <button
               className="btn"
               type="button"
@@ -824,6 +852,7 @@ export default function Reveal({
                 e.stopPropagation();
                 unlockSound();
                 playSound("cta");
+                void navigator.clipboard?.writeText(domainName).catch(() => {});
                 onClaim(
                   buildCheckoutOrder({
                     domain: domainName,

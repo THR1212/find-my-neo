@@ -2013,3 +2013,133 @@ and it is what surfaced the five conflicts — but the storage numbers were.
 - **`sells` is no longer asked on a mail-only run**, and `read_receipts` no longer matches on
   `sellsOnline === false` — the loosest matcher in the bank, which put it at the top of nearly
   every Starter reveal.
+
+---
+
+## 04 Sep 2026 — demo day: what production told us, and the checkout
+
+Five things came out of Hari's own production runs and Moin's feedback. Three were real bugs,
+and two of those had the same shape: something that decides what a person pays going wrong
+silently, with the mechanism that would have caught it removed by the bug itself.
+
+### "No website" was prefilling a website
+
+`cinema ticket reseller from bandra, no website, just me` came back with `surface: 'both'`
+prefilled, so the surface question was **skipped** and the run recommended a Plus site. The model
+read a phrase about NOT having a site as evidence of wanting one.
+
+Prefilling is what made it unrecoverable. A wrong prefill does not merely put a wrong value in
+the profile — it deletes the question that would have corrected it, and the guess screen's
+"Not quite" is the only remaining escape.
+
+"No website" describes what someone HAS. It says nothing about what they want, and pretending
+otherwise in either direction is a guess. So the guard **nulls** the signal rather than flipping
+it to `mail`, and the question gets asked. Both a system-prompt rule and a deterministic
+`NO_SITE_PHRASE` check, because a prompt is guidance and this one decides a price.
+
+The leading word-boundary in that regex is load-bearing: without it "casino site" matches on the
+"no" inside "casino". Ten cases are checked, including the three that must NOT match
+("we need a website too", "we want a site", "I already have a website").
+
+### The three "personalised" domains were one name with three endings
+
+Two layers, and fixing only the first would have looked like a fix while changing nothing.
+
+1. `lookupDomains` took a single stem, and the reveal filtered its own results back down to it.
+2. The model only ever returned ONE `domainStem`, and the reveal built the list as
+   `stem + .com/.in/.co`. So there was nothing for a multi-stem lookup to look up.
+
+Both fixed: `domainStems` asks for three genuinely different ideas, and the lookup checks each.
+Nearly free because of the credit model — `/v1/status` bills per REQUEST, so N names is N
+credits, while `/v1/prices` is keyed by TLD and shared across sessions for 6h. Widening *names*
+costs linearly on the cheap call and nothing on the expensive one; widening *TLDs* would have
+been the opposite trade.
+
+A third layer surfaced on the first live test. With `cinemareserve.com` taken, the freed slot
+was backfilled by `bandratickets.in` — the first name again, because that is the order the
+lookup returns. Extras now prefer a stem not already on screen.
+
+Two traps on the way, both silent: `name` was sanitised with a character class that strips commas
+**before** splitting, so `a,b,c` became the single stem `abc`; and rows were keyed by TLD, so two
+names sharing `.com` collided and one vanished.
+
+### DomScan and Neo answer different questions
+
+A name can be free at the registry and already have an order at Neo — and that combination is
+the one that hurts, because we would recommend it and the checkout would fail. `checkTitanOrder`
+asks the Partner Panel, which reads Neo's own order records and is domain-agnostic.
+
+**ONE call, for the name actually on offer**, and the next one down if that gets dropped — not
+one per suggestion. Three per page view is exactly the traffic `PANEL_MAX_PER_WINDOW` exists to
+keep off an admin-session endpoint, and it would spend the budget on two names nobody will buy.
+A branch on `/api/domains` rather than a new route, forwarded from **both** mounts in the same
+commit: the last time this route grew a parameter, `manual` was dropped on localhost while
+production worked.
+
+### The cheaper plan is now takeable, and the swap carries to the cart
+
+"You would lose X on the cheaper plan" told someone a trade existed and gave them no way to
+weigh or make it. It now carries the saving and a button that takes it.
+
+`priceAs()` is split out of `recommend()` rather than relaxing its rank guard. Those two facts
+belong together: the guard stops the MODEL selecting below the solved floor, and a person
+choosing to spend less on their own business is a different actor with different authority.
+`needs` is carried across unchanged — taking a cheaper plan does not un-establish the
+requirement, and that is exactly what someone needs to make the trade knowingly.
+
+Moin's in-app checkout was merged the same day, and the two features meet at one line: Reveal
+passes `rec`, the recommendation ON SCREEN, never `solved`. Handing the checkout `solved` would
+bill them for the tier they had just declined, with the screen they declined it on still behind
+them. Verified reveal-total against checkout-due to the rupee across all six combinations and
+all three swapped cases.
+
+**The merge took the checkout and nothing else.** His branch is 4,090 insertions across 35
+files; this is five new files and four wired. CSS was extracted by selector, and any rule that
+also touched a shared class (`.btn`, `.eyebrow`, `.lede`) was left behind — the point was the
+checkout, not a restyle of a flow that had just been tuned.
+
+The checkout makes **no network calls**, so Claim can no longer reach `join.neo.space` and a
+rehearsal cannot create a real order. That is a safety improvement over the handoff, not just a
+demo convenience.
+
+### The wait screen was being torn away mid-read
+
+`Guess.tsx` unmounted `ProductWait` the instant `loading` flipped, so a profile landing
+mid-sentence cut the pane away from someone still reading it. The parent cannot fix this — it
+does not know where the beat clock is. The parent now says only "the data arrived" (`settled`)
+and the wait screen answers "you may go" (`onDone`) at its own next boundary. Beat 3200 to 2800ms.
+
+Deliberately a boundary latch and **not** a multi-beat floor. The complaint was interruption,
+not brevity: finishing the beat fixes it at a cost of at most one beat, where a floor of two or
+three would add multiple seconds of dead air whenever the profile resolves quickly.
+
+### Layout: measured, not eyeballed
+
+At a 690px viewport, 37% of the reveal's left column was hidden, the Total row was below the
+fold and the swap button 282px past it. Both are demo beats.
+
+The first attempt was inert: the `max-height` block was inserted **above** the base rules it was
+meant to override, so `.plan-card`'s own padding — declared 200 lines later — won every time. A
+media query adds no specificity; source order decides. Moved to the end of the cascade, the
+column needs ~896px of viewport height instead of ~995px, and the Total is visible at 690px.
+
+One self-inflicted wound worth recording: the first pass hid the fourth mailbox row with
+`display: none`, which left the card reading "4 x Rs599" above a list of two with nothing
+reconciling them. **Never hide content a price references.** Replaced with a component-level cap
+that triggers the existing "+N more addresses on your plan" line.
+
+### Also
+
+- A latent conditional hook in `Reveal.tsx`: `chosenTemplate` was declared below the `error` and
+  `loading` early returns, so those branches ran nine hooks and the render after them ran ten.
+  Latent only because the reveal is usually mounted with its data already in hand.
+- All nine intended plan combinations are reachable (21,000 profiles walked). `growth` is
+  unreachable in every mail tier **by design** — Plus already allows 500 products, so no answer
+  can establish a need for it.
+- **62% of the answer space lands on Max**, almost entirely via `extras`: three of its five
+  options (invoices, campaigns, bookings) each force Max on their own. Defensible — those really
+  are Max entitlements — but it is the remaining Max pressure, and worth knowing before a judge
+  picks "sent a quote or invoice".
+- The demo URL is `find-my-neo-hari-7720.vercel.app`, not the `neo-akinator` alias. Same
+  deployment, same build — but judges read the address bar, and "Akinator" is a trademark that
+  `docs/naming.md` already says must never be user-visible.

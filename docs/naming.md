@@ -26,6 +26,19 @@ GitHub redirects the old URL, so existing clones keep working; run
 
 The local folder is still `Projects/neo-akinator`, which is harmless — nobody outside sees it.
 
+**Update 04 Sep: the Vercel alias `neo-akinator.vercel.app` is still live and still resolves.**
+This file's own list says a public URL must never carry the name, and that one does — it was
+missed when the repo was renamed, because a Vercel project alias is derived from the original
+folder name and does not follow a GitHub rename.
+
+It is not a leak in the deployed page (the `<title>` and all on-screen copy are clean), but it
+is visible in the address bar, which during a demo is on a projector in front of judges.
+
+**Demo on `find-my-neo-hari-7720.vercel.app`** — same project, same deployment, same build hash,
+no trademark in the URL. The bookmarklet already points there. The clean fix is a
+`find-my-neo.vercel.app` alias in the Vercel dashboard (unclaimed as of 04 Sep); until someone
+adds it, use the `-hari-7720` host and do not present from the `neo-akinator` one.
+
 ## Why "Find My Neo" works
 
 - Says what it does without needing a tagline.

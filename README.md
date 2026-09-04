@@ -141,10 +141,13 @@ what decides each one. This table is the same thing in text, with the actual fun
 | 4 | *(background)* | `neoSite.fetchNeoSite` | `GET /api/neo-site` -> `generateNeoSite()` -> 3 chained calls to `api.titan.email` | Real site: 17 blocks, font, pallet, Pexels URLs. 22-38s. Falls back to `neo-site.json` after 90s |
 | 5 | `Guess.tsx` | - | - | Shows `profile.summary` while 3 and 4 are still resolving |
 | 6 | `AdaptiveQuestion.tsx` | `engine.nextQuestion` picks the question; `App.answer` -> `engine.applyAnswer` | nothing leaves the browser | Meter redraws from `confidence()` and `remainingSetups()`; `persist.saveSnapshot()` writes the run |
-| 7 | *(loop)* | `engine.shouldReveal` | - | Repeats 6 until confident or `MAX_QUESTIONS` (4) |
-| 8 | `Reveal.tsx` | `domains.lookupDomains` | `GET /api/domains` -> `domainService.lookupDomains()` -> DomScan | Availability plus USD list price, converted to INR |
+| 7 | *(loop)* | `engine.shouldReveal` | - | Repeats 6 until nothing left to ask could change the plan, or `MAX_QUESTIONS` (12). The bank is 7 questions, so most runs ask 4-6 |
+| 8 | `Reveal.tsx` | `domains.lookupDomains` | `GET /api/domains?name=a,b,c` -> `domainService.lookupDomains()` -> DomScan | Availability plus USD list price, converted to INR, for **all three suggested names** across the TLD set. One `/v1/status` credit per name |
+| 8b | `Reveal.tsx` | `domains.checkTitanOrder` | `GET /api/domains?titan=<domain>` -> `cositeService.checkTitanOrder()` -> Partner Panel | Whether Neo already holds an order for the chosen name. One call, for the name actually on offer. `null` = could not tell, and renders as silence |
 | 9 | `Reveal.tsx` | `features.pickFeatures` and `rules.recommend` | nothing leaves the browser | The plan, the price, the "worth knowing" lines |
-| 10 | `Reveal.tsx` | `onClaim` → `Checkout.tsx` | In-app Neo checkout, then Success after Pay | - |
+| 10 | `Reveal.tsx` | `checkout.buildCheckoutOrder` via `onClaim` | in-app `Checkout.tsx` | The cart, built from the recommendation **on screen** — the cheaper plan if they swapped. Claim is an in-app button (`data-fmn="in-app-checkout"`), not a handoff to join.neo.space |
+| 11 | `Checkout.tsx` | `checkout.checkoutViewTotals` | nothing leaves the browser | Itemised mail / site / domain dues, monthly or yearly |
+| 12 | `Success.tsx` | - | - | Confirmation. No network call anywhere in 10-12, so a rehearsal cannot create a real order |
 
 Throughout, `errorLog.ts` posts crashes **and silent degradations** to `/api/log`.
 
@@ -252,10 +255,15 @@ sheet, and `rules.ts` turns a profile into a plan — so the reveal shows a genu
 list price converted at a fixed rate. Availability *is* real. The right fix is Neo's own domain
 search API.
 
-**The CTA works.** It hands off to `join.neo.space/site/domain-selection` carrying the business
-name and description Neo's own generator produced. It stays a link a person clicks, never an
-automatic redirect. Cold visitors still land on `/site/industry` rather than the domain step -
-that's the remaining gap.
+**The CTA opens an in-app checkout.** Claim builds a cart from the recommendation on screen and
+renders Neo's checkout inside the app; Pay lands on a confirmation. It makes **no network calls**,
+so nothing in a rehearsal can create a real order — which is why this replaced the live handoff
+rather than sitting beside it. `buildHandoffUrl` is still there on the `<a>` underneath, so the
+reveal degrades to the old behaviour if it is ever mounted without `onClaim`.
+
+**The cheaper plan is takeable.** The reveal says what dropping a tier costs, prices it, and
+offers a button that takes it — repricing the breakdown, the feature list and the cart. Checkout
+is handed `rec`, the recommendation being displayed, never the originally solved one.
 
 **The profile step is live.** `api/profile.ts` + `api/_lib/profileService.ts` call gpt-5.6-luna
 and return a real profile when `LLM_MODE=live` and `LLM_API_KEY` are set (local `.env.local`,

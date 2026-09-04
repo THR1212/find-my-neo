@@ -63,11 +63,23 @@ Browser (Vite/React)
   │                       └─ on failure: src/data/replay/neo-site.json (a REAL recording)
   │
   ├─ /api/domains   ─▶ api/_lib/domainService.ts ─▶ domscan.net   (key server-side only)
+  │     ?name=a,b,c      └─ THREE stems per request; /v1/status bills per REQUEST, so a
+  │                         name costs one credit and TLD breadth costs nothing
+  │     ?titan=<domain>  ─▶ api/_lib/cositeService.ts ─▶ Partner Panel (admin session)
+  │                       └─ "does Neo already hold an order for this name?" ONE call, for
+  │                          the name actually on offer. null = could not tell = say nothing
   │                       └─ on failure: no badge, no price — never a wrong one
   │
-  └─ buildProfile   ─▶ src/lib/api.ts
-                          ├─ replay (default) → src/data/replay/demo.json
-                          └─ live             → /api/profile  ← NOT BUILT YET
+  ├─ /api/profile   ─▶ api/_lib/profileService.ts ─▶ gpt-5.6-luna   (LIVE)
+  ├─ /api/questions ─▶ api/_lib/questionService.ts   (surface wording only)
+  ├─ /api/reasons   ─▶ api/_lib/reasonService.ts     (feature "because" clauses)
+  ├─ /api/rationale ─▶ api/_lib/rationaleService.ts  (the two lines under the price,
+  │                       plus `cheaperStep` — computed from plans.json, NOT by the model)
+  ├─ /api/plan      ─▶ api/_lib/planService.ts       (verifies a model tier RAISE)
+  │
+  └─ Claim ─▶ src/lib/checkout.ts ─▶ Checkout.tsx ─▶ Success.tsx
+                  NO network calls. The cart is built from the recommendation ON SCREEN,
+                  so a swapped-to-cheaper plan carries. Nothing here can create an order.
 ```
 
 **Both `/api/*` routes run on the Vercel Edge runtime**, declared explicitly. They are written
@@ -82,16 +94,23 @@ the fallback could mislead we say so on screen ("offline — recorded earlier").
 **The site content is Neo's, not ours.** We stopped drafting site copy entirely. See
 `docs/neo-product-facts.md` for the three-call pipeline and its gotchas.
 
-**Replay mode** (`VITE_LLM_MODE=replay`, the default) serves the recorded bakery profile with no
-network. Live mode (`VITE_LLM_MODE=live` plus server `LLM_MODE` / `LLM_API_KEY`) calls the model.
-If that call cannot run, the guess is derived from the description — not left blank, and not
-swapped for the bakery fixture.
+**Replay mode** (`VITE_LLM_MODE=replay`) serves the recorded fixture instantly. Nothing in the
+flow is fixture-backed any more — every model step is live — so this is now a rehearsal setting
+for walking the demo without spending tokens, not a gap. Live mode (`VITE_LLM_MODE=live` plus
+server `LLM_MODE` / `LLM_API_KEY`) calls the model. If that call cannot run, the guess is
+derived from the description — not left blank, and not swapped for the bakery fixture.
 
 ## Deterministic plan mapping
 
 The model emits a profile object. `src/lib/rules.ts` maps profile → plan. Pricing lives in
 `src/data/plans.json`. The model never sees a price and never picks a plan. This is a hard rule,
 not a preference — it is also the answer when someone asks "what if it hallucinates a price".
+
+`recommend()` accepts an `override` that can only ever raise a tier, and only from a verdict the
+server already verified. Taking the **cheaper** plan is a different mechanism on purpose:
+`priceAs()` prices an explicit pair with no floor check, and it exists because the guard is about
+the MODEL going below the solved floor, not about a person choosing to spend less on their own
+business. Widening the guard would have handed the model that authority as a side effect.
 
 ## Neo environments
 

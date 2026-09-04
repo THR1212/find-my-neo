@@ -155,6 +155,9 @@ const MAX_PREFILL = 3;
 
 /** Matches src/lib/domains.ts TLDS. The stem is the model's; the TLDs are not its business. */
 const TLDS = ["com", "in", "co", "co.site"] as const;
+/** The ending each suggested NAME is offered on. The alternates come from the live lookup. */
+const PRIMARY_TLD = "com";
+const COSITE_SUFFIX = "co.site";
 
 /**
  * The `.co.site` note is ours, never the model's.
@@ -181,6 +184,16 @@ interface ModelProfile {
   teamSize: number | null;
   location: string | null;
   domainStem: string;
+  /**
+   * THREE DIFFERENT NAME IDEAS, not one name with three endings.
+   *
+   * `domainStem` alone produced the "the suggestions aren't personalised" feedback: the
+   * reveal built its list as stem + .com / .in / .co, so a business only ever saw one name.
+   * When the popular endings were taken — `cinematickets.com`, `.in` and `.co` all were —
+   * the list collapsed to a single chip. Three stems means three real alternatives, and the
+   * lookup checks each of them across the same TLDs for one credit apiece.
+   */
+  domainStems: string[];
   suggestedMailboxes: string[];
   /**
    * All nine question ids, most worth asking first.
@@ -210,6 +223,7 @@ const SCHEMA = {
     "teamSize",
     "location",
     "domainStem",
+    "domainStems",
     "suggestedMailboxes",
     "mailboxLabels",
     "questionPriority",
@@ -236,6 +250,15 @@ const SCHEMA = {
       description:
         "Lowercase a-z and 0-9 only. No spaces, hyphens, dots or TLD. From the business " +
         "name if there is one, otherwise from what they do.",
+    },
+    domainStems: {
+      type: "array",
+      minItems: 3,
+      maxItems: 3,
+      items: { type: "string" },
+      description:
+        "THREE DIFFERENT name ideas, same rules as domainStem. Genuinely different names, " +
+        "not the same word twice. Put the strongest first — it becomes their email address.",
     },
     suggestedMailboxes: {
       type: "array",
@@ -309,7 +332,7 @@ const SCHEMA = {
       maxItems: 3,
       items: { type: "string" },
       description:
-        "One short reason per domain, in order .com then .in then .co. Never mention price.",
+        "One short reason per NAME, in the same order as domainStems. Never mention price.",
     },
   },
 } as const;
@@ -358,8 +381,24 @@ const SYSTEM = [
   "  STATED:     'we need a website too'            -> surface 'both'",
   "  NOT STATED: a restaurant, so probably takeaway -> sellsOnline null",
   "  NOT STATED: small, so probably no site yet     -> surface null",
+  /* Added after a production run: "cinema ticket reseller from bandra, NO WEBSITE, just me"
+     was prefilled `surface: 'both'` and sold a Plus site. The model read a phrase about not
+     having a site as evidence of wanting one, and because prefilling SKIPS the question, the
+     person was never given the chance to say otherwise. */
+  "  'no website' / 'don't have a site' describes what they HAVE, not what they WANT.",
+  "  It is not evidence for surface 'both'. If they have no site and have not said whether",
+  "  they want one, surface is null and the question gets asked.",
+  "  STATED:     'no website, just me'              -> surface null  (ask them)",
+  "  STATED:     'we don't want a website'          -> surface 'mail'",
   "Never prefill how many mailboxes they need. A separate question asks it, and headcount is",
   "not the same number.",
+  "",
+  "domainStems is THREE DIFFERENT NAMES, and this matters more than it sounds. They are shown",
+  "side by side as the alternatives, so three variations of one word reads as one suggestion",
+  "repeated. Vary the idea, not the spelling: the business name, what they do, and where they",
+  "are, are three different names. Put the strongest first — it becomes their email address.",
+  "  GOOD: ['cinematickets', 'bandratickets', 'ticketreseller']",
+  "  BAD:  ['cinematickets', 'cinematicket', 'cinematicketsonline']",
   "",
   "Write summary in the customer's own register. Plain, specific, no marketing language.",
 ].join("\n");
@@ -392,6 +431,13 @@ function derivedProfile(businessText: string): ModelProfile {
     teamSize: null,
     location: null,
     domainStem: words.slice(0, 2).join("") || "yourbusiness",
+    /* Three from the same words rather than one repeated: even the degraded path should not
+       offer the same name three times over. */
+    domainStems: [
+      words.slice(0, 2).join("") || "yourbusiness",
+      words.slice(0, 1).join("") || "yourbusiness",
+      words.slice(0, 3).join("") || "yourbusinessco",
+    ],
     suggestedMailboxes: ["hello", "contact"],
     mailboxLabels: ["For enquiries and new customers", "For everything else"],
     /* Empty, not a guessed order: when the call failed we know nothing about this business,
@@ -413,7 +459,17 @@ function derivedProfile(businessText: string): ModelProfile {
  * Returns the profile patch (values in exactly the shape `resolves` would have produced) and
  * the question ids those signals close, so the engine can skip them.
  */
-function validatePrefill(raw: Prefill | undefined): {
+/**
+ * Phrases that describe NOT having a site. Deliberately narrow: it only has to catch the
+ * plain ways someone says it, and a false positive costs one extra question while a false
+ * negative costs them a site they never asked for.
+ */
+/* The leading \b is load-bearing: without it "casino site" matches the "no" inside
+   "casino", and a business that mentions one would lose its site question. */
+const NO_SITE_PHRASE =
+  /\b(?:no|without|don'?t\s+have|dont\s+have|do(?:es)?\s+not\s+have|haven'?t\s+got|not\s+got)(?:\s+an?)?\s+(?:web\s?site|site|web\s?page)\b/i;
+
+function validatePrefill(raw: Prefill | undefined, businessText: string): {
   profile: Record<string, string | string[] | boolean>;
   skip: string[];
   dropped: string[];
@@ -421,7 +477,26 @@ function validatePrefill(raw: Prefill | undefined): {
   const profile: Record<string, string | string[] | boolean> = {};
   const skip: string[] = [];
   const dropped: string[] = [];
-  const p = raw ?? {};
+  const p = { ...(raw ?? {}) };
+
+  /**
+   * "No website" is not a request for a website.
+   *
+   * A production run described a business as "cinema ticket reseller from bandra, no website,
+   * just me" and came back with `surface: 'both'` prefilled — so the surface question was
+   * SKIPPED, and the person was sold a Plus site off the back of a phrase saying they did not
+   * have one. Prefilling is what made it unrecoverable: a wrong prefill removes the question
+   * that would have corrected it.
+   *
+   * The system prompt now says this too, but a prompt is guidance and this decides what
+   * someone pays, so the guard is here as well. It nulls the signal rather than flipping it to
+   * 'mail': not having a site genuinely does not say whether they want one, and the honest
+   * response to an ambiguous phrase is to ask, not to infer in the other direction.
+   */
+  if (p.surface === "both" && NO_SITE_PHRASE.test(businessText)) {
+    dropped.push("surface: text says no site, asking instead");
+    p.surface = null;
+  }
 
   /* Weight order, so that when the cap bites we keep the signals that move the
      recommendation most rather than whichever the model happened to list first. */
@@ -539,6 +614,29 @@ export async function handleProfile(
   );
 
   const stem = cleanStem(profile.domainStem);
+  /**
+   * Three distinct stems, first one always `stem` so the mailboxes and the handoff agree.
+   *
+   * Deduped and padded: a model that returns the same idea twice would otherwise put the same
+   * name on screen twice, and a short list would leave a gap where a suggestion should be.
+   */
+  const stems = (() => {
+    const out: string[] = [stem];
+    for (const raw of profile.domainStems ?? []) {
+      const c = cleanStem(raw);
+      if (c && c !== "yourbusiness" && !out.includes(c)) out.push(c);
+      if (out.length === 3) break;
+    }
+    /* Pad from the mailbox locals rather than repeating: "hellocinematickets" is a worse name
+       than the model's, but it is at least a different one, and this only runs when the model
+       gave us fewer than three usable ideas. */
+    for (const extra of ["get", "my", "the"]) {
+      if (out.length >= 3) break;
+      const c = cleanStem(`${extra}${stem}`);
+      if (!out.includes(c)) out.push(c);
+    }
+    return out.slice(0, 3);
+  })();
   const locals = (profile.suggestedMailboxes ?? [])
     .map((m) => String(m).toLowerCase().replace(/[^a-z0-9]/g, ""))
     .filter(Boolean)
@@ -546,7 +644,7 @@ export async function handleProfile(
   const mailboxLocals = locals.length ? locals : ["hello", "contact"];
   const primary = `${stem}.${TLDS[0]}`;
 
-  const prefill = validatePrefill(profile.prefill);
+  const prefill = validatePrefill(profile.prefill, businessText);
   /* Dedupe and drop anything that is not a real question id. The engine re-checks both, but
      a malformed list would otherwise sit in the snapshot and in the logs looking valid. */
   const priority = Array.from(new Set(profile.questionPriority ?? [])).filter((id) =>
@@ -590,16 +688,39 @@ export async function handleProfile(
            failed lookup showed a green Available on a domain that was actually taken. An
            unverified claim about something a person can check in one keystroke is the worst
            kind to get wrong. */
-        domains: TLDS.map((tld, i) => ({
-          name: `${stem}.${tld}`,
-          available: null,
-          priceInr: null,
-          /* Free-ness is a product fact, not a lookup result, so it is set on the first paint
-             rather than waiting for a check that can never return "free" anyway. */
-          ...(tld === "co.site" ? { free: true } : {}),
-          note: tld === "co.site" ? COSITE_NOTE : (profile.domainNotes?.[i] ?? undefined),
-          recommended: i === 0,
-        })),
+        /**
+         * THREE DIFFERENT NAMES, then `.co.site` — not one name with four endings.
+         *
+         * This was `TLDS.map(tld => `${stem}.${tld}`)`, which is why the suggestions never
+         * felt personalised: every business got its single stem on .com, .in and .co. It also
+         * meant the whole list shared one fate — `cinematickets` was taken on all three
+         * popular endings, so a production run showed exactly one registrable name.
+         *
+         * `.com` for each name because it is the one people assume; when a `.com` is taken,
+         * `availableFromLookup` drops it and backfills from the same batch, which now holds
+         * every stem crossed with every TLD rather than just the one.
+         */
+        domains: [
+          ...stems.map((st, i) => ({
+            name: `${st}.${PRIMARY_TLD}`,
+            available: null,
+            priceInr: null,
+            note: profile.domainNotes?.[i] ?? undefined,
+            recommended: i === 0,
+          })),
+          {
+            /* Neo's own namespace keeps the reserved last slot, and keeps the FIRST stem:
+               it is the name their mailboxes are built on. */
+            name: `${stem}.${COSITE_SUFFIX}`,
+            available: null,
+            priceInr: null,
+            /* Free-ness is a product fact, not a lookup result, so it is set on the first paint
+               rather than waiting for a check that can never return "free" anyway. */
+            free: true,
+            note: COSITE_NOTE,
+            recommended: false,
+          },
+        ],
         mailboxes: mailboxLocals.map((local, i) => ({
           address: `${local}@${primary}`,
           label: profile.mailboxLabels?.[i] ?? "",

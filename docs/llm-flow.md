@@ -51,9 +51,15 @@ Free text in, a structured profile out. This is the only call on the critical pa
 - `industry` — constrained to a **strict enum** of Titan's 16 industries, so "bakery" resolves
   to Food & Beverage instead of becoming a 5,319th distinct free-text value
 - `teamSize` — headcount, and *only* headcount
-- `domainStem`, `suggestedMailboxes`, `mailboxLabels`, `domainNotes`
-- `questionPriority` — all six question ids, ranked for this business
-- `prefill` — signals the description already answered
+- `domainStem` — the primary name; the mailboxes and the handoff are built on it
+- `domainStems` — **three genuinely different name ideas**, not one name with three endings.
+  Added 04 Sep: the reveal used to build its list as `stem + .com/.in/.co`, so every business
+  saw one name, and when the popular endings were taken the list collapsed to a single chip
+- `suggestedMailboxes`, `mailboxLabels`, `domainNotes` (one note per name, in stem order)
+- `questionPriority` — all seven question ids, ranked for this business
+- `prefill` — signals the description already answered. A **site negation** in the text
+  (`no website`, `don't have a site`) nulls a `surface: 'both'` prefill server-side, because
+  prefilling removes the question that would have corrected it
 
 **What it must never return:** a plan, a price, a cycle, or a mailbox count. Not "does not
 currently" — the schema has no field for them. See CLAUDE.md rule 2.
@@ -69,7 +75,10 @@ every business, always:  team → surface → channel → sells
 never asked at MAX_QUESTIONS=4:  import, client
 ```
 
-The model now ranks all **nine** questions, and `engine.ts` **re-checks every id** against what
+(That was the state at MAX_QUESTIONS=4. It is 12 now, and the bank is 7, so the ceiling no
+longer binds — `shouldReveal` stops the run when nothing left could change the plan.)
+
+The model now ranks all **seven** questions, and `engine.ts` **re-checks every id** against what
 is genuinely unresolved — a hallucinated id, a duplicate, or an already-answered one is skipped
 rather than trusted.
 
@@ -106,7 +115,7 @@ price, so it has to be visible, or "Not quite" is decorative.
 
 ## Call 2 — `/api/questions` (`api/_lib/questionService.ts`)
 
-Rewrites the nine questions for this specific business. **Three layers, and only the middle one
+Rewrites the seven questions for this specific business. **Three layers, and only the middle one
 is generated:**
 
 ```

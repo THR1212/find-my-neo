@@ -150,9 +150,18 @@ export default function App() {
    * recommendation stands unchanged.
    */
   const [verdict, setVerdict] = useState<PlanVerdict | null>(restored?.verdict ?? null);
+  /**
+   * The Claim payload: what the reveal was actually showing when they pressed the button.
+   *
+   * Built in Reveal from the recommendation ON SCREEN, which is the swapped one when they
+   * took the cheaper plan — so the checkout bills what they chose, not what we first
+   * suggested. Null before Claim, and a checkout stage without one falls back to the reveal
+   * on restore (see persist.ts).
+   */
   const [checkoutOrder, setCheckoutOrder] = useState<CheckoutOrder | null>(
     restored?.checkoutOrder ?? null,
   );
+  /** Guards a double-tap on Pay while the mock settles. */
   const [paying, setPaying] = useState(false);
   /**
    * Options tapped on the question currently on screen, so the meter can react before
@@ -651,6 +660,10 @@ export default function App() {
           <NarrowingMeter
             confidence={conf}
             stage={stage}
+            /* The wait screens are the one place the ring cannot move on its own: the
+               profile is in flight, so confidence has nothing to update from. Without this
+               the dock reads as stalled at exactly the moment it is working hardest. */
+            busy={loading}
             lastQuestionId={engine.asked[engine.asked.length - 1] ?? null}
             profile={engine.profile}
             copyContext={{
@@ -680,6 +693,9 @@ export default function App() {
         </button>
       )}
 
+      {/* The checkout and success screens are meant to read as NEO's pages, not ours, so they
+          render outside the qualifier's shell entirely — no meter dock, no blooms, full bleed.
+          `is-funnel` on <html> is what hides the chrome; see index.css. */}
       {funnel ? (
         <main className="stage stage-funnel">
           {stage === "checkout" && (

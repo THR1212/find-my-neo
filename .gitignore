@@ -53,3 +53,6 @@ analysis/.venv/
 
 # Per-run records written by the dev server. Contain business descriptions people typed.
 runs.jsonl
+
+# Scratch sweep scripts
+.sweep/

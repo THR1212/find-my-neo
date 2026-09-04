@@ -139,6 +139,8 @@ export function loadSnapshot(): Snapshot | null {
     if (!parsed.engine || !Array.isArray(parsed.engine.asked) || !parsed.engine.profile) return null;
     if (!parsed.stage || parsed.stage === "hook") return null;
     if (typeof parsed.rawText !== "string") return null;
+    /* A checkout stage with no order would paint the empty checkout, which reads as a bug.
+       Fall back to the reveal, which is where the order is built. */
     if (
       (parsed.stage === "checkout" || parsed.stage === "success") &&
       !parsed.checkoutOrder

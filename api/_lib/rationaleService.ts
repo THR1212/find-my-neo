@@ -70,7 +70,12 @@ const CHEAPER_TIER: Record<string, { cheaper: string; cheaperId: string; loses: 
        either and dropping to Starter cannot lose it — the sentence was live and false. All
        three below are verified Starter-absent: Branding and Neo Drive in both sources,
        storage as the 15 GB -> 50 GB step. */
-    loses: "company branding, Neo Drive, and the jump from 15 GB to 50 GB a mailbox",
+    /* NO NUMBERS. `PRICE_LIKE` rejects any sentence containing a figure, so "the jump from
+       15 GB to 50 GB" fed the model digits it then repeated — and the whole sentence was
+       dropped. Live in production: `dropped: "whyNotCheaper: contains a price or limit"`,
+       every time, on the one tier where this string is used. The guard is right; the input
+       was baiting it. */
+    loses: "company branding, Neo Drive, and the extra mailbox storage",
   },
   max: {
     cheaperId: "standard",

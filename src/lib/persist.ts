@@ -61,7 +61,10 @@ const VERSION = 9;
    restoring it onto checkout would paint the empty state with leftover nothing.
 
    v9: customDomainYearlyInr on the Claim payload (DomScan yearly for a custom domain).
-   Missing field on old snapshots -> treat as null, not free. */
+   Missing field on old snapshots -> treat as null, not free.
+
+   NOTE, 04 Sep: `success` is never restored at all — see loadSnapshot. That is a behaviour
+   change rather than a shape change, so it needs no version bump. */
 
 /**
  * RESOLVED 02 Sep — kept because the reasoning still governs the design.
@@ -139,9 +142,23 @@ export function loadSnapshot(): Snapshot | null {
     if (!parsed.engine || !Array.isArray(parsed.engine.asked) || !parsed.engine.profile) return null;
     if (!parsed.stage || parsed.stage === "hook") return null;
     if (typeof parsed.rawText !== "string") return null;
+    /**
+     * A FINISHED RUN DOES NOT RESUME.
+     *
+     * Reloading on `success` used to restore straight back onto it, and that screen is a mock
+     * of Neo's confirmation — every control on it is inert by design. So a refresh after Pay
+     * left someone on a dead end with no Back, no restart and no way forward: the only escape
+     * was clearing storage or opening a new tab.
+     *
+     * Resuming exists for "I lost my place", and a completed purchase is not a lost place. It
+     * is the one stage where starting fresh is what the person actually wants, so a reload
+     * here returns to the hook — which is also what a demo needs between runs.
+     */
+    if (parsed.stage === "success") return null;
+
     /* A checkout stage with no order would paint the empty checkout, which reads as a bug.
        Fall back to the reveal, which is where the order is built. */
-    if ((parsed.stage === "checkout" || parsed.stage === "success") && !parsed.checkoutOrder) {
+    if (parsed.stage === "checkout" && !parsed.checkoutOrder) {
       parsed.stage = "reveal";
     }
     if (parsed.checkoutOrder) {

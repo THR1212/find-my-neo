@@ -3175,3 +3175,27 @@ html.is-funnel .grain {
   min-height: 100%;
   padding: 0;
 }
+
+/* Ours, not Neo's. The success screen mimics their confirmation, where every control is inert
+   by design — so the one real action on it is set apart rather than dressed up as theirs. */
+.neo-start-again {
+  display: block;
+  margin: 22px auto 32px;
+  padding: 9px 18px;
+  border: 1px solid var(--hairline, rgba(0, 0, 0, 0.12));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-faint, #6a7690);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+.neo-start-again:hover {
+  color: var(--neo-blue, #0066ff);
+  border-color: var(--neo-blue, #0066ff);
+}
+.neo-start-again:focus-visible {
+  outline: 2px solid var(--neo-blue, #0066ff);
+  outline-offset: 2px;
+}

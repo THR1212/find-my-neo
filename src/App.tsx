@@ -500,6 +500,11 @@ export default function App() {
     setRationale({ rationale: "", whyNotCheaper: "", because: "" });
     setVerdict(null);
     setError(null);
+    /* The checkout half too, or the next run's Claim can flash the previous cart before the
+       new order is built. `neoSiteAlt` was missed when the second template landed. */
+    setCheckoutOrder(null);
+    setNeoSiteAlt(null);
+    setPaying(false);
   }, []);
 
   /**
@@ -640,7 +645,11 @@ export default function App() {
             />
           )}
           {stage === "success" && (
-            <Success order={checkoutOrder} onBack={() => setStage("checkout")} />
+            <Success
+              order={checkoutOrder}
+              onBack={() => setStage("checkout")}
+              onRestart={restart}
+            />
           )}
         </main>
       ) : (

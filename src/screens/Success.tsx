@@ -6,9 +6,20 @@ import { isCoSite } from "../lib/domains";
 export default function Success({
   order,
   onBack,
+  onRestart,
 }: {
   order: CheckoutOrder | null;
   onBack: () => void;
+  /**
+   * The way out, and it has to exist here.
+   *
+   * Every other control on this screen is a deliberate mock of Neo's — "Help me set it up",
+   * "I'll setup myself", "Need help?" — and none of them does anything. That is fine as
+   * mimicry right up until this is the LAST screen, at which point a run that finished had no
+   * exit at all: no Back (that lives on Checkout), no restart, and a reload restored straight
+   * back onto it. The only escape was clearing session storage or opening a new tab.
+   */
+  onRestart: () => void;
 }) {
   const ready = orderIsReady(order);
   const admin = ready ? adminMailbox(order) : null;
@@ -24,6 +35,9 @@ export default function Success({
           <p className="lede">There’s no order on this session to finish setting up.</p>
           <button className="btn" type="button" onClick={onBack}>
             Back to checkout
+          </button>
+          <button className="btn btn-ghost" type="button" onClick={onRestart}>
+            Start over
           </button>
         </div>
       </div>
@@ -67,6 +81,12 @@ export default function Success({
             <p className="neo-success-share-note">Login details stay on this page for the demo.</p>
           )}
         </div>
+
+        {/* Same exit as the other terminal branch — this one is reached on a `.co.site`
+            order, and a run that ends here needs a way out just as much. */}
+        <button className="neo-start-again" type="button" onClick={onRestart}>
+          Start over
+        </button>
       </div>
     );
   }
@@ -107,6 +127,12 @@ export default function Success({
       <button className="neo-need-help" type="button">
         <span className="neo-need-help-dot" aria-hidden="true" />
         Need help?
+      </button>
+
+      {/* Ours, not Neo's — kept quiet and below their chrome so it does not read as part of
+          their page, but present, because this is where a demo ends and the next one starts. */}
+      <button className="neo-start-again" type="button" onClick={onRestart}>
+        Start over
       </button>
     </div>
   );

@@ -34,10 +34,27 @@ folder name and does not follow a GitHub rename.
 It is not a leak in the deployed page (the `<title>` and all on-screen copy are clean), but it
 is visible in the address bar, which during a demo is on a projector in front of judges.
 
-**Demo on `find-my-neo-hari-7720.vercel.app`** — same project, same deployment, same build hash,
-no trademark in the URL. The bookmarklet already points there. The clean fix is a
-`find-my-neo.vercel.app` alias in the Vercel dashboard (unclaimed as of 04 Sep); until someone
-adds it, use the `-hari-7720` host and do not present from the `neo-akinator` one.
+**Resolved, 04 Sep.** For a few hours `find-my-neo-hari-7720.vercel.app` had Vercel
+**Deployment Protection** on: every path 302'd to `vercel.com/sso-api`, which answers
+`X-Frame-Options: DENY`, so the page would not load for anyone outside this Vercel account and
+the bookmarklet overlay could not embed it at all. Hari turned protection off; it now serves 200
+with no frame headers.
+
+**So the demo host is `find-my-neo-hari-7720.vercel.app`** — public, and no trademark in the
+address bar. The bookmarklet points there.
+
+`neo-akinator.vercel.app` is **still live** and still serves the same build. It is the fallback
+if the host above is ever protected again, on the reasoning that a URL nobody can open is worse
+than an awkward word in the address bar — but it is the thing this file's rule warns about, so
+do not present from it by choice.
+
+**Still worth doing:** add a `find-my-neo.vercel.app` alias (unclaimed as of 04 Sep) — Project →
+Settings → Domains — and retire the `neo-akinator` one. Then repoint
+`tools/bookmarklet/source.js` and rebuild.
+
+Worth recording *why* this was missed in the first place: a Vercel project alias is derived from
+the original folder name and **does not follow a GitHub rename**, so renaming the repo on 31 Aug
+did nothing to the deployed hostnames.
 
 ## Why "Find My Neo" works
 

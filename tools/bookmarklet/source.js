@@ -33,17 +33,21 @@
  */
 
 (function () {
-  /* neo-akinator.vercel.app, NOT find-my-neo-hari-7720 — and this is a correctness choice,
-     not a preference. As of 04 Sep the -hari-7720 alias has Vercel Deployment Protection ON:
-     every path 302s to vercel.com/sso-api, which answers X-Frame-Options: DENY, and the
-     overlay below dies exactly as the header of this file predicts. neo-akinator serves 200
-     with no frame headers, so it embeds.
+  /* find-my-neo-hari-7720, and BOTH halves of that choice were tested on 04 Sep.
 
-     The trademark note in docs/naming.md still stands and this host is the thing it warns
-     about — but a URL nobody can load is worse than a URL with an awkward word in it. The
-     real fix is a public alias without the trademark (find-my-neo.vercel.app was unclaimed
-     on 04 Sep); point this at it the moment one exists. */
-  var APP = "https://neo-akinator.vercel.app/";
+     It has to be public: for a few hours this host had Vercel Deployment Protection on, so
+     every path 302'd to vercel.com/sso-api, which answers X-Frame-Options: DENY and kills the
+     overlay below exactly as this file's header predicts. Hari turned protection off; it now
+     serves 200 with no frame headers and real video/mp4 bodies.
+
+     And it has to be free of the trademark: docs/naming.md lists "a public URL" among the
+     places "Akinator" must never appear, and the neo-akinator alias — still live, still
+     serving the same build — is the thing that rule warns about. It is the fallback if this
+     host is ever protected again, on the reasoning that a URL nobody can open is worse than
+     an awkward word in the address bar.
+
+     Before a demo, check this host returns 200 rather than assuming it. */
+  var APP = "https://find-my-neo-hari-7720.vercel.app/";
   /* Share token baked in so the demo needs no login. This is a revocable Vercel share link,
      not a credential — regenerate it from the deployment's Share dialog if it leaks. */
   /* Substituted by build.mjs from VERCEL_SHARE_TOKEN. Never commit a real token here:

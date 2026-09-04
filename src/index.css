@@ -821,12 +821,6 @@ h1 {
 
 /* Plan price. Sits inline with the plan name rather than in its own block — the price is
    information, not the pitch. The domain and mailboxes did the persuading. */
-.plan-price {
-  font-weight: 600;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
 /* --- Neo's generated site preview ---------------------------------------- */
 /* Renders Neo's real output. Kept as a compact browser-chrome card rather than a full-bleed
    render: the domain and mailboxes are our differentiator and must stay above the fold. */
@@ -2265,6 +2259,8 @@ html:has(.stage-reveal) #root {
    The class was already on the element and nothing targeted it. Two items still split the
    pane; one is capped and centred, so it reads as a card rather than a background. */
 
+/* NOTE: `loop-stack-1` and `-2` are applied as `loop-stack-${n}`, so a scanner looking for
+   literal class names in the markup reports them unused. They are not. */
 .loop-stack-1 {
   grid-auto-rows: minmax(0, 0.62fr);
   align-content: center;

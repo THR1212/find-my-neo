@@ -1745,56 +1745,7 @@ html:has(.stage-reveal) #root {
   gap: clamp(11px, 1.7vh, 19px);
 }
 
-/**
- * The left column scrolls, and on anything shorter than a big desktop the two things that
- * matter most are the two that fall off the bottom: the Total row and the "switch to the
- * cheaper plan" button. Measured on production at a 690px viewport — 37% of the column
- * hidden, the total below the fold, the swap button 282px past it.
- *
- * Everything below is height-gated. Wide-but-short is the common case (a laptop, a projector
- * at 768p, a shared screen with a call bar on it) and it is the case that breaks; a full-height
- * desktop is already fine and is left exactly as it was.
- */
-@media (max-height: 980px) {
-  .reveal-setup-main {
-    gap: clamp(8px, 1.2vh, 13px);
-  }
-  .reveal-setup .domain-name {
-    font-size: clamp(16px, 1.4vw + 10px, 21px);
-  }
-  .reveal-setup .mailbox {
-    padding: 2px 0;
-  }
-  .reveal-setup .mailbox-address {
-    font-size: 12.5px;
-  }
-  .plan-card {
-    padding: 9px 11px;
-  }
-  .plan-breakdown {
-    margin: 6px 0 8px;
-    font-size: 12px;
-  }
-  .plan-breakdown th,
-  .plan-breakdown td {
-    padding: 2px 0;
-  }
-  .plan-why {
-    margin: 3px 0 4px;
-    font-size: 12px;
-  }
-  .plan-needs {
-    margin-top: 4px;
-  }
-  .plan-cheaper-offer {
-    margin-top: 7px;
-    padding: 8px 10px;
-    gap: 6px;
-  }
-  .reveal-setup .eyebrow {
-    font-size: 10px;
-  }
-}
+
 
 /* Under ~800px the column cannot be made to fit by trimming, so make the scroll obvious
    instead of pretending. A fade at the bottom edge is the least intrusive way to say
@@ -2479,4 +2430,88 @@ html:has(.stage-reveal) #root {
 
 .setup-story-mail .neo-loop-frame video {
   object-fit: contain;
+}
+
+/**
+ * The left column scrolls, and on anything shorter than a big desktop the two things that
+ * matter most are the two that fall off the bottom: the Total row and the "switch to the
+ * cheaper plan" button. Measured on production at a 690px viewport — 37% of the column
+ * hidden, the total below the fold, the swap button 282px past it.
+ *
+ * Everything below is height-gated. Wide-but-short is the common case (a laptop, a projector
+ * at 768p, a shared screen with a call bar on it) and it is the case that breaks; a full-height
+ * desktop is already fine and is left exactly as it was.
+ */
+@media (max-height: 980px) {
+  .reveal-setup-main {
+    gap: clamp(6px, 1vh, 11px);
+  }
+  .reveal-setup .eyebrow {
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+  .reveal-setup .domain-name {
+    font-size: clamp(16px, 1.4vw + 10px, 21px);
+  }
+  .reveal-setup .mailbox {
+    padding: 1px 0;
+  }
+  .reveal-setup .mailbox-address {
+    font-size: 12.5px;
+  }
+  .plan-card {
+    padding: 9px 11px;
+  }
+  .plan-card h2,
+  .plan-card h3 {
+    font-size: 15px;
+  }
+  .plan-breakdown {
+    margin: 5px 0 7px;
+    font-size: 12px;
+  }
+  .plan-breakdown th,
+  .plan-breakdown td {
+    padding: 1px 0;
+  }
+  .plan-breakdown tfoot th,
+  .plan-breakdown tfoot td {
+    padding-top: 5px;
+  }
+  .plan-why {
+    margin: 2px 0 4px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .plan-needs {
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .plan-meta {
+    font-size: 11.5px;
+    line-height: 1.35;
+  }
+  .plan-feature {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .plan-cheaper-offer {
+    margin-top: 6px;
+    padding: 7px 9px;
+    gap: 5px;
+  }
+  .btn-small {
+    padding: 5px 10px;
+    font-size: 12.5px;
+  }
+}
+
+/* Shorter still — a 768p projector. The mailbox list is the one block that can lose rows
+   without losing meaning: four addresses all read the same, and the point ("we named them
+   for your business") lands in two. */
+@media (max-height: 820px) {
+  .reveal-setup .mailbox:nth-child(n + 4) {
+    display: none;
+  }
 }

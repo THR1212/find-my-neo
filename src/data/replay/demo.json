@@ -35,12 +35,12 @@
         "note": "Shorter, if you want room to grow beyond cakes"
       },
       {
-        "_note": "Neo's own subdomain, and the only one of the four Neo can actually sell today. available stays null on purpose: unlike the three above, this one is checked by api/_lib/cositeService.ts, which needs no API key and so answers even on the replay path — baking a value here would be overwritten within a second, and would be a claim about a live namespace in the meantime.",
         "name": "proofandbutter.co.site",
         "available": null,
         "priceInr": null,
         "free": true,
-        "note": "Free for your first billing cycle — Neo's own, and live today"
+        "note": "Free for your first billing cycle — Neo's own, and live today",
+        "recommended": false
       }
     ],
     "mailboxes": [
@@ -63,12 +63,15 @@
       ]
     }
   },
-  "_adaptNote": "Replaces nextQuestionId (removed 03 Sep 2026). questionPriority is the model's full ranking, consumed head-first for the whole flow; prefill is what the description already answered, in the same vocabulary the resolves payloads use. The recorded business is a Bandra bakery taking cake orders over Instagram, so channel and surface are exactly what it states.",
+  "_adaptNote": "questionPriority must list EVERY id in src/lib/questions.ts. It went stale on 03 Sep — it still named `client`, removed that day, and was missing volume, inbox, extras and catalogue. Harmless at runtime (nextQuestion re-checks every id against what is unresolved, and discrimination ranks the rest) but this is the demo fallback if the model key fails, so it should not be a worse flow.",
   "questionPriority": [
+    "volume",
+    "inbox",
     "team",
+    "catalogue",
     "sells",
+    "extras",
     "import",
-    "client",
     "surface",
     "channel"
   ],

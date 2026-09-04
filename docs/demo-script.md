@@ -74,7 +74,9 @@ On the second tab, at Neo's category step:
 | 8 | Reveal builds | *Silence.* |
 | 9 | Site block builds | "That's not my copy. We're calling Neo's own AI site builder, server to server, and showing what it returns — their headline, their product names, their photos. Takes about 25 seconds, which is their generator, not ours." |
 | 10 | After it lands | "Domain — checked live, real availability lookup. Mailboxes. Two features picked for *them*, because they said orders come through DMs. And the plan and price come from your own pricing sheet, not from the model." |
-| 11 | **Claim it and start building** | "And this is the point — it enters your existing funnel, just further along. Domain picked, mailboxes known, plan fitted. We don't build the site; you already do that, and you already own the checkout." |
+| 11 | **Press the cheaper-plan button** | "It tells you what you'd lose, shows you what you'd save, and then lets you take it anyway. The price, the breakdown and the features all move. We're not trying to win the sale — we're trying to get the fit right." |
+| 12 | **Claim it and start building** | "And this is the point — it enters your existing funnel, just further along. Domain picked, mailboxes known, plan fitted. The cart is already built: if I'd switched to the cheaper plan, this checkout would say Standard. Nothing is retyped between the two screens." |
+| 13 | **Pay** → confirmation | "Safe to press — the checkout makes no network calls, so nothing here can create a real order. We don't build the site; you already do that, and you already own the real checkout." |
 
 **The one rule: don't talk over the reveal.**
 

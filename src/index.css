@@ -875,12 +875,6 @@ h1 {
 
 /* Plan price. Sits inline with the plan name rather than in its own block — the price is
    information, not the pitch. The domain and mailboxes did the persuading. */
-.plan-price {
-  font-weight: 600;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
 /* --- Neo's generated site preview ---------------------------------------- */
 /* Renders Neo's real output. Kept as a compact browser-chrome card rather than a full-bleed
    render: the domain and mailboxes are our differentiator and must stay above the fold. */
@@ -1158,23 +1152,66 @@ a.btn {
 
 /* The honest note under the plan line. Quieter than the rationale — it is a caveat, not a
    selling point, but it must be readable. */
-.plan-note {
-  margin-top: 6px;
-  color: var(--text-faint);
-}
-
 /* Check a domain of your own, on the reveal. Deliberately quiet: it is an escape hatch for
    when our three suggestions are wrong, not a competing call to action. */
 .own-domain {
   margin-top: 14px;
 }
 
+/* It is a <summary>: clicking it opens the input. Nothing said so — it rendered as faint
+   grey body text, so the one escape hatch on the domain step looked like a caption. Underline
+   plus a disclosure caret plus a pointer, which is the least decoration that still reads as
+   "this does something". */
 .own-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
   font-size: 12px;
   letter-spacing: 0.02em;
-  color: var(--text-faint);
+  color: var(--text-muted, var(--text-faint));
   margin-bottom: 6px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+  list-style: none;
+}
+.own-label::-webkit-details-marker {
+  display: none;
+}
+.own-label::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-1px, -1px);
+  transition: transform 0.18s var(--ease-out);
+}
+details[open] > .own-label::after {
+  transform: rotate(-135deg) translate(-1px, -1px);
+}
+.own-label:hover {
+  color: var(--neo-blue);
+}
+.own-label:focus-visible {
+  outline: 2px solid var(--neo-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* "Check" was a bare word beside the input. It is the button that performs the lookup. */
+.own-check {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--neo-blue);
+  font-weight: 600;
+  cursor: pointer;
+}
+.own-check:hover:not(:disabled) {
+  border-color: var(--neo-blue);
 }
 
 .own-row {
@@ -1245,6 +1282,34 @@ a.btn {
   opacity: 0.85;
 }
 
+/* The cheaper plan, offered rather than merely mentioned.
+   Boxed so the button reads as attached to the sentence that motivates it, and kept visually
+   quieter than the CTA — this is a real choice, not the one we are steering towards. */
+.plan-cheaper-offer {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.1));
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.plan-cheaper-offer .plan-cheaper,
+.plan-cheaper-offer .plan-meta {
+  margin-top: 0;
+}
+/* Swapped state reads as confirmed rather than as another offer. */
+.plan-swapped {
+  border-color: color-mix(in srgb, var(--accent, #0066ff) 35%, transparent);
+  background: color-mix(in srgb, var(--accent, #0066ff) 6%, transparent);
+}
+.btn-small {
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
 /* ?debug=1 only — out of the layout flow so it cannot disturb a demo or a screenshot. */
 /* TOP left, not bottom left, and the move is the point.
    It sat at bottom:16px under a comment promising it "cannot disturb a screenshot or a
@@ -1301,6 +1366,39 @@ a.btn {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+/* The eyebrow is the only thing on this screen that says work is happening, and it was set
+   as static faint grey — the same treatment as every other eyebrow in the flow, none of which
+   are about waiting. A slow sweep across the letters, not a blink: it reads as progress at a
+   glance and survives being looked at for eight seconds. */
+@keyframes eyebrow-sweep {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.product-wait .eyebrow {
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  background: linear-gradient(
+    100deg,
+    var(--text-faint) 0%,
+    var(--text-faint) 38%,
+    var(--neo-blue) 50%,
+    var(--text-faint) 62%,
+    var(--text-faint) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: eyebrow-sweep 2.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-wait .eyebrow {
+    animation: none;
+    background: none;
+    color: var(--text-faint);
+  }
 }
 
 .product-wait h1 {
@@ -1539,6 +1637,22 @@ a.btn {
   flex-shrink: 0;
 }
 
+/* Busy state. The ring already moves when confidence changes, but between changes it sits
+   perfectly still — so the wait screen, which is exactly when nothing is changing, read as
+   frozen rather than working. A slow breath is enough to say "still going". */
+@keyframes meter-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.72; transform: scale(0.965); }
+}
+.meter-ring.is-busy {
+  animation: meter-breathe 1.7s var(--ease-out, ease-in-out) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .meter-ring.is-busy {
+    animation: none;
+  }
+}
+
 .meter-headline {
   font-size: 15px;
   font-weight: 600;
@@ -1562,7 +1676,10 @@ a.btn {
 
 html:has(.stage-reveal),
 html:has(.stage-reveal) body,
-html:has(.stage-reveal) #root {
+html:has(.stage-reveal) #root,
+html:has(.stage-funnel),
+html:has(.stage-funnel) body,
+html:has(.stage-funnel) #root {
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
@@ -1679,9 +1796,23 @@ html:has(.stage-reveal) #root {
   display: flex;
   flex-direction: column;
   justify-content: safe center;
-  gap: clamp(12px, 1.8vh, 20px);
+  /* ~5% tighter than the 12-20px it was. The left column is the one that runs out of room
+     first — the price breakdown was clipping under the CTA at laptop heights — and the gaps
+     are where the space is, not the content. */
+  gap: clamp(11px, 1.7vh, 19px);
 }
 
+
+
+/* Under ~800px the column cannot be made to fit by trimming, so make the scroll obvious
+   instead of pretending. A fade at the bottom edge is the least intrusive way to say
+   "there is more" — it does not take a row of its own. */
+.reveal-setup-main {
+  /* Keeps right-aligned mailbox labels off the scrollbar; they were touching it. */
+  padding-right: 6px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 22px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 22px), transparent 100%);
+}
 .reveal-domain {
   flex: 0 0 auto;
 }
@@ -1701,29 +1832,31 @@ html:has(.stage-reveal) #root {
   padding-top: 0;
 }
 
+/* Text down about half a pixel at each stop rather than a uniform scale: the headline can
+   afford it, the addresses and the numbers cannot. */
 .reveal-setup .domain-name {
-  font-size: clamp(18px, 1.6vw + 12px, 26px);
+  font-size: clamp(17.5px, 1.55vw + 11.5px, 25px);
 }
 
 .reveal-setup .mailbox {
-  padding: 5px 0;
+  padding: 4px 0;
 }
 
 .reveal-setup .mailbox-address {
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 .plan-card {
   flex: 0 0 auto;
-  padding: 12px 14px 12px;
+  padding: 11px 13px 11px;
   background: var(--neo-bg-blue-alt);
   border: 1px solid var(--neo-border-blue);
   border-radius: var(--radius-card);
 }
 
 .plan-why {
-  margin: 4px 0 6px;
-  font-size: 13px;
+  margin: 4px 0 5px;
+  font-size: 12.5px;
   line-height: 1.4;
   color: var(--neo-text);
 }
@@ -1937,8 +2070,8 @@ html:has(.stage-reveal) #root {
 .plan-breakdown {
   width: 100%;
   border-collapse: collapse;
-  margin: 10px 0 12px;
-  font-size: 13px;
+  margin: 9px 0 11px;
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2100,4 +2233,999 @@ html:has(.stage-reveal) #root {
 .alt-name {
   font-size: inherit;
   color: inherit;
+}
+
+/* Template picker (03 Sep). The two panes were display-only; they are now a choice, and the
+   choice rides to Neo as `templateKey` instead of being re-rolled there. Styled as a
+   selection, not a button: the site preview IS the affordance, so the chrome stays quiet
+   until you hover or pick. */
+
+.tpl-pane-pick {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-card);
+  transition:
+    border-color 0.2s var(--ease-out),
+    box-shadow 0.2s var(--ease-out);
+}
+
+.tpl-pane-pick:hover {
+  border-color: var(--border);
+}
+
+.tpl-pane-pick:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tpl-pane-chosen {
+  /* 2px, and a firmer ring. At 1px against a white card the chosen state was only legible
+     from the badge — the border it was supposed to be signalled with read as an artefact of
+     the screenshot. Kept to 2px rather than 3: the pane is the content, not a frame. */
+  border-width: 2px;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.16);
+}
+
+/* The unchosen pane keeps a 2px transparent border so selecting one does not shift the
+   layout by a pixel — a jump on click reads as a bug even when the state is right. */
+.tpl-pane-pick {
+  border-width: 2px;
+}
+
+/* Hidden until hover or selection: an always-on "Use this one" on both panes reads as two
+   CTAs competing with the real one at the bottom of the screen. */
+.tpl-pick-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  opacity: 0;
+  transition: opacity 0.18s var(--ease-out);
+}
+
+.tpl-pane-pick:hover .tpl-pick-badge,
+.tpl-pane-pick:focus-visible .tpl-pick-badge {
+  opacity: 1;
+}
+
+.tpl-pane-chosen .tpl-pick-badge {
+  opacity: 1;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+/* Dev-only degradation banner. Loud on purpose — it exists because two silent fallbacks cost
+   most of a day. Bottom-right, so it clears both the reveal CTA (bottom-left) and the meter
+   (top-centre), and it is never rendered unless debugEnabled(). */
+
+.degrade-banner {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 20;
+  max-width: 380px;
+  font-size: 12px;
+  line-height: 1.45;
+  background: #2b1b00;
+  color: #ffd9a0;
+  border: 1px solid #7a4f00;
+  border-radius: 10px;
+  padding: 8px 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+}
+
+.degrade-toggle {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+}
+
+.degrade-list {
+  margin: 6px 0 0;
+  padding-left: 15px;
+  display: grid;
+  gap: 4px;
+}
+
+.degrade-list strong {
+  font-weight: 600;
+}
+
+/* Mail-only pane: a card in the same shape as a product film, for a feature Neo has no
+   footage for. Four of the five mail films are Standard/Max-gated, so a Starter reveal has
+   exactly one legal clip — these fill the rest rather than stretching that one to full height. */
+
+.mail-feature-card {
+  margin: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  overflow: hidden;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.mail-feature-card figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Free is a different KIND of answer to available, so it gets a different pill — Neo's own
+   gradient rather than the green used for "this name can be registered". Same shape and
+   position as .badge so the row still reads as one row. */
+
+.badge-free {
+  color: #ffffff;
+  border-color: transparent;
+  background: var(--neo-gradient, linear-gradient(90deg, #7c5cff, #ff5cc8 55%, #ff8a3d));
+}
+
+/* Neo's feature artwork beside the text, in the same left-image/right-caption shape the
+   product films use, so a card and a film read as the same kind of thing. */
+
+.mail-feature-art {
+  flex: 0 0 42%;
+  min-width: 0;
+  max-height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-sunken);
+  display: flex;
+  align-items: center;
+}
+
+.mail-feature-art img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.mail-feature-card figcaption {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The sound control. Top right, clear of the meter (top centre), the debug button (top left)
+   and the reveal CTA (bottom left). Quiet by design — it is a setting, not part of the flow. */
+
+.sound-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 7;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  opacity: 0.82;
+  transition: opacity 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+}
+
+.sound-toggle:hover {
+  opacity: 1;
+  border-color: var(--text-faint);
+}
+
+.sound-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  /* The label goes; the icon is enough and the meter needs the width. */
+  .sound-toggle-label {
+    display: none;
+  }
+}
+
+/* States the gap between addresses listed and mailboxes billed. Quiet — it is a footnote to
+   the list, not a warning. */
+.mailbox-extra {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+/* A LONE ITEM MUST NOT STRETCH. `.loop-stack` uses `grid-auto-rows: minmax(0, 1fr)`, so with
+   one child that child takes the whole pane — a mail-only Starter reveal, where only one film
+   is entitlement-legal and `custom_domain` has no artwork, showed a single phone mockup blown
+   up to full height and cropped off at the right edge.
+   The class was already on the element and nothing targeted it. Two items still split the
+   pane; one is capped and centred, so it reads as a card rather than a background. */
+
+/* NOTE: `loop-stack-1` and `-2` are applied as `loop-stack-${n}`, so a scanner looking for
+   literal class names in the markup reports them unused. They are not. */
+.loop-stack-1 {
+  grid-auto-rows: minmax(0, 0.62fr);
+  align-content: center;
+}
+
+.loop-stack-2 {
+  grid-auto-rows: minmax(0, 0.86fr);
+  align-content: center;
+}
+
+/* CONTAIN, not cover, in the mail-only pane.
+   These films carry TEXT — "Blazing fast apps" — and the pane's cards are portrait while the
+   footage is landscape, so `cover` cropped the first word off every one of them. Letterboxing
+   against the film's own background colour is invisible; a half-eaten headline is not. The
+   wait reel and the site pane keep `cover`, where the frames are wide and nothing is clipped. */
+
+.setup-story-mail .neo-loop-frame video {
+  object-fit: contain;
+}
+
+/**
+ * The left column scrolls, and on anything shorter than a big desktop the two things that
+ * matter most are the two that fall off the bottom: the Total row and the "switch to the
+ * cheaper plan" button. Measured on production at a 690px viewport — 37% of the column
+ * hidden, the total below the fold, the swap button 282px past it.
+ *
+ * Everything below is height-gated. Wide-but-short is the common case (a laptop, a projector
+ * at 768p, a shared screen with a call bar on it) and it is the case that breaks; a full-height
+ * desktop is already fine and is left exactly as it was.
+ */
+@media (max-height: 980px) {
+  .reveal-setup-main {
+    gap: clamp(6px, 1vh, 11px);
+  }
+  .reveal-setup .eyebrow {
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+  .reveal-setup .domain-name {
+    font-size: clamp(16px, 1.4vw + 10px, 21px);
+  }
+  .reveal-setup .mailbox {
+    padding: 1px 0;
+  }
+  .reveal-setup .mailbox-address {
+    font-size: 12.5px;
+  }
+  .plan-card {
+    padding: 9px 11px;
+  }
+  .plan-card h2,
+  .plan-card h3 {
+    font-size: 15px;
+  }
+  .plan-breakdown {
+    margin: 5px 0 7px;
+    font-size: 12px;
+  }
+  .plan-breakdown th,
+  .plan-breakdown td {
+    padding: 1px 0;
+  }
+  .plan-breakdown tfoot th,
+  .plan-breakdown tfoot td {
+    padding-top: 5px;
+  }
+  .plan-why {
+    margin: 2px 0 4px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .plan-needs {
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .plan-meta {
+    font-size: 11.5px;
+    line-height: 1.35;
+  }
+  .plan-feature {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .plan-cheaper-offer {
+    margin-top: 6px;
+    padding: 7px 9px;
+    gap: 5px;
+  }
+  .btn-small {
+    padding: 5px 10px;
+    font-size: 12.5px;
+  }
+}
+
+/* =====================================================================================
+   IN-APP CHECKOUT — merged from moin-version (abc70e6..579634d), 04 Sep.
+   Only the rules the checkout screens actually reference. Rules that also touched a
+   shared class (.btn, .eyebrow, .lede) were deliberately left behind: the point of the
+   merge was the checkout, not a restyle of the rest of the flow.
+   ===================================================================================== */
+
+.neo-funnel {
+  min-height: 100dvh;
+  background: #fff;
+  color: #111;
+}
+
+.neo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 40px;
+  border-bottom: 1px solid #eee;
+}
+
+.neo-mark-word {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #111;
+}
+
+.neo-account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+}
+
+.neo-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #0066ff;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.neo-account-caret {
+  color: #888;
+  font-size: 10px;
+}
+
+.neo-checkout-wrap {
+  width: min(1080px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 12px 0 48px;
+}
+
+.neo-checkout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 48px 56px;
+  align-items: start;
+}
+
+.neo-back {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 8px 0 12px;
+  color: #0066ff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.neo-checkout-title {
+  margin: 0 0 28px;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.neo-section-label {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.neo-card-method {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f3f4f6;
+  border-radius: 8px;
+}
+
+.neo-visa {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #1a1f71;
+  background: #fff;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.neo-card-method-text {
+  font-size: 14px;
+  color: #333;
+}
+
+.neo-text-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 10px 0 22px;
+  color: #0066ff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.neo-bill-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.neo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #555;
+}
+
+.neo-field input,
+.neo-field select {
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 14px;
+  color: #111;
+  background: #fff;
+}
+
+.neo-optional {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin: 8px 0 20px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+  cursor: pointer;
+}
+
+.neo-optional-arrow {
+  color: #111;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.neo-optional.is-open .neo-optional-arrow {
+  transform: rotate(90deg);
+}
+
+.neo-optional-fields {
+  margin-bottom: 8px;
+}
+
+.neo-pay {
+  display: block;
+  width: 100%;
+  height: 52px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: #0066ff;
+  color: #fff;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.neo-pay:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.neo-secure {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: #888;
+}
+
+.neo-stripe {
+  font-weight: 700;
+  font-style: italic;
+  color: #635bff;
+}
+
+.neo-summary {
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  padding: 20px 22px 22px;
+  background: #fff;
+}
+
+.neo-summary-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.neo-summary-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.neo-cycle {
+  position: relative;
+}
+
+.neo-cycle-btn,
+.neo-cycle-menu button {
+  appearance: none;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.neo-cycle-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.neo-save-tag {
+  color: #17b87e;
+  font-weight: 700;
+}
+
+.neo-cycle-caret {
+  color: #888;
+  font-size: 10px;
+}
+
+.neo-cycle-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 2;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 8px;
+  min-width: 100%;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.neo-cycle-menu button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+}
+
+.neo-line {
+  padding: 4px 0 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.neo-line-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.neo-line-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.neo-line-price {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.neo-info {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: #d0d0d0;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.neo-mails {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: #666;
+}
+
+.neo-mails li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.neo-trash {
+  color: #bbb;
+}
+
+.neo-line-host {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: #666;
+  word-break: break-all;
+}
+
+.neo-line-after {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: #888;
+}
+
+.neo-line-domain {
+  padding-top: 16px;
+}
+
+.neo-line-site {
+  padding-top: 16px;
+  border-bottom: 0;
+}
+
+.neo-site-price {
+  text-align: right;
+}
+
+.neo-free-beta {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #17b87e;
+}
+
+.neo-due {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.neo-due-label,
+.neo-due-amount {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.neo-saved {
+  margin: 8px 0 0;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #17b87e;
+}
+
+.neo-chat {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  z-index: 5;
+}
+
+.neo-chat-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: #e8e8e8;
+  color: #555;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.neo-chat-bubble {
+  max-width: 220px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  font-size: 13px;
+  color: #333;
+}
+
+.neo-checkout-empty,
+.neo-success-empty {
+  width: min(560px, calc(100% - 48px));
+  margin: 48px auto;
+}
+
+.neo-success {
+  position: relative;
+}
+
+.neo-success-main {
+  width: min(560px, calc(100% - 48px));
+  margin: 56px auto 80px;
+  text-align: center;
+}
+
+.neo-success-kicker {
+  margin: 0;
+  font-size: 15px;
+  color: #111;
+}
+
+.neo-success-rule {
+  border: 0;
+  border-top: 1px solid #e6e6e6;
+  margin: 18px 0 28px;
+}
+
+.neo-success-title {
+  margin: 0 0 14px;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.neo-success-copy {
+  margin: 0 0 28px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #333;
+}
+
+.neo-success-mail {
+  color: #0066ff;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.neo-success-primary,
+.neo-success-secondary {
+  display: block;
+  width: 100%;
+  height: 48px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.neo-success-primary {
+  border: 0;
+  background: #0066ff;
+  color: #fff;
+}
+
+.neo-success-secondary {
+  margin-top: 18px;
+  border: 1px solid #0066ff;
+  background: #fff;
+  color: #0066ff;
+}
+
+.neo-success-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #888;
+}
+
+.neo-success-mailbox .neo-success-mailbox-main {
+  width: min(440px, calc(100% - 48px));
+  margin: 64px auto 80px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.neo-success-mailbox .neo-success-check {
+  margin-bottom: 28px;
+  line-height: 0;
+}
+
+.neo-success-mailbox h1 {
+  margin: 0 0 16px;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #333;
+}
+
+.neo-success-mailbox .neo-success-mail {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.neo-success-mailbox .neo-success-ready {
+  margin: 0 0 36px;
+  font-size: 16px;
+  font-weight: 400;
+  color: #333;
+}
+
+.neo-success-mailbox .neo-success-primary {
+  width: 100%;
+}
+
+.neo-success-mailbox .neo-success-share {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin-top: 14px;
+  border: 1px solid #222;
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.neo-success-mailbox .neo-success-share-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.neo-need-help {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 20px;
+  background: #1b3f8a;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.neo-need-help-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+@media (max-width: 860px) {
+  .neo-header {
+      padding: 12px 16px;
+    }
+  .neo-checkout-wrap {
+      width: calc(100% - 32px);
+    }
+  .neo-checkout-grid {
+      grid-template-columns: 1fr;
+      gap: 28px;
+    }
+  .neo-checkout-title {
+      font-size: 28px;
+    }
+  .neo-bill-row {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+  .neo-account-name {
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+}
+
+/* The checkout is meant to read as NEO's page, not ours, so the qualifier's own chrome
+   (the meter dock, the background blooms) is hidden for the two funnel stages. */
+html.is-funnel .backdrop,
+html.is-funnel .grain {
+  display: none;
+}
+
+.stage-funnel {
+  display: block;
+  height: 100dvh;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  overflow: auto;
+  background: #fff;
+}
+
+.stage-funnel .screen,
+.screen-funnel {
+  width: 100%;
+  max-width: none;
+  min-height: 100%;
+  padding: 0;
 }

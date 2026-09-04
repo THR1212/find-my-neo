@@ -14,12 +14,16 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 function MeterRing({
   confidence,
   reduceMotion,
+  busy = false,
 }: {
   confidence: number;
   reduceMotion: boolean | null;
+  /** Something is genuinely in flight. Adds a slow breath so a still ring does not read
+      as a frozen one on the wait screen, where confidence cannot change. */
+  busy?: boolean;
 }) {
   return (
-    <div className="meter-ring">
+    <div className={`meter-ring${busy ? " is-busy" : ""}`}>
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true">
         <circle
           cx={SIZE / 2}
@@ -54,19 +58,21 @@ export default function NarrowingMeter({
   lastQuestionId = null,
   profile = {},
   copyContext,
+  busy = false,
 }: {
   confidence: number;
   stage?: MeterStage;
   lastQuestionId?: string | null;
   profile?: MeterProfile;
   copyContext?: MeterCopyContext;
+  busy?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   const words = wordsMeterCopy(stage, lastQuestionId, profile, copyContext);
 
   return (
     <div className="meter meter--words">
-      <MeterRing confidence={confidence} reduceMotion={reduceMotion} />
+      <MeterRing confidence={confidence} reduceMotion={reduceMotion} busy={busy} />
       <div className="meter-readout" aria-live="polite" aria-atomic="true">
         <motion.span
           key={words.title}

@@ -155,19 +155,9 @@ research generally: **absence of evidence here was mostly absence of looking pro
    would pre-empt the most obvious objection.
 3. **Start over / try again** — Cynet and Rinda both offer it. We have `onRestart`; this says
    keep it visible rather than tucked away.
-4. **Three to four questions** — Mailchimp asks 4, Rinda 3, so the two closest analogues both
-   sit at three or four.
-
-   > **Stale as written, updated 2026-09-03.** `MAX_QUESTIONS` was 4 when this was researched
-   > and is now **12** (`src/lib/engine.ts`), raised on master to make Max and Growth reachable
-   > — six new questions across three screens. It is a *cap*, not a target, and the
-   > confidence-based early stop still ends most runs sooner, so a typical run may still land
-   > near four. But the sentence above no longer describes the code, and the competitor evidence
-   > now points the other way rather than supporting us: nothing found in this research asks
-   > more than eight, and the two closest analogues ask three and four. Recorded as a tension
-   > to be aware of in the room, not as an argument to reopen — the reachability problem the
-   > raise solves is real and was one of our own findings (§9 of `docs/data-findings.md`
-   > flagged `growth` as unreachable). Worth measuring completion against, given risk 2 below.
+4. **Three to four questions** — Mailchimp asks 4, Rinda 3. Our `MAX_QUESTIONS = 4` now has
+   *(number superseded — see the correction at the foot of this file)*
+   direct precedent from the two closest analogues, not just the telecom/insurance range.
 
 **And the addresses gap holds even here.** Rinda asks "number of people". Mailchimp asks team
 size *and* number of contacts — a quantity that drives price, which is structurally what
@@ -212,3 +202,13 @@ market supports it, and risk 2 above is the reason to care.
   we did not look properly.
 - Confirming whether Wix computes a recommended plan. Currently unverified either way, and it is
   the largest hole in the site-builder table.
+
+---
+
+## Correction, 04 Sep 2026
+
+`MAX_QUESTIONS` is **12**, not 4, and the bank is **seven** questions. The number above was
+right when it was written and the *finding* still holds — the comparison set asks three to four
+— but the ceiling is no longer what stops our run. `shouldReveal` does, when nothing left to ask
+could change the recommendation, which in practice lands most runs at four to six questions.
+The ceiling is now a guard rail rather than the design.

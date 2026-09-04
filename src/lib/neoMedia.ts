@@ -41,10 +41,23 @@ export interface NeoClip {
   minMailPlan?: MailPlanId;
   /** Wait-reel category label. Omit on the mail-only reveal — that pane is already one category. */
   kicker?: string;
+  /**
+   * The `features.ts` id this film is OF, when the two names differ.
+   *
+   * They mostly do: this file names clips after the footage (`bookings`, `signature`,
+   * `fast_apps`) and features.ts names them after Pandora entitlements
+   * (`appointment_booking`, `signature_builder`, `multi_device_support`). Only
+   * `invoice_builder` happens to match.
+   *
+   * Without this the mail-only pane cannot tell that its "Signature Designer" film and its
+   * "Signature Designer" feature card are the same thing, and shows both.
+   */
+  featureId?: string;
 }
 
 const VIDEOS = "/neo/videos";
 const TEMPLATES = "/neo/templates";
+const FEATURES_DIR = "/neo/features";
 
 /**
  * The mail-side bundle. Order is the default priority; `clipsFor` re-ranks per profile.
@@ -60,6 +73,7 @@ export const MAIL_CLIPS: NeoClip[] = [
   },
   {
     id: "bookings",
+  featureId: "appointment_booking",
     name: "Neo Bookings",
     caption: "Customers pick a slot themselves instead of trading messages",
     src: `${VIDEOS}/bookings.mp4`,
@@ -67,10 +81,11 @@ export const MAIL_CLIPS: NeoClip[] = [
   },
   {
     id: "signature",
+  featureId: "signature_builder",
     name: "Signature Designer",
     caption: "Every reply signs off with your name and your domain",
     src: `${VIDEOS}/signature.mp4`,
-    minMailPlan: "standard",
+    minMailPlan: "max",
   },
   {
     id: "email_designer",
@@ -81,6 +96,7 @@ export const MAIL_CLIPS: NeoClip[] = [
   },
   {
     id: "fast_apps",
+  featureId: "mobile_apps",
     name: "Neo Mail apps",
     caption: "The same inbox on your phone and your desktop",
     src: `${VIDEOS}/apps.mp4`,
@@ -103,6 +119,7 @@ function mailClip(id: string): NeoClip {
  */
 export const SITE_CLIP: NeoClip = {
   id: "site_builder",
+  featureId: "neo_site",
   name: "AI-powered site builder",
   caption: "A one-page site generated from what you just described",
   src: `${VIDEOS}/site.mp4`,
@@ -162,6 +179,47 @@ export function clipsFor(
     })
     .sort((a, b) => score(b) - score(a))
     .slice(0, limit);
+}
+
+/**
+ * Neo's own per-feature artwork, one asset per entitlement.
+ *
+ * Found on the PRICING page (03 Sep) rather than the homepage the films came from — the
+ * feature table there loads `static.flock.co/meta/plan/feature/images/<key>.png|gif|webp`, 36
+ * of them, keyed almost exactly the way `features.ts` is. Several are ANIMATED, and three of
+ * them cover features that had no film at all: read receipts, multi-account and one-click
+ * import — which between them are most of what a Starter reveal can honestly show.
+ *
+ * Same rule as the films and the site generator: this is Neo's real artwork, vendored rather
+ * than hotlinked so a marketing redeploy cannot empty the last screen. Nothing here is drawn
+ * or reinterpreted by us. Provenance in docs/neo-media.md.
+ *
+ * Keyed by OUR feature id, not Neo's file name, because the two differ often enough
+ * (`smart_write` is `titan_ai`, `multi_account` is `multi_device_support`) that the mapping
+ * has to be written down rather than derived.
+ */
+export const FEATURE_ART: Record<string, string> = {
+  mobile_apps: `${FEATURES_DIR}/mobile_apps.png`,
+  rich_webmail: `${FEATURES_DIR}/rich_webmail.png`,
+  email_rule: `${FEATURES_DIR}/email_rule.png`,
+  shareable_calendar: `${FEATURES_DIR}/shareable_calender.png`,
+  turbo_search: `${FEATURES_DIR}/turbo_search.png`,
+  priority_inbox: `${FEATURES_DIR}/priority_inbox.png`,
+  storage: `${FEATURES_DIR}/storage.png`,
+  import_email_contacts: `${FEATURES_DIR}/one_click_import.gif`,
+  multi_device_support: `${FEATURES_DIR}/multi_account.gif`,
+  read_receipts: `${FEATURES_DIR}/read_receipt.png`,
+  invoice_builder: `${FEATURES_DIR}/invoice_builder.gif`,
+  titan_ai: `${FEATURES_DIR}/smart_write.gif`,
+  email_marketing: `${FEATURES_DIR}/email_marketing.gif`,
+  appointment_booking: `${FEATURES_DIR}/appointment_booking.gif`,
+  signature_builder: `${FEATURES_DIR}/signature_builder.png`,
+};
+
+/** Art for a feature, or null. Null is normal — `gmail_sync`, `imap_pop` and `custom_domain`
+ *  have no asset in Neo's set, and a card without art is better than a borrowed picture. */
+export function featureArt(featureId: string): string | null {
+  return FEATURE_ART[featureId] ?? null;
 }
 
 export interface NeoTemplateShot {

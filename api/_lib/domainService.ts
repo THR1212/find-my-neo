@@ -22,7 +22,7 @@
  * └────────────────────────────────────────────────────────────────────────────────┘
  */
 
-import { checkCoSite, COSITE_SUFFIX } from "./cositeService.js";
+import { checkCoSite, checkTitanOrder, COSITE_SUFFIX } from "./cositeService.js";
 
 const BASE = "https://domscan.net/v1";
 
@@ -88,6 +88,16 @@ export interface DomainInfo {
  */
 export const MAX_TLDS = 6;
 
+/**
+ * Hard cap on STEMS per request, and the bound on what one crafted query can spend.
+ *
+ * Three, because that is what the reveal recommends — the model returns three names and this
+ * is what makes them three genuinely different names rather than one name in three endings.
+ * Each stem is exactly one `/v1/status` credit, so this caps a request at 3 credits of
+ * availability plus whatever uncached TLD pricing costs, against ~9,900 free credits a month.
+ */
+export const MAX_STEMS = 3;
+
 function key(): string {
   const k = process.env.DOMSCAN_API_KEY;
   if (!k) throw new Error("DOMSCAN_API_KEY is not set");
@@ -135,7 +145,21 @@ function cheapestUsd(prices: any[]): { usd: number; registrar: string } | null {
  * independently rather than sharing a try/catch.
  */
 export async function lookupDomains(
-  stem: string,
+  /**
+   * One or more stems, e.g. `["joeslocks", "bandrakeys", "quickkey"]`.
+   *
+   * MULTI-STEM, and that is the whole fix for "the suggestions aren't personalised". The
+   * reveal shows three names from the model, but this only ever took one stem — so the
+   * caller looked up suggestion #1 and filtered the results back down to it, and the three
+   * "personalised" names were really one name with three different endings.
+   *
+   * The credit model makes this cheap in the direction that matters: `/v1/status` bills 1
+   * credit PER REQUEST regardless of TLD count, so N stems costs N credits, while `/v1/prices`
+   * is keyed by TLD, shared across every session and cached for 6h — so widening stems costs
+   * linearly on the cheap call and nothing at all on the expensive one. Widening TLDs would
+   * have been the opposite trade.
+   */
+  stems: string[],
   tlds: string[],
   /** Manual "check a domain I typed" request. Only this opts into the Partner Panel rung. */
   allowPanel = false,
@@ -146,34 +170,51 @@ export async function lookupDomains(
      it is deliberately not counted against MAX_TLDS. */
   const wantsCoSite = tlds.includes(COSITE_SUFFIX);
   const registrable = tlds.filter((t) => t !== COSITE_SUFFIX);
+  const uniqueStems = [...new Set(stems.filter(Boolean))];
 
   // Only ask for what isn't already cached. On a rehearsal run this drops to zero calls.
   const needPrices = registrable.filter((t) => fresh(priceCache.get(t), PRICE_TTL_MS) === undefined);
-  const needAvail = registrable.filter(
-    (t) => fresh(availCache.get(`${stem}.${t}`), AVAIL_TTL_MS) === undefined,
-  );
 
-  const calls: Promise<any>[] = [
-    needAvail.length
-      ? get(`/status?name=${encodeURIComponent(stem)}&tlds=${encodeURIComponent(needAvail.join(","))}`)
-      : Promise.resolve(null),
+  /* One /status per stem, each batching every TLD that stem still needs. A stem whose TLDs
+     are all cached makes no call at all. */
+  const statusCalls = uniqueStems.map((stem) => {
+    const need = registrable.filter(
+      (t) => fresh(availCache.get(`${stem}.${t}`), AVAIL_TTL_MS) === undefined,
+    );
+    return need.length
+      ? get(`/status?name=${encodeURIComponent(stem)}&tlds=${encodeURIComponent(need.join(","))}`)
+      : Promise.resolve(null);
+  });
+
+  /**
+   * `.co.site` is checked for the FIRST stem only.
+   *
+   * The reveal reserves exactly one slot for it (see `availableFromLookup`), so checking the
+   * other stems would spend outbound requests — and, on the manual path, Partner Panel budget
+   * — on answers nothing renders.
+   */
+  const coSiteStem = uniqueStems[0];
+
+  /* Settled, not all: a pricing failure must never stop availability from rendering, and the
+     co.site check must never stop either — it reaches a different host entirely. */
+  const settled = await Promise.allSettled([
+    ...statusCalls,
     needPrices.length
       ? get(
           `/prices?tlds=${encodeURIComponent(needPrices.join(","))}` +
             `&registrars=${encodeURIComponent(PRICE_REGISTRARS)}`,
         )
       : Promise.resolve(null),
-  ];
-
-  /* Settled, not all: a pricing failure must never stop availability from rendering, and the
-     co.site check must never stop either — it reaches a different host entirely. */
-  const [statusRes, pricesRes, coSiteRes] = await Promise.allSettled([
-    ...calls,
-    wantsCoSite ? checkCoSite(stem, { allowPanel }) : Promise.resolve(null),
+    wantsCoSite && coSiteStem ? checkCoSite(coSiteStem, { allowPanel }) : Promise.resolve(null),
   ]);
 
-  if (statusRes.status === "fulfilled" && statusRes.value) {
-    for (const r of statusRes.value?.results ?? []) {
+  const statusResults = settled.slice(0, statusCalls.length);
+  const pricesRes = settled[statusCalls.length];
+  const coSiteRes = settled[statusCalls.length + 1];
+
+  for (const res of statusResults) {
+    if (res.status !== "fulfilled" || !res.value) continue;
+    for (const r of res.value?.results ?? []) {
       availCache.set(r.domain, {
         at: Date.now(),
         value: { available: r.available === true, confidence: r.confidence ?? null },
@@ -196,33 +237,43 @@ export async function lookupDomains(
     }
   }
 
-  const availByDomain = new Map<string, { available: boolean; confidence: string | null }>();
   const priceByTld = new Map<string, { inr: number; registrar: string }>();
   for (const tld of registrable) {
-    const a = fresh(availCache.get(`${stem}.${tld}`), AVAIL_TTL_MS);
-    if (a) availByDomain.set(`${stem}.${tld}`, a);
     const p = fresh(priceCache.get(tld), PRICE_TTL_MS);
     if (p) priceByTld.set(tld, p);
   }
 
-  const rows: DomainInfo[] = registrable.map((tld) => {
-    const domain = `${stem}.${tld}`;
-    const a = availByDomain.get(domain);
-    const p = priceByTld.get(tld);
-    return {
-      domain,
-      tld,
-      available: a ? a.available : null,
-      confidence: a?.confidence ?? null,
-      priceInr: p?.inr ?? null,
-      priceSource: p?.registrar ?? null,
-    };
-  });
+  /**
+   * Keyed by FULL DOMAIN, not by TLD.
+   *
+   * The previous version built `new Map(rows.map(r => [r.tld, r]))` to restore caller order.
+   * With one stem that was fine; with several, `joeslocks.com` and `bandrakeys.com` share a
+   * key and one of them silently vanishes — the kind of bug that looks like "the API only
+   * returned two names".
+   */
+  const rows = new Map<string, DomainInfo>();
 
-  if (wantsCoSite) {
-    const co = coSiteRes.status === "fulfilled" ? coSiteRes.value : null;
-    rows.push({
-      domain: `${stem}.${COSITE_SUFFIX}`,
+  for (const stem of uniqueStems) {
+    for (const tld of registrable) {
+      const domain = `${stem}.${tld}`;
+      const a = fresh(availCache.get(domain), AVAIL_TTL_MS);
+      const p = priceByTld.get(tld);
+      rows.set(domain, {
+        domain,
+        tld,
+        available: a ? a.available : null,
+        confidence: a?.confidence ?? null,
+        priceInr: p?.inr ?? null,
+        priceSource: p?.registrar ?? null,
+      });
+    }
+  }
+
+  if (wantsCoSite && coSiteStem) {
+    const co = coSiteRes.status === "fulfilled" ? (coSiteRes.value as any) : null;
+    const domain = `${coSiteStem}.${COSITE_SUFFIX}`;
+    rows.set(domain, {
+      domain,
       tld: COSITE_SUFFIX,
       available: co?.available ?? null,
       /* Authoritative only for the sources that read Neo's own ORDER records: the
@@ -238,9 +289,16 @@ export async function lookupDomains(
     });
   }
 
-  /* Restore the caller's order so `co.site` sits wherever they asked for it, not always last. */
-  const byTld = new Map(rows.map((r) => [r.tld, r]));
-  return tlds.map((t) => byTld.get(t)).filter((r): r is DomainInfo => r !== undefined);
+  /* Caller order: stem-major, then the TLD order they asked for, so `.co.site` still sits
+     where it was requested rather than always last. */
+  const ordered: DomainInfo[] = [];
+  for (const stem of uniqueStems) {
+    for (const tld of tlds) {
+      const row = rows.get(`${stem}.${tld}`);
+      if (row) ordered.push(row);
+    }
+  }
+  return ordered;
 }
 
 /** Shared request handler. Framework-agnostic so Vite and Vercel can both mount it. */
@@ -257,9 +315,45 @@ export async function handleDomainLookup(
    * this invites being mistaken for a gate.
    */
   manualRaw: string | null = null,
+  /**
+   * `titan=<full domain>`: "does Neo already have an order for this name?"
+   *
+   * A branch on the existing route rather than a new one, on purpose. `/api/domains` is
+   * mounted twice — a Vercel function and a Vite middleware — and the last time those two
+   * drifted, `manual` was dropped on localhost while production worked, which presents as
+   * "the feature doesn't work locally" and cost an afternoon. One more route is one more
+   * chance to make that mistake; one more parameter on a route that already exists is not.
+   */
+  titanRaw: string | null = null,
 ): Promise<{ status: number; body: unknown }> {
-  const stem = (stemRaw ?? "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-  if (!stem) return { status: 400, body: { error: "missing or invalid `name`" } };
+  const titan = (titanRaw ?? "").trim().toLowerCase().replace(/[^a-z0-9.-]/g, "");
+  if (titan) {
+    /* Must look like a domain. Without this, `?titan=x` queries the panel for a bare word. */
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(titan)) {
+      return { status: 400, body: { error: "invalid `titan`" } };
+    }
+    try {
+      return { status: 200, body: { titan: await checkTitanOrder(titan) } };
+    } catch {
+      /* Never a 5xx: the caller uses this to decide whether to warn, and an error here must
+         read as "we could not tell", not as "taken". */
+      return { status: 200, body: { titan: { domain: titan, taken: null } } };
+    }
+  }
+
+  /**
+   * `name` may now be a COMMA-SEPARATED list of stems.
+   *
+   * Split before sanitising, never after: the sanitiser strips anything outside `[a-z0-9-]`,
+   * so `?name=a,b,c` collapses to the single stem `abc` if the split comes second. That
+   * failure is silent and looks like a lookup returning the wrong names.
+   */
+  const stems = (stemRaw ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase().replace(/[^a-z0-9-]/g, ""))
+    .filter(Boolean)
+    .slice(0, MAX_STEMS);
+  if (!stems.length) return { status: 400, body: { error: "missing or invalid `name`" } };
 
   const all = (tldsRaw ?? `com,in,co,${COSITE_SUFFIX}`)
     .split(",")
@@ -284,7 +378,7 @@ export async function handleDomainLookup(
   const allowPanel = manualRaw === "1" || manualRaw === "true";
 
   try {
-    return { status: 200, body: { domains: await lookupDomains(stem, tlds, allowPanel) } };
+    return { status: 200, body: { domains: await lookupDomains(stems, tlds, allowPanel) } };
   } catch (err) {
     return { status: 502, body: { error: err instanceof Error ? err.message : String(err) } };
   }

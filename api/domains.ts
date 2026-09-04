@@ -22,19 +22,27 @@ export const config = { runtime: "edge" };
 
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
+  const titan = url.searchParams.get("titan");
   const { status, body } = await handleDomainLookup(
     url.searchParams.get("name"),
     url.searchParams.get("tlds"),
     url.searchParams.get("manual"),
+    titan,
   );
 
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "Content-Type": "application/json",
-      // Availability and prices move slowly; let the edge absorb repeat demo runs
-      // so a rehearsal doesn't spend credits.
-      "Cache-Control": "public, max-age=300, s-maxage=3600",
+      /* The titan check is NOT shared-cacheable. Its answer is about Neo's live order
+         records, and its `null` is a transient "we could not reach the panel" — pinning that
+         into a shared edge cache for an hour would turn one bad minute into an hour of
+         silence for every visitor. The batch lookup keeps the long cache: availability and
+         prices move slowly, and letting the edge absorb repeat rehearsal runs is what stops
+         a demo morning spending credits. */
+      "Cache-Control": titan
+        ? "private, no-store"
+        : "public, max-age=300, s-maxage=3600",
     },
   });
 }

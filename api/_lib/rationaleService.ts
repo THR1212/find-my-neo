@@ -27,6 +27,8 @@
  * screen that must be perfect is a worse outcome than a generic one.
  */
 
+import plansData from "../../src/data/plans.json" with { type: "json" };
+
 import { complete } from "./llm.js";
 
 /**
@@ -58,20 +60,35 @@ import { complete } from "./llm.js";
  * lists the others, and Mailchimp and Rinda both justify the recommendation rather than just
  * naming it. Pre-empting "why not the cheap one" is a pattern all three ship.
  */
-const CHEAPER_TIER: Record<string, { cheaper: string; loses: string }> = {
+/* `cheaper` is the display NAME the model may print; `cheaperId` is the plan id used to
+   price the drop. Two fields because the sentence needs one and the arithmetic needs the other. */
+const CHEAPER_TIER: Record<string, { cheaper: string; cheaperId: string; loses: string }> = {
   standard: {
+    cheaperId: "starter",
     cheaper: "Neo Starter",
-    loses: "the signature designer, company branding, and the extra mailbox storage",
+    /* NOT the signature designer. It moved to Max on 03 Sep, so Standard does not have it
+       either and dropping to Starter cannot lose it — the sentence was live and false. All
+       three below are verified Starter-absent: Branding and Neo Drive in both sources,
+       storage as the 15 GB -> 50 GB step. */
+    /* NO NUMBERS. `PRICE_LIKE` rejects any sentence containing a figure, so "the jump from
+       15 GB to 50 GB" fed the model digits it then repeated — and the whole sentence was
+       dropped. Live in production: `dropped: "whyNotCheaper: contains a price or limit"`,
+       every time, on the one tier where this string is used. The guard is right; the input
+       was baiting it. */
+    loses: "company branding, Neo Drive, and the extra mailbox storage",
   },
   max: {
+    cheaperId: "standard",
     cheaper: "Neo Standard",
     loses: "the invoice builder, the AI email writer, and campaign sending",
   },
   plus: {
+    cheaperId: "basic",
     cheaper: "Basic",
     loses: "the contact form entirely, plus testimonials and removing Neo's branding",
   },
   growth: {
+    cheaperId: "plus",
     cheaper: "Plus",
     loses: "unlimited products, services and gallery images, and premium fonts",
   },
@@ -101,7 +118,9 @@ const SCHEMA = {
       description:
         "One sentence saying what the cheaper plan would cost them in capability, using ONLY " +
         "the loses list given. Under 130 characters. Empty string if no cheaper plan was " +
-        "given. Never states a price.",
+        "given. Never states a price. It MUST NAME the cheaper plan — start with 'Dropping to " +
+        "<plan>' or 'On <plan> you would...' — because without the name the sentence reads as " +
+        "a description of what they ARE getting.",
     },
     /**
      * The reveal was a stack: a rationale sentence, then a bulleted needs list, then a
@@ -153,7 +172,15 @@ const SYSTEM = [
   "whyNotCheaper: what dropping to the cheaper plan would actually cost them. Use ONLY the",
   "capabilities listed in `cheaperPlanLoses`. Do not invent a limit, a feature, or a number.",
   "If no cheaper plan is given, return an empty string.",
-  "  GOOD: 'The cheaper site plan has no contact form, so enquiries would still land in DMs.'",
+  "",
+  "NAME THE CHEAPER PLAN IN THE SENTENCE. This is not a style note. Without the name the",
+  "sentence is read as a description of the plan they were just recommended, and it says they",
+  "LOSE things — so it tells them the opposite of the truth. A real one, on a Plus site, which",
+  "includes all three of these:",
+  "  BAD:  'You would lose the contact form and testimonials, while Neo's branding would",
+  "         remain on the site.'      - true of Basic, reads as true of Plus",
+  "  GOOD: 'Dropping to Basic would lose the contact form and testimonials, and leave Neo's",
+  "         branding on the site.'",
   "  BAD:  'The cheaper plan only gives you 5GB.'   - invented",
   "",
   "Write plainly, as if explaining across a counter. No exclamation marks.",
@@ -237,7 +264,73 @@ export async function handleRationale(
      malformed payload cannot make the model describe a plan that does not exist. */
   const siteId = String(input?.sitePlanId ?? "");
   const mailId = String(input?.mailPlanId ?? "");
-  const cheaper = CHEAPER_TIER[siteId] ?? CHEAPER_TIER[mailId] ?? null;
+
+  /**
+   * WHICHEVER DROP SAVES MORE, not whichever we happen to look up first.
+   *
+   * This was `CHEAPER_TIER[siteId] ?? CHEAPER_TIER[mailId]`, so the SITE always won and the
+   * mail tier was described only on a mail-only setup. On "Neo Max + Plus site" that answered
+   * "why not cheaper?" about the ₹90 half while saying nothing about the ₹300-per-mailbox
+   * half — and Max is the part that needed justifying. The sentence was true and about the
+   * wrong thing, which is a harder error to spot than a false one.
+   *
+   * Mail is priced PER MAILBOX, so its saving scales and the site's does not: at four
+   * addresses, dropping Max saves ₹1,200 a month against the site's ₹90. Any rule that
+   * ignores the multiplier gets this wrong for exactly the people paying most.
+   *
+   * Prices come from the same sheet `rules.ts` uses. Deliberately not a second copy of the
+   * numbers in this file — a hand-typed claim in this table is what put "unlimited email
+   * templates" in front of customers.
+   */
+  const cycle = "yearly" as const;
+  const unit = (list: { id: string; inr: Record<string, number | undefined> }[], id: string) =>
+    list.find((p) => p.id === id)?.inr[cycle] ?? null;
+  const mailPlans = plansData.mail.plans as { id: string; inr: Record<string, number> }[];
+  const sitePlans = plansData.site.live as { id: string; inr: Record<string, number> }[];
+  const boxes = Math.max(1, Number(input?.mailboxes) || 1);
+
+  const mailStep = CHEAPER_TIER[mailId];
+  const siteStep = CHEAPER_TIER[siteId];
+  const mailSaving =
+    mailStep && unit(mailPlans, mailId) !== null && unit(mailPlans, mailStep.cheaperId) !== null
+      ? (unit(mailPlans, mailId)! - unit(mailPlans, mailStep.cheaperId)!) * boxes
+      : -1;
+  const siteSaving =
+    siteStep && unit(sitePlans, siteId) !== null && unit(sitePlans, siteStep.cheaperId) !== null
+      ? unit(sitePlans, siteId)! - unit(sitePlans, siteStep.cheaperId)!
+      : -1;
+
+  const cheaper = mailSaving >= siteSaving ? (mailStep ?? siteStep ?? null) : (siteStep ?? null);
+
+  /**
+   * The same choice, as data rather than as a sentence.
+   *
+   * `whyNotCheaper` is prose the model wrote, and prose cannot be acted on. The reveal now
+   * offers to actually TAKE the cheaper plan, and to price it, which needs the dimension and
+   * the target tier — so we return what we already computed instead of making the client
+   * re-derive it from a second copy of CHEAPER_TIER.
+   *
+   * `saveInr` is per month at the yearly cycle, and mail's already has the mailbox multiplier
+   * applied, which is the whole reason mail usually wins the comparison above.
+   */
+  const cheaperStep =
+    cheaper === null
+      ? null
+      : cheaper === mailStep
+        ? {
+            dimension: "mail" as const,
+            fromId: mailId,
+            toId: mailStep!.cheaperId,
+            toName: mailStep!.cheaper,
+            saveInr: mailSaving >= 0 ? mailSaving : null,
+          }
+        : {
+            dimension: "site" as const,
+            fromId: siteId,
+            toId: siteStep!.cheaperId,
+            toName: siteStep!.cheaper,
+            saveInr: siteSaving >= 0 ? siteSaving : null,
+          };
 
   const payload = {
     business: businessText,
@@ -259,7 +352,7 @@ export async function handleRationale(
       user: JSON.stringify(payload),
       schema: SCHEMA as unknown as Record<string, unknown>,
       schemaName: "plan_rationale",
-      maxOutputTokens: 900,
+      maxOutputTokens: 15000,
     });
   } catch (err) {
     reason = err instanceof Error ? err.message : String(err);
@@ -281,6 +374,8 @@ export async function handleRationale(
     }),
   );
 
-  /* Empty strings are a complete answer: the reveal keeps buildRationale's line. */
-  return { status: 200, body: { rationale, whyNotCheaper, because } };
+  /* Empty strings are a complete answer: the reveal keeps buildRationale's line.
+     `cheaperStep` is independent of the model — it is computed from plans.json above, so it
+     survives a failed generation and the swap control still works on the degraded path. */
+  return { status: 200, body: { rationale, whyNotCheaper, because, cheaperStep } };
 }

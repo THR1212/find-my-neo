@@ -17,18 +17,24 @@ import {
   fetchRationale,
   fetchPlanVerdict,
   type PlanVerdict,
+  type RationaleResult,
 } from "./lib/api";
 import { recommend } from "./lib/rules";
 import { fetchNeoSites, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
 
+import DegradeBanner from "./components/DegradeBanner";
+import SoundToggle from "./components/SoundToggle";
 import NarrowingMeter from "./components/NarrowingMeter";
 import Hook from "./screens/Hook";
 import Describe from "./screens/Describe";
 import Guess from "./screens/Guess";
 import AdaptiveQuestion from "./screens/AdaptiveQuestion";
 import Reveal from "./screens/Reveal";
+import Checkout from "./screens/Checkout";
+import Success from "./screens/Success";
+import type { CheckoutOrder } from "./lib/checkout";
 
 const transition = { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const };
 
@@ -101,11 +107,7 @@ export default function App() {
    * Empty until the last question is answered, and empty forever if that call fails — the
    * reveal falls back to `buildRationale`, which is why those templates were kept.
    */
-  const [rationale, setRationale] = useState<{
-    rationale: string;
-    whyNotCheaper: string;
-    because: string;
-  }>(
+  const [rationale, setRationale] = useState<RationaleResult>(
     restored?.rationale ?? { rationale: "", whyNotCheaper: "", because: "" },
   );
   /**
@@ -114,6 +116,20 @@ export default function App() {
    * recommendation stands unchanged.
    */
   const [verdict, setVerdict] = useState<PlanVerdict | null>(restored?.verdict ?? null);
+
+  /**
+   * The Claim payload: what the reveal was actually showing when they pressed the button.
+   *
+   * Built in Reveal from the recommendation ON SCREEN, which is the swapped one when they
+   * took the cheaper plan — so the checkout bills what they chose, not what we first
+   * suggested. Null before Claim, and a checkout stage without one falls back to the reveal
+   * on restore (see persist.ts).
+   */
+  const [checkoutOrder, setCheckoutOrder] = useState<CheckoutOrder | null>(
+    restored?.checkoutOrder ?? null,
+  );
+  /** Guards a double-tap on Pay while the mock settles. */
+  const [paying, setPaying] = useState(false);
 
   /**
    * Current stage, readable from inside async callbacks.
@@ -175,8 +191,86 @@ export default function App() {
         });
       }
 
-      if (opts.profile) {
-        void fetchQuestionSurface(text).then((surface) => {
+      if (!opts.profile) return;
+
+      setLoading(true);
+      setError(null);
+      buildProfile(text)
+        .then((res) => {
+          setSummary(res.profile.summary);
+          setReveal(res.reveal);
+          /**
+           * Seed the engine with what the free text alone told us.
+           *
+           * `prefill` is the important addition. Before it, only industry/brandName/teamSize
+           * were seeded — none of which is a question signal — so every one of the six
+           * questions stayed unresolved no matter what someone wrote. Type "we take cake
+           * orders over Instagram and need a website" and you were still asked where
+           * customers reach you and what needs standing up first. That is the "we're not
+           * getting more information" complaint, and this is the line that fixes it.
+           *
+           * The values are already validated server-side against the same vocabulary the
+           * `resolves` payloads use, so a prefilled signal is indistinguishable from a tapped
+           * one and `isResolved` skips its question for free.
+           */
+          setEngine((prev) => {
+            /**
+             * PREFILL MUST NOT OVERWRITE AN ANSWER THEY ALREADY GAVE.
+             *
+             * `...prefill` last meant the server won. Harmless on a fresh submit, where the
+             * profile is empty — but this same call re-fires on RESUME, and the resume path
+             * runs at `stage === "question"` whenever there is no reveal yet. So someone who
+             * answered three questions and reloaded the tab could have a tap replaced by the
+             * model's reading of their description: tap "Just email", reload, and a prefill of
+             * `surface: "both"` silently put the site back.
+             *
+             * Their answers now win. Prefill fills GAPS only, which is all it was ever for —
+             * `prefilledQuestionIds` exists to skip questions nobody needs to be asked, not to
+             * answer ones already answered.
+             */
+            const gapsOnly = Object.fromEntries(
+              Object.entries(res.prefill ?? {}).filter(([k]) => prev.profile[k] === undefined),
+            );
+            /* Same reason: a question they have ANSWERED must not be relabelled "you already
+               told us", or the guess screen credits the description for their tap. */
+            const stillPrefilled = (res.prefilledQuestionIds ?? []).filter(
+              (id) => !prev.asked.includes(id),
+            );
+            return {
+            ...prev,
+            profile: {
+              ...prev.profile,
+              industry: res.profile.industry,
+              brandName: res.profile.domainStem,
+              ...(res.profile.teamSize ? { teamSize: res.profile.teamSize } : {}),
+              ...gapsOnly,
+            },
+            prefilled: stillPrefilled,
+            /* Only on a fresh run. Re-seeding a ranking mid-flow would point the engine back
+               at ground it has already covered — the ranking was computed before any answer. */
+            ...(opts.seedNextQuestion ? { priority: res.questionPriority ?? [] } : {}),
+            };
+          });
+          /**
+           * SERIALISED, on Hari's call. It used to fire beside this one.
+           *
+           * In parallel it could not know which questions mattered, so it rewrote all nine —
+           * roughly forty strings — and measured 11.5s, 45s and 62s on identical inputs. A run
+           * only ever SHOWS five or six; the rest are prefilled, gated out, or never reached.
+           * We were generating about twice what anyone reads, and the wait was proportional
+           * to the waste.
+           *
+           * Starting later costs the profile's own latency. Rewriting half as much should more
+           * than pay that back, and the variance matters more than the mean here — the 62s run
+           * is what breaks the feature, not the 11s one.
+           *
+           * Order comes from `questionPriority` minus anything the description already
+           * answered: exactly the questions about to appear, in the order they will appear.
+           */
+          const askOrder = (res.questionPriority ?? []).filter(
+            (id) => !(res.prefilledQuestionIds ?? []).includes(id),
+          );
+          void fetchQuestionSurface(text, askOrder.slice(0, 6)).then((surface) => {
           if (Object.keys(surface).length === 0) return;
           /* Nothing left to reword. */
           if (stageRef.current === "reveal") return;
@@ -201,44 +295,8 @@ export default function App() {
             delete rest[onScreen];
             return { ...prev, surface: rest };
           });
-        });
-      }
-      if (!opts.profile) return;
+          });
 
-      setLoading(true);
-      setError(null);
-      buildProfile(text)
-        .then((res) => {
-          setSummary(res.profile.summary);
-          setReveal(res.reveal);
-          /**
-           * Seed the engine with what the free text alone told us.
-           *
-           * `prefill` is the important addition. Before it, only industry/brandName/teamSize
-           * were seeded — none of which is a question signal — so every one of the six
-           * questions stayed unresolved no matter what someone wrote. Type "we take cake
-           * orders over Instagram and need a website" and you were still asked where
-           * customers reach you and what needs standing up first. That is the "we're not
-           * getting more information" complaint, and this is the line that fixes it.
-           *
-           * The values are already validated server-side against the same vocabulary the
-           * `resolves` payloads use, so a prefilled signal is indistinguishable from a tapped
-           * one and `isResolved` skips its question for free.
-           */
-          setEngine((prev) => ({
-            ...prev,
-            profile: {
-              ...prev.profile,
-              industry: res.profile.industry,
-              brandName: res.profile.domainStem,
-              ...(res.profile.teamSize ? { teamSize: res.profile.teamSize } : {}),
-              ...(res.prefill ?? {}),
-            },
-            prefilled: res.prefilledQuestionIds ?? [],
-            /* Only on a fresh run. Re-seeding a ranking mid-flow would point the engine back
-               at ground it has already covered — the ranking was computed before any answer. */
-            ...(opts.seedNextQuestion ? { priority: res.questionPriority ?? [] } : {}),
-          }));
           setLoading(false);
         })
         .catch((err: unknown) => {
@@ -333,8 +391,8 @@ export default function App() {
 
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
-    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict });
-  }, [stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict]);
+    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict, checkoutOrder });
+  }, [stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict, checkoutOrder]);
 
   /**
    * Apply an answer and decide where to go next.
@@ -477,6 +535,21 @@ export default function App() {
   }, [engine, rawText, reveal, reasons, rationale, verdict]);
 
   const showMeter = stage === "guess" || stage === "question" || stage === "reveal";
+
+  /**
+   * Checkout and success are Neo's pages, not ours.
+   *
+   * They render outside the qualifier's shell so the meter dock and the background blooms are
+   * gone — the point of the in-app checkout is that it reads as the thing you were handed to,
+   * and our chrome sitting on top of it would undo that.
+   */
+  const funnel = stage === "checkout" || stage === "success";
+  useEffect(() => {
+    document.documentElement.classList.toggle("is-funnel", funnel);
+    return () => {
+      document.documentElement.classList.remove("is-funnel");
+    };
+  }, [funnel]);
   const stepNumber = engine.asked.length + 1;
 
   return (
@@ -505,6 +578,10 @@ export default function App() {
             <NarrowingMeter
               confidence={conf}
               stage={stage}
+              /* The wait screens are the one place the ring cannot move on its own: the
+                 profile is in flight, so confidence has nothing to update from. Without this
+                 the dock reads as stalled at exactly the moment it is working hardest. */
+              busy={loading}
               lastQuestionId={engine.asked[engine.asked.length - 1] ?? null}
               profile={engine.profile}
               /**
@@ -527,6 +604,14 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Always mounted, never debug-gated: sound ships MUTED and this is the only way to
+          turn it on, so it has to be there for the audience and not just for us. */}
+      <SoundToggle />
+
+      {/* Dev-only, and the whole point is that it is impossible to miss: every silent fallback
+          on screen as it happens. See the header of DegradeBanner. */}
+      {debug && <DegradeBanner />}
+
       {/* Debug-only. Positioned out of the flow so it cannot disturb a screenshot or a demo. */}
       {debug && stage === "reveal" && (
         <button className="btn btn-ghost debug-save" onClick={saveRun}>
@@ -534,6 +619,32 @@ export default function App() {
         </button>
       )}
 
+      {/* The checkout and success screens are meant to read as NEO's pages, not ours, so they
+          render outside the qualifier's shell entirely — no meter dock, no blooms, full bleed.
+          `is-funnel` on <html> is what hides the chrome; see index.css. */}
+      {funnel ? (
+        <main className="stage stage-funnel">
+          {stage === "checkout" && (
+            <Checkout
+              order={checkoutOrder}
+              paying={paying}
+              onBack={() => setStage("reveal")}
+              onPay={() => {
+                if (paying) return;
+                setPaying(true);
+                window.setTimeout(() => {
+                  setPaying(false);
+                  setStage("success");
+                }, 400);
+              }}
+            />
+          )}
+          {stage === "success" && (
+            <Success order={checkoutOrder} onBack={() => setStage("checkout")} />
+          )}
+        </main>
+      ) : (
+      <>
       {/* `stage-reveal` and `screen-wide` are what the merged split layout hangs off:
           html:has(.stage-reveal) locks the page to the viewport so the reveal is one screen,
           and .screen-wide widens it for the two panes. Without these two class names the
@@ -590,11 +701,17 @@ export default function App() {
                 rationale={rationale}
                 verdict={verdict}
                 onRestart={restart}
+                onClaim={(order) => {
+                  setCheckoutOrder(order);
+                  setStage("checkout");
+                }}
               />
             )}
           </motion.div>
         </AnimatePresence>
       </main>
+      </>
+      )}
     </>
   );
 }

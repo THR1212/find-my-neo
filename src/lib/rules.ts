@@ -117,6 +117,62 @@ function chooseCycle(profile: Profile): BillingCycle {
  * justification the reveal shows.
  */
 
+/**
+ * What a given mail/site pair costs. No opinion about whether it is the RIGHT pair.
+ *
+ * Split out of `recommend` so a second caller can price a combination the solver did not
+ * choose — specifically the cheaper tier the reveal offers, which the person can accept.
+ *
+ * This deliberately has NO floor check, and `recommend`'s rank guard is deliberately left
+ * alone rather than relaxed to accommodate it. Those two facts belong together: the guard
+ * exists to stop the MODEL selecting a tier below the solved floor, and a person choosing to
+ * spend less on their own business is a different actor with different authority. Widening
+ * the guard would have given the model that authority as a side effect.
+ *
+ * Prices still come from `plans.json` and nowhere else, so nothing here can invent a figure.
+ */
+export function priceAs(
+  mailId: string,
+  siteId: string,
+  mailboxes: number,
+  cycle: BillingCycle,
+): {
+  mailPlan: MailPlanJson;
+  sitePlan: SitePlanJson | null;
+  monthlyInr: number | null;
+  lines: PriceLine[];
+} {
+  const mailPlan = byId(MAIL, mailId);
+  const sitePlan = siteId === "none" ? null : byId(SITE, siteId);
+
+  const mailUnit = mailPlan.inr[cycle] ?? mailPlan.inr.monthly ?? null;
+  const siteUnit = sitePlan ? (sitePlan.inr[cycle] ?? sitePlan.inr.monthly ?? null) : 0;
+
+  const monthlyInr =
+    mailUnit === null || siteUnit === null ? null : mailUnit * mailboxes + siteUnit;
+
+  const lines: PriceLine[] = [
+    {
+      label: mailPlan.name,
+      each: mailUnit,
+      qty: mailboxes,
+      totalInr: mailUnit === null ? null : mailUnit * mailboxes,
+    },
+  ];
+  /* Only when there IS a site. A "Rs0 site" row on a mail-only setup would invite the reader
+     to wonder what they are not being charged for. */
+  if (sitePlan) {
+    lines.push({
+      label: `${sitePlan.name} site`,
+      each: siteUnit,
+      qty: 1,
+      totalInr: siteUnit,
+    });
+  }
+
+  return { mailPlan, sitePlan, monthlyInr, lines };
+}
+
 export function recommend(
   profile: Profile,
   suggestedMailboxes: number,
@@ -152,33 +208,7 @@ export function recommend(
       ? override.site
       : solution.candidate.site;
 
-  const mailPlan = byId(MAIL, chosenMail);
-  const sitePlan = chosenSite === "none" ? null : byId(SITE, chosenSite);
-
-  const mailUnit = mailPlan.inr[cycle] ?? mailPlan.inr.monthly ?? null;
-  const siteUnit = sitePlan ? (sitePlan.inr[cycle] ?? sitePlan.inr.monthly ?? null) : 0;
-
-  const monthlyInr =
-    mailUnit === null || siteUnit === null ? null : mailUnit * mailboxes + siteUnit;
-
-  const lines: PriceLine[] = [
-    {
-      label: mailPlan.name,
-      each: mailUnit,
-      qty: mailboxes,
-      totalInr: mailUnit === null ? null : mailUnit * mailboxes,
-    },
-  ];
-  /* Only when there IS a site. A "Rs0 site" row on a mail-only setup would invite the reader
-     to wonder what they are not being charged for. */
-  if (sitePlan) {
-    lines.push({
-      label: `${sitePlan.name} site`,
-      each: siteUnit,
-      qty: 1,
-      totalInr: siteUnit,
-    });
-  }
+  const { mailPlan, sitePlan, monthlyInr, lines } = priceAs(chosenMail, chosenSite, mailboxes, cycle);
 
   return {
     mailPlan,

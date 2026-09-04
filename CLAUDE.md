@@ -24,6 +24,12 @@ chosen, mailbox count known, plan fitted — instead of at the category picker. 
 adding a purchase path; they have one. See `docs/neo-product-facts.md` before making any claim
 about what Neo does.
 
+**Claim now opens an in-app checkout, not the live funnel** (04 Sep). It is a faithful mock of
+Neo's checkout that makes no network calls, so a rehearsal cannot create a real order. Say
+"pre-built cart" in a demo, not "this is Neo's checkout" — the point being shown is that the
+cart arrives with the right plan already in it, and the honest framing is stronger than the
+overclaim. `buildHandoffUrl` still exists as the fallback path.
+
 Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
 
 ## Hard rules
@@ -43,9 +49,25 @@ Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
    Same for features: `src/lib/features.ts` is a fixed bank using Neo's own verbatim names.
    **The pricing sheet is not the offering.** Neo Lite is in the sheet and Neo does not sell it;
    we recommended it, with a real price, until 03 Sep. Check a plan is purchasable before
-   `rules.ts` can return it. Mail feature names come from Neo's JSON config; **site feature
-   names have no config** and are captured in `src/data/site-features.json` — re-read the live
-   page before quoting a site limit.
+   `rules.ts` can return it.
+
+   **PANDORA IS THE SOURCE OF TRUTH.** `plan-features.json` is the backend entitlement data and
+   it wins, full stop — Hari confirmed this on 03 Sep when I had it backwards. The published
+   comparison tables (`site-features.json`, `mail-features.json`) are Neo's own marketing
+   simplification of the same thing: useful as a cross-check and as the customer's mental
+   model, never as the authority. Five places they differ are recorded in
+   `mail-features.json._conflictsWithPandora` — the pricing page puts Signature Designer, Drive,
+   AI Summary and Advanced Tracking on Max only, and Pandora has all four lower. **Believe
+   Pandora.** The tables earn their place by catching the opposite error: a floor we assert
+   that neither source supports.
+
+   **A cap is not a gate — and cite the entitlement that is actually absent.** Twice on 03 Sep
+   a need forced a higher tier for something the cheaper tier already had. Read receipts were a
+   real mistake (Starter has 50/month; the floor was removed). Attachments were a mis-CITATION:
+   the need was reaching for Neo Drive, which Pandora has **absent from Starter**, but named
+   `storage`, which is mailbox storage at 15/50/100 GB and present everywhere. The floor was
+   right and the reason was wrong, which is harder to catch than a wrong floor. Before adding
+   one, name the entitlement that is ABSENT below it, not the one that is merely smaller.
 3. **No API key ever reaches the browser.** All model calls go through `api/*` serverless functions.
 4. **Every external call must degrade, never block.** Three of them now: the LLM (`api/_lib/llm.ts`,
    replay mode), Neo's site generator (`api/_lib/neoSite.ts`, falls back to a *recorded real*
@@ -68,11 +90,15 @@ Budget prompt-iteration time on the guess screen and the reveal only.
 1. Hook — on the pricing page, opens a full-screen overlay
 2. Free text — "What's your business?" (the only real input, and what justifies an LLM)
 3. The guess — profile reflected back, confirm or correct
-4. **Adaptive questions** — the model returns `questionPriority` (all six ids, ranked for this
+4. **Adaptive questions** — the model returns `questionPriority` (all eight ids, ranked for this
    business) and `prefill` (signals the free text already answered). `engine.ts` consumes the
    ranking head-first for the WHOLE flow and re-checks every id against what is unresolved.
-   Stops when confident, or at 4. Different businesses genuinely get different paths — this was
-   only aspirational until 03 Sep; see DECISIONS.
+   Stops when nothing left to ask could change the recommendation. `MAX_QUESTIONS = 12` is a
+   ceiling that should never bind — the bank holds **eight** questions and a clear-cut business
+   finishes in five. Different businesses genuinely get different paths, and the ranking is
+   arithmetic: `discrimination()` scores what each question would actually narrow, and the
+   model's ordering only breaks ties. **It used to be an override**, which made the scoring
+   dead code in production; see DECISIONS 03 Sep.
    **Never prefill `mailboxCount`** — free text offers headcount, which is not an address count.
    Questions are **multi-select where the world is** (`question.multi`) and most carry a
    **free-text box**. Free text alone resolves the signal — someone who types instead of
@@ -177,19 +203,30 @@ Full detail and sources in `TECHNICAL.md`.
 
 ## CURRENT STATE
 
-_Last updated: 02 Sep 2026 (hackathon day 1). Repositioned 27 Aug after walking Neo's live
+_Last updated: 03 Sep 2026 (hackathon day 2). Repositioned 27 Aug after walking Neo's live
 builder — read `docs/neo-product-facts.md` before claiming anything about what Neo does._
 
 **Working, live, and verified in production**
-- Full adaptive flow: hook → free text → guess → up to 4 engine-chosen questions → reveal.
+- Full adaptive flow: hook → free text → guess → engine-chosen questions (typically 5, ceiling 12) → reveal.
   Verified in a real browser (clipboard paste, 1440×820 laptop, 390×844 mobile).
-- **Adaptive engine** — `src/lib/questions.ts` (6-question bank) + `src/lib/engine.ts`
-  (next question, confidence, narrowing counter, confidence-based early stop).
+- **Adaptive engine** — `src/lib/questions.ts` (**8**-question bank; `client` was measured out
+  on 03 Sep — four options, one plan outcome, and it changed nothing the reveal showed) +
+  `src/lib/engine.ts`
+  (next question, discrimination scoring, stop-when-nothing-narrows). **The confidence
+  backstop was removed 03 Sep** — it silenced a question that could still change the price,
+  and a threshold that can do that is a bug, not a backstop. `confidence()` survives only to
+  drive the meter ring.
   **Weights are now data-derived** (Darrel, 02 Sep): `mailboxCount` leads at 0.3 because it
   multiplies price; the old import-first order was retired as a selection effect. Do not
   re-tune weights by feel — `docs/data-findings.md` §1c and §8 are the reason they are what
   they are.
-- **Generated question wording** — the model rewrites all six questions for the business
+- **The question bank is eight**, and two of today's changes were evidence-led rather than
+  reasoned: `client` was measured out (four options, one plan outcome, no reveal effect), and
+  `extras` asks **past behaviour with a recall window** — "which of these did you do last
+  month?" — because stated intent runs ~21% above actual behaviour (Schmidt & Bijmolt, 77
+  studies). It briefly asked what people *wanted*, which is the worst version. Do not reword it
+  back toward intent; it is the question that decides Max.
+- **Generated question wording** — the model rewrites the questions this run will ASK for the business
   someone typed: prompt, sub-line, placeholder, option labels and hints. Three layers, and
   only the middle one is generated:
   signals + weights fixed · surface text generated · option ids + `resolves` fixed.
@@ -240,10 +277,21 @@ builder — read `docs/neo-product-facts.md` before claiming anything about what
   degrades to a derived profile rather than erroring.
   **Production needs the env vars set on Vercel** (`LLM_MODE`, `LLM_MODEL`, `LLM_API_KEY`) or
   it will silently serve degraded profiles.
-- **Design chooser** — Neo returns three variants; we call once and show one. This is probably
-  the best remaining demo beat.
+- ~~Design chooser~~ — **done 03 Sep.** `generateNeoSites` classifies once for Neo's own
+  `templateKey`, then generates that one AND a deliberately different one in parallel
+  (`Promise.allSettled`, duplicate keys dropped), so the pair costs one call's wall-clock. Both
+  render side by side on the reveal and are **pickable**; the choice rides to Neo as
+  `templateKey`. That param was previously refused on purpose — sending a DERIVED key would
+  make us complicit in the taxonomy bug we are pointing at — and a person choosing between two
+  of Neo's own outputs is not a guess. Neo picks the template randomly client-side
+  (`docs/neo-product-facts.md`); this is the answer to that.
 
-- Sound cues — must ship muted-by-default with a visible toggle.
+- ~~Sound cues — must ship muted-by-default with a visible toggle~~ — **done 03 Sep.**
+  `src/sound.ts` + `SoundToggle`. It had been shipping UNMUTED with no control anywhere:
+  `muted = false`, `unlockSound()` re-unmuting on every option tap, and `setSoundMuted`
+  exported and never called. Now muted by default from localStorage, and `unlockSound()`
+  unlocks the AudioContext only — unlocking and unmuting are different things and only one is
+  the user's decision.
 - ~~Python `analysis/` folder for the persona/retention numbers~~ — **done 02 Sep.**
   `analysis/scripts/` + `analysis/output/`, findings written up in `docs/data-findings.md`.
   5,318 confirmed exactly; the yearly-billing default verified on two datasets; the

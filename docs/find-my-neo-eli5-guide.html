@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Find My Neo — The Ultimate ELI5 & ELI10 Judge Defense Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  @page {
+    size: A4;
+    margin: 16mm 14mm 16mm 14mm;
+    @top-right {
+      content: "Find My Neo — Pitch & Tech Defense Guide";
+      font-family: 'Inter', sans-serif;
+      font-size: 8pt;
+      color: #64748b;
+    }
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-family: 'Inter', sans-serif;
+      font-size: 8.5pt;
+      color: #64748b;
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    line-height: 1.55;
+    font-size: 9.8pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Cover Page */
+  .cover-page {
+    page-break-after: always;
+    height: 100%;
+    min-height: 250mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 24mm 12mm 16mm 12mm;
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+    color: #ffffff;
+    border-radius: 12px;
+  }
+
+  .cover-badge-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .cover-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    background: rgba(99, 102, 241, 0.25);
+    border: 1px solid rgba(129, 140, 248, 0.4);
+    border-radius: 20px;
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: #c7d2fe;
+    text-transform: uppercase;
+  }
+
+  .cover-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 34pt;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 12px;
+    background: linear-gradient(90deg, #ffffff 0%, #cbd5e1 60%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .cover-subtitle {
+    font-family: 'Inter', sans-serif;
+    font-size: 13pt;
+    font-weight: 400;
+    color: #94a3b8;
+    line-height: 1.5;
+    max-width: 600px;
+    margin-bottom: 28px;
+  }
+
+  .cover-callout-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-top: 15px;
+  }
+
+  .cover-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .cover-card-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 11pt;
+    font-weight: 700;
+    color: #38bdf8;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cover-card-desc {
+    font-size: 8.8pt;
+    color: #cbd5e1;
+    line-height: 1.45;
+  }
+
+  .cover-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 8.5pt;
+    color: #64748b;
+  }
+
+  /* Section Headers */
+  .section-header {
+    margin: 28px 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .section-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 18pt;
+    font-weight: 800;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-subtitle {
+    font-size: 8.5pt;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  /* Question Card */
+  .question-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 22px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    overflow: hidden;
+  }
+
+  .question-header {
+    padding: 12px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .q-number-pill {
+    display: inline-block;
+    padding: 3px 8px;
+    background: #4f46e5;
+    color: #ffffff;
+    border-radius: 6px;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .q-number-pill.tech {
+    background: #0284c7;
+  }
+
+  .q-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 12pt;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.35;
+    flex-grow: 1;
+  }
+
+  .q-tag {
+    font-size: 7.5pt;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: #e0e7ff;
+    color: #3730a3;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .q-tag.tech-tag {
+    background: #e0f2fe;
+    color: #0369a1;
+  }
+
+  .card-body {
+    padding: 14px 16px;
+  }
+
+  /* The Judge's Mind / Hidden Worry */
+  .sub-block {
+    margin-bottom: 12px;
+  }
+
+  .sub-label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 8.2pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #475569;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .judge-worry {
+    font-size: 9pt;
+    color: #475569;
+    font-style: italic;
+    background: #f1f5f9;
+    border-left: 3px solid #94a3b8;
+    padding: 6px 10px;
+    border-radius: 0 6px 6px 0;
+  }
+
+  /* Official Pro Answer */
+  .pro-answer {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-left: 3px solid #4f46e5;
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+    font-size: 9.3pt;
+    font-weight: 500;
+    color: #1e1b4b;
+    line-height: 1.45;
+  }
+
+  .pro-answer.tech {
+    border-left-color: #0284c7;
+    color: #082f49;
+  }
+
+  /* ELI5 Story & Analogy */
+  .eli5-box {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-left: 3px solid #f59e0b;
+    border-radius: 0 6px 6px 0;
+    padding: 10px 12px;
+    font-size: 9.2pt;
+    color: #78350f;
+    line-height: 1.5;
+  }
+
+  .eli5-box strong {
+    color: #92400e;
+  }
+
+  /* Plain-English Concept / Jargon Buster */
+  .jargon-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .jargon-item {
+    font-size: 8.8pt;
+    color: #334155;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .jargon-term {
+    font-weight: 700;
+    color: #0f172a;
+    background: #e2e8f0;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 8.2pt;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+
+  /* The Neo Secret / Repo Facts */
+  .secret-box {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-left: 3px solid #10b981;
+    border-radius: 0 6px 6px 0;
+    padding: 8px 12px;
+    font-size: 8.8pt;
+    color: #14532d;
+    line-height: 1.45;
+  }
+
+  .secret-box strong {
+    color: #166534;
+  }
+
+  /* Panic One-Liner */
+  .panic-line {
+    background: #fdf2f8;
+    border: 1px dashed #f472b6;
+    border-radius: 6px;
+    padding: 7px 11px;
+    font-size: 8.9pt;
+    font-weight: 600;
+    color: #9d174d;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panic-line span.label {
+    background: #fbcfe8;
+    color: #831843;
+    font-size: 7.5pt;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  /* Tables */
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 8.5pt;
+  }
+
+  .summary-table th {
+    background: #0f172a;
+    color: #ffffff;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #1e293b;
+  }
+
+  .summary-table td {
+    padding: 7px 10px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+
+  .summary-table tr:nth-child(even) {
+    background: #f8fafc;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+
+  .highlight-metric {
+    font-family: 'Outfit', sans-serif;
+    font-size: 16pt;
+    font-weight: 800;
+    color: #4f46e5;
+  }
+
+  .summary-table thead {
+    display: table-header-group;
+  }
+
+  .summary-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .glossary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .glossary-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  .glossary-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 9.5pt;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .glossary-desc {
+    font-size: 8.4pt;
+    color: #475569;
+    line-height: 1.4;
+  }
+
+  .checklist-box {
+    margin-top: 14px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+
+  .checklist-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 10pt;
+    font-weight: 700;
+    color: #065f46;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .checklist-items {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    font-size: 8.3pt;
+    color: #047857;
+  }
+
+  .checklist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover-page">
+  <div>
+    <div class="cover-badge-row">
+      <span class="cover-badge">Ignite 2026 Hackathon</span>
+      <span class="cover-badge">Product: Find My Neo</span>
+      <span class="cover-badge">Internal Defense Manual</span>
+    </div>
+    <h1 class="cover-title">The Complete ELI5 & ELI10<br>Judge Defense Guide</h1>
+    <p class="cover-subtitle">
+      Plain-English breakdowns, kindergarten analogies, and hard codebase truths for all 18 business, stakeholder, and technical questions.
+    </p>
+
+    <div class="cover-callout-grid">
+      <div class="cover-card">
+        <div class="cover-card-title">💡 Why This Document Exists</div>
+        <div class="cover-card-desc">
+          Hackathon answers are written in ultra-crisp executive bullet points. But on stage, under pressure, you need to understand <em>why</em> the system works the way it does. This guide explains every concept so simply that a 5-year-old or 10-year-old would immediately get it.
+        </div>
+      </div>
+      <div class="cover-card">
+        <div class="cover-card-title">🛡️ Who Sits In That Room?</div>
+        <div class="cover-card-desc">
+          Judges come from GTM (Marketing), Design, Data Science, Customer Support, HR, Finance, and Core Engineering. Each judge has a hidden anxiety (budget, bugs, churn, latency). This guide arms you to address their exact fear.
+        </div>
+      </div>
+      <div class="cover-card">
+        <div class="cover-card-title">🧱 Section 03: The 8 Stakeholder Q&As</div>
+        <div class="cover-card-desc">
+          Covers pricing page drop-off, form fatigue, the 62.5% churn reality, $15 total budget, why we don't oversell expensive tiers, and how Neo's existing site builder connects.
+        </div>
+      </div>
+      <div class="cover-card">
+        <div class="cover-card-title">⚙️ Section 04: The 10 Technical Q&As</div>
+        <div class="cover-card-desc">
+          Deep-dives into determinism, the 4 server-side checks, Pandora entitlement truth vs marketing site bugs, DomScan registry lookups, unpublished site collision, and GPT-5.6 latency.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cover-footer">
+    <div>Repository: <code>neo-akinator</code> (Shipped Name: <strong>Find My Neo</strong>)</div>
+    <div>Confidential · Hackathon Prep Companion</div>
+  </div>
+</div>
+
+<!-- BIG PICTURE CRASH COURSE -->
+<div class="section-header">
+  <div>
+    <h2 class="section-title">🌟 The 2-Minute Crash Course: What Is Find My Neo?</h2>
+    <div class="section-subtitle">Read this first before diving into individual questions</div>
+  </div>
+</div>
+
+<div class="question-card">
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🧸 The Ice Cream Parlor Analogy (Explain Like I'm 5)</div>
+      <div class="eli5-box">
+        Imagine you walk into an enormous ice cream shop with <strong>500 confusing jars and toppings</strong>. The cashier points to a giant menu board full of complicated packages: <em>"Bronze Cup: 15g sugar, Silver Cone: 50g sugar, Gold Tub: unlimited napkins."</em><br><br>
+        You have no idea what to choose! You just want a tasty snack for yourself and your baby sister. If you pick the giant Gold Tub, you spend all your pocket money and feel sick. If you pick the tiny Bronze Cup, you run out of ice cream in two bites and get upset.<br><br>
+        <strong>Find My Neo</strong> is a friendly shop assistant who steps out with a smile and says: <em>"Tell me what you're craving!"</em> You say: <em>"I like chocolate, and my sister is small."</em> The assistant asks two quick questions (<em>"Cones or cups? Any sprinkles?"</em>), hands you the exact right double-scoop cone, gives you a sticker with your name on it, tells you the exact price, and walks you right to the cashier. <strong>Zero guessing, zero tears, zero wasted money.</strong>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🏢 What Neo Does Today vs What Find My Neo Adds</div>
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>The Customer Flow</th>
+            <th>Neo's Current Flow Today</th>
+            <th>With Find My Neo (Our Hackathon Build)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>1. Landing on Pricing</strong></td>
+            <td>User sees Starter (₹149), Standard (₹299), Max (₹499). Giant table of 78 features. User gets confused.</td>
+            <td>User sees a friendly prompt: <em>"Not sure which plan fits your business? Let's find it in 30 seconds."</em> (Opt-in!)</td>
+          </tr>
+          <tr>
+            <td><strong>2. Understanding Needs</strong></td>
+            <td>Dropdown category box. If you type "Bakery", it doesn't match! (Creates 5,318 messy strings). User guesses mailboxes & storage.</td>
+            <td>User types freely: <em>"Two-person bakery in Bandra taking cake orders on Instagram."</em> AI reads it instantly.</td>
+          </tr>
+          <tr>
+            <td><strong>3. Questions Asked</strong></td>
+            <td>Fixed rigid questions or none at all.</td>
+            <td>Adaptive questions (3 to 5 questions). Stops the second the plan is locked in. Wording adapts to a bakery.</td>
+          </tr>
+          <tr>
+            <td><strong>4. The Outcome</strong></td>
+            <td>User buys the wrong plan. <strong>62.5% of higher-plan buyers cancel or don't renew</strong> within months!</td>
+            <td>Exact cheapest plan fitted to real Pandora entitlements + real available domain + Neo's AI generated site preview.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 03: THE 8 STAKEHOLDER / JUDGE QUESTIONS -->
+<div class="page-break"></div>
+
+<div class="section-header">
+  <div>
+    <h2 class="section-title">03 · Stakeholder & Business Questions</h2>
+    <div class="section-subtitle">For judges from GTM, Design, Data, Customer Support, HR, and Finance</div>
+  </div>
+</div>
+
+<!-- Q1 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill">Q1</span>
+    <div class="q-title">Isn't this just a form with extra steps?</div>
+    <span class="q-tag">Design / Product</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Why didn't you just make a Typeform or Google Form? Aren't you over-engineering something simple to look flashy?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer">
+        "A form asks everyone the same things. This picks each question by how much it would change the recommendation, and stops the moment nothing left can change it — so the locksmith answers fewer questions than the studio. And it's a form that ends in a price, not a category."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The 20 Questions Game)</div>
+      <div class="eli5-box">
+        A regular form is like a boring school test where <strong>every single kid has to answer all 50 questions</strong>, even the questions about dinosaurs when you're taking a math test!<br><br>
+        Find My Neo is playing the game <strong>"Guess Who?"</strong> or <strong>"20 Questions"</strong>. If your first clue is <em>"My character has a giant white beard"</em>, you don't ask <em>"Are they wearing earrings?"</em>. You immediately ask: <em>"Are they Santa Claus?"</em> The second you know it's Santa, the game is over! A simple solo locksmith might only answer 3 quick questions. A big photo studio with 4K video files and invoicing might get 5. And it gives you an exact price tag, not just a tag saying "You're a business!"
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Discrimination Score</span> How good a question is at cutting the remaining options in half. If a question doesn't eliminate any plans, we throw it in the trash and don't ask it.</div>
+        <div class="jargon-item"><span class="jargon-term">Early Stop</span> Code checking after every single tap: <em>"Could any remaining question change what plan this person gets?"</em> If no, STOP asking and show the prize!</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>src/lib/engine.ts</code>, the math function <code>discrimination()</code> scores every question against remaining candidate plans. Questions that only change cosmetic feature bullets are capped by <code>FEATURE_ONLY_BUDGET = 2</code> so we never trap the user in question purgatory.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "Forms ask everyone everything; we play Guess Who, cut questions that don't move the price, and stop the millisecond the plan is settled."
+    </div>
+  </div>
+</div>
+
+<!-- Q2 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill">Q2</span>
+    <div class="q-title">Neo already has an AI site builder that asks about the business. How is this different?</div>
+    <span class="q-tag">GTM / Product</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Neo already spent months building an AI website builder (neo.space/ai-website-builder). Did you just duplicate what our core product team already built?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer">
+        "It spends that answer on a template and then drops it. The person still lands on the pricing table and guesses. We take the same answer and carry it all the way to a plan, a mailbox count and a price."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The Forgetting Waiter)</div>
+      <div class="eli5-box">
+        Imagine you walk into a cafe and tell the waiter: <em>"I have a peanut allergy, I'm super hungry, and I'm with two friends."</em><br><br>
+        The chef uses that info to cook a peanut-free meal, but then <strong>throws your note into the shredder!</strong> When you go to the register, the cashier stares blankly at you and says: <em>"Pick a lunch ticket: Ticket A ($10), Ticket B ($25), or Ticket C ($50). Which one has peanut-free meals for 3 people? Guess!"</em><br><br>
+        That's Neo today! Their AI site builder designs a webpage, but when you go to pay for business email and hosting, it forgets everything you said. <strong>Find My Neo carries your answers all the way to the cash register</strong>: it calculates your mailboxes, picks the exact right plan, and prices it.
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Funnel / Purchase Flow</span> The conveyor belt a customer rides from discovering a website to typing in their credit card.</div>
+        <div class="jargon-item"><span class="jargon-term">Pre-Qualified</span> Knowing exactly what the customer needs <em>before</em> they hit checkout, so they never hesitate or abandon their cart.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        Over 130,000 businesses have used Neo's AI site builder. But Neo's category dropdown doesn't even recognize common words like "bakery" (it literally records "bakery" as a raw custom string). We connect directly to Neo's real backend generator in <code>api/_lib/neoSite.ts</code> and carry the customer straight to checkout.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "Their builder uses your answer to color a webpage and then forgets it; we carry that same answer all the way to the right plan, mailbox count, and price."
+    </div>
+  </div>
+</div>
+
+<!-- Q3 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill">Q3</span>
+    <div class="q-title">What if it recommends the wrong plan?</div>
+    <span class="q-tag">Customer Support / QA</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"AI makes stuff up (hallucinations). If an LLM tells a customer to buy the wrong plan, our support team will get yelled at and have to issue refunds!"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer">
+        "The plan isn't a judgement call — it's the cheapest configuration that satisfies every requirement the answers established, and each requirement points at a specific Neo entitlement. If it's wrong, it's wrong the same way every time and we can trace exactly which answer caused it. That's the reason we didn't let the model decide it."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The Strict Lego Box Rule)</div>
+      <div class="eli5-box">
+        Imagine you're building a Lego castle. You don't ask a magic talking robot: <em>"Hey robot, guess what box I should buy!"</em> The robot might say <em>"Buy the $500 spaceship box because it looks shiny!"</em> That's silly.<br><br>
+        Instead, you write down on paper: <em>"I need 4 wheels and 2 windows."</em> Then a simple metal sorting machine looks at the rulebook and finds the <strong>smallest, cheapest box that contains 4 wheels and 2 windows</strong>. If the box is wrong, it's because you wrote down the wrong number of wheels—not because the robot had a daydream! <strong>The AI never picks the plan; strict math code does.</strong>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Entitlement</span> A feature or permission stored in Neo's database (e.g., "Can this user send 1,000 emails a day?", "Do they have Neo Drive storage?").</div>
+        <div class="jargon-item"><span class="jargon-term">Deterministic</span> 100% predictable math. 2 + 2 will equal 4 every single time, whether you run it today, tomorrow, or a million times.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>src/lib/rules.ts</code> and <code>candidates.ts</code>, plans are mapped strictly from requirements to Pandora database entitlements. If someone needs Appointment Booking, code flags <code>appointment_booking</code>, which sets the floor to Max. The AI cannot invent entitlements or pick plans.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "The plan isn't an AI guess—it's a strict mathematical lookup of the cheapest plan that covers their required entitlements, fully traceable in code."
+    </div>
+  </div>
+</div>
+
+<!-- Q4 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill">Q4</span>
+    <div class="q-title">Won't adding a quiz increase drop-off?</div>
+    <span class="q-tag">Growth / GTM</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Any friction on the checkout page kills conversion rates! If you force users to take a quiz, they will close the tab and leave!"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer">
+        "It's opt-in from the pricing page, not a gate — anyone who knows what they want goes straight to the plans. And the comparison isn't quiz-versus-nothing, it's quiz-versus-guessing: 62.5% of higher-plan Mail orders cancelled or didn't renew."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The Theme Park Fast Lane)</div>
+      <div class="eli5-box">
+        Imagine you visit Disneyland. You know you want to ride Space Mountain right now. Nobody blocks the door and forces you to take a quiz about Mickey Mouse before entering! If you know what you want, you just walk right up and buy your ticket.<br><br>
+        Find My Neo is a friendly helper standing off to the side with a sign: <em>"First time here? Not sure which ride is best for little kids? Tap here and I'll tell you!"</em><br><br>
+        And here is the scary truth: when people are forced to guess on the pricing page without help, <strong>more than 6 out of 10 people who buy expensive plans end up cancelling and throwing it in the trash!</strong> Guessing is what kills the business, not a helpful guide.
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Opt-in vs Gate</span> A "Gate" locks the door until you answer. "Opt-in" is an optional button you only click if you're confused.</div>
+        <div class="jargon-item"><span class="jargon-term">Drop-off / Churn</span> Drop-off is leaving before buying. Churn is buying, hating it, and cancelling your subscription 60 days later.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Data)</div>
+      <div class="secret-box">
+        In <code>docs/data-findings.md</code>, analysis of 18,399 real Neo orders revealed that baseline retention is only 36% (64% cancel). For higher-tier plans where users were forced to guess, <strong>62.5% cancelled or didn't renew</strong>. The pricing page isn't working—it's bleeding customers.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "It's an optional helper button, not a mandatory wall—and preventing 62.5% of customers from cancelling because they guessed wrong is worth 30 seconds."
+    </div>
+  </div>
+</div>
+
+<!-- Q5 -->
+<div class="page-break"></div>
+
+<!-- Q5 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill">Q5</span>
+    <div class="q-title">How would you measure whether it works?</div>
+    <span class="q-tag">Data / Finance</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Are you going to show me useless vanity metrics like 'number of people who clicked the quiz'? How does this actually make money for Neo?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer">
+        "Variant against the standard pricing page, measured on Mail day-one purchases and month-three retention — not clicks. The point is better-fitted customers, not more of them, so a flat conversion rate with lower churn is a win."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 10 (The Shoe Store Test)</div>
+      <div class="eli5-box">
+        Imagine you own a running shoe store. If you hire a fast-talking salesman who pushes giant size-13 boots onto 100 people, your cash register rings 100 times on Day 1. You think you're rich!<br><br>
+        But 3 weeks later, 60 people come back with blisters, demanding refunds and screaming at you. You actually lost money!<br><br>
+        To test if Find My Neo works, we split incoming visitors into two groups (an <strong>A/B Test</strong>). Half see the old confusing table; half see our smart quiz option. We don't care how many people click the buttons. We check two real numbers: <strong>Did they buy on Day 1?</strong> and <strong>Are they still paying on Month 3?</strong> If customer sign-ups stay the same, but cancellations plummet, Neo makes millions more in recurring profit!
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">A/B Variant Test</span> Showing 50% of people Version A (old pricing page) and 50% Version B (pricing page + Find My Neo) to compare real results scientifically.</div>
+        <div class="jargon-item"><span class="jargon-term">Month-Three Retention</span> The percentage of customers who are still paying their monthly subscription after 90 days.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>docs/notes.md</code>, we explicitly note that the pitch will be ruined if we argue about "page views" or "quiz completions". The entire financial thesis is that Neo's annual customers retain at 73% vs 31% for monthly, and fitted plans stop early churn.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "We measure Day-1 checkout and Month-3 subscription renewal against the standard page—our goal is better-fitted customers who stay, not vanity clicks."
+    </div>
+  </div>
+</div>
+
+<!-- Q6 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill">Q6</span>
+    <div class="q-title">Why not just have it recommend the expensive plan? More revenue.</div>
+    <span class="q-tag">Finance / Sales</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"I'm a greedy business person. Why wouldn't I rig the algorithm to always recommend the ₹499 Max plan so we make more money today?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer">
+        "That's the failure mode we spent most of our time engineering against — a model asked to recommend will always sell up. Overselling shows up three months later as a cancellation, and the data already shows it does."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The Overstuffed Backpack)</div>
+      <div class="eli5-box">
+        Imagine you go to buy a school backpack. The shopkeeper sells you an enormous 80-pound mountain climbing expedition backpack with ice picks, satellite radios, and ropes for $300.<br><br>
+        You only wanted to carry two notebooks and a pencil! On day two, your back hurts, you realize you were tricked into paying for junk you'll never use, and your mom marches back to the store, demands a full refund, and leaves a 1-star review on Google.<br><br>
+        If an AI is told <em>"Make as much money as possible"</em>, it will trick every bakery into buying enterprise marketing software. Three months later, they cancel forever. <strong>A happy customer paying ₹149 for two years is worth way more than an angry customer paying ₹499 for 60 days.</strong>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Overselling</span> Forcing someone into a high-tier product they don't need, causing buyer's remorse and immediate churn.</div>
+        <div class="jargon-item"><span class="jargon-term">LTV (Lifetime Value)</span> The total amount of money a customer pays you over years, not just on their first credit card swipe.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>api/_lib/planService.ts</code>, the system prompt explicitly commands the model: <em>"Deterministic code has already worked out the cheapest plan... Almost always the answer is no citations. Do not raise unless there is undeniable evidence."</em>
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "Overselling looks like revenue on day 1 and turns into cancellations on day 90; keeping a happy customer for two years beats tricking them for two months."
+    </div>
+  </div>
+</div>
+
+<!-- Q7 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill">Q7</span>
+    <div class="q-title">Who maintains this when the plans change?</div>
+    <span class="q-tag">Engineering / HR</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Marketing changes prices every quarter. Will our software engineers have to spend three weeks rewriting code every time a price changes by ₹10?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer">
+        "Prices and entitlements are data files, not code — updating them is editing a table. The questions and the reasoning don't change when a price does."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The Restaurant Menu Chalkboard)</div>
+      <div class="eli5-box">
+        Think of a pizza restaurant. When the price of cheese goes up by $1, the chef doesn't knock down the restaurant walls, rip out the kitchen pipes, and rebuild the oven from scratch!<br><br>
+        The manager simply takes a piece of chalk, rubs out "$10" on the blackboard, and writes "$11".<br><br>
+        In Find My Neo, <strong>all prices, storage limits, and features live in simple JSON data tables</strong>. If Neo renames a plan or raises prices, any marketing intern can change the number in the table in 10 seconds. The computer code and the quiz logic stay untouched!
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Data File vs Code</span> A "code file" is the engine of the car. A "data file" is the playlist in the radio. Changing the song doesn't require rebuilding the engine.</div>
+        <div class="jargon-item"><span class="jargon-term">Decoupling</span> Keeping the business rules and prices completely separate from the software logic.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        All plans are in <code>src/data/plans.json</code>, mail features are in <code>src/data/mail-features.json</code>, and entitlements are in <code>plan-features.json</code>. The files even carry explanatory comments so a non-engineer can update them safely.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "Prices and features live in simple JSON data tables, not in application logic—updating a price takes 10 seconds in a text editor without touching code."
+    </div>
+  </div>
+</div>
+
+<!-- Q8 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill">Q8</span>
+    <div class="q-title">What did it cost to build and run?</div>
+    <span class="q-tag">Finance / CTO</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Is this AI quiz burning thousands of dollars in OpenAI server fees every single day? Is it economically viable?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer">
+        "Three model calls per run, and the entire build plus all our testing fit inside a $15 API budget. It's a cheap thing to put in front of a purchase."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The Penny Gumball)</div>
+      <div class="eli5-box">
+        When people hear "Artificial Intelligence", they think of multimillion-dollar supercomputers burning enough electricity to heat an entire city!<br><br>
+        In Find My Neo, the AI only does 3 tiny chores: it reads a sentence, rewrites a question, and writes a congratulations note. That uses tiny microscopic tokens. <strong>Each customer run costs less than a tenth of a single cent (a tiny fraction of a penny)!</strong><br><br>
+        During the entire hackathon, while writing code, testing hundreds of businesses, and rehearsing our pitch, we spent less than <strong>$15 in total</strong>! Putting a 1-cent assistant in front of a ₹3,000 subscription purchase is one of the highest-ROI investments Neo could ever make.
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Model Call</span> Sending a quick text prompt to an AI server (like OpenAI) and getting a JSON reply back.</div>
+        <div class="jargon-item"><span class="jargon-term">API Budget</span> The credit balance used to pay for AI compute. Our entire hackathon grant was $15.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>TECHNICAL.md</code>: Terra costs $2 / $12 per 1M tokens, Luna costs $0.20 / $1.20 per 1M tokens. At ~500 tokens per call, running Luna costs roughly <strong>$0.0005 (half of one-tenth of a cent)</strong> per customer session!
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "Exactly 3 lightweight model calls per session costing a fraction of a cent; our entire development and testing fit inside a $15 credit budget."
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 04: THE 10 TECHNICAL QUESTIONS -->
+<div class="page-break"></div>
+
+<div class="section-header">
+  <div>
+    <h2 class="section-title">04 · Deep Technical Defense Questions</h2>
+    <div class="section-subtitle">Sound like the lead architect who made the tough technical calls</div>
+  </div>
+</div>
+
+<!-- Q9 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill tech">Q9</span>
+    <div class="q-title">Does the AI pick the price?</div>
+    <span class="q-tag tech-tag">Architecture</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Did you let an unconstrained LLM output numbers like 'Price: $19/mo'? What happens when prompt injection makes it offer a plan for ₹0?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer tech">
+        "No, and it can't — it is never given the numbers. Prices and plan limits live in code. The model may only raise a tier, never lower one, and only by naming a specific entitlement and quoting the customer's own words — which the server then checks against what they actually wrote. A quote it can't find is a raise that gets refused."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 10 (The 4 Security Guard Checks)</div>
+      <div class="eli5-box">
+        Imagine you visit a carnival game. The AI is a carnival barker who listens to you. But the AI is <strong>blindfolded and has never seen any money in its life</strong>! It doesn't even know what a Rupee or a Dollar is.<br><br>
+        If the AI thinks you need a higher plan because of something unique you typed, it has to pass <strong>4 strict security guards</strong> on our server:
+        <ol style="margin-left: 18px; margin-top: 6px;">
+          <li><strong>Check 1 (The Password Enum):</strong> The AI can only name a pre-approved entitlement from an official list (like <code>drive_storage</code>). It cannot make up a new word.</li>
+          <li><strong>Check 2 (The Price Table):</strong> The server looks up the price in our own hardcoded file. The AI's opinion on price is never asked.</li>
+          <li><strong>Check 3 (The Verbatim Quote Check):</strong> The AI must quote the exact words the user wrote. If the user wrote "I send huge 4K movies" and the AI quotes "I send huge 4K movies", the server checks if those characters exist in the user's text. If not, the raise is rejected!</li>
+          <li><strong>Check 4 (Tap Beats AI):</strong> If the user explicitly tapped a button on screen, the tap overrules the AI every single time!</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Enum / Constrained Decoding</span> Forcing the AI's output format so it can only pick from a fixed set of approved keys. It is physically impossible for the model to output a made-up word.</div>
+        <div class="jargon-item"><span class="jargon-term">Verbatim Substring Match</span> Server code doing <code>text.includes(quote)</code> to make sure the AI isn't inventing fake quotes.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>api/_lib/planService.ts</code>: a video studio typed <em>"enormous 4K video files every single day"</em> but tapped <em>"Mostly just messages"</em> on the volume question. The model attempted to raise them to Max. The server rejected the raise because <code>ENTITLEMENT_QUESTION['drive_storage'] = 'volume'</code> was already tapped!
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "The AI never sees numbers; it can only request a tier raise by citing a fixed enum and verbatim customer quote, which our server strictly validates."
+    </div>
+  </div>
+</div>
+
+<!-- Q10 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill tech">Q10</span>
+    <div class="q-title">What does the model actually do, then?</div>
+    <span class="q-tag tech-tag">AI Engineering</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"If deterministic code handles the plan, pricing, and rules, why did you even use an LLM? Is the AI just a marketing buzzword?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer tech">
+        "Three things: it reads the free-text description into a structured profile, it rewrites each question and its options for that specific business, and it writes the explanation on the reveal from reasons the solver already computed. Everything that costs money is deterministic; everything that makes it feel written for you is generated."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The Poet and the Accountant)</div>
+      <div class="eli5-box">
+        Imagine you're planning a birthday party. You hire two people:<br><br>
+        1. <strong>The Accountant (Deterministic Code):</strong> Super strict, calculates the exact bill, checks how many chairs are in the hall, and guarantees you don't overspend a single dime.<br>
+        2. <strong>The Poet / Friendly Host (The AI Model):</strong> Listens to your favorite stories, designs personalized party invitations that mention your love of puppies, and writes a heartfelt birthday card just for you!<br><br>
+        If the Poet tried to do the math, they'd make mistakes. If the Accountant tried to write the party card, it would look like a boring spreadsheet. <strong>The AI handles the empathy and personalization; the code handles the money.</strong>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Structured Profile</span> Converting messy human sentences (<em>"we sell custom cakes in Mumbai"</em>) into neat computer data (<code>{ industry: "bakery", location: "Mumbai", teamSize: 2 }</code>).</div>
+        <div class="jargon-item"><span class="jargon-term">Dynamic Rewording</span> Changing generic questions like <em>"Do you sell products?"</em> into <em>"Do your cakes ship across India or just local delivery?"</em> so the user feels understood.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>src/lib/api.ts</code> and <code>api/questions.ts</code>, the LLM takes the fixed question bank from <code>questions.ts</code> and generates a <code>SurfaceMap</code>. If the model is offline, the app simply uses the fixed questions without blinking!
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "The LLM does empathy, not arithmetic: it extracts the profile, customizes question wording, and writes the reveal explanation based on solver facts."
+    </div>
+  </div>
+</div>
+
+<!-- Q11 -->
+<div class="page-break"></div>
+
+<!-- Q11 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill tech">Q11</span>
+    <div class="q-title">How do you choose which question to ask next?</div>
+    <span class="q-tag tech-tag">Algorithm / Math</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Is it just asking questions 1, 2, 3, 4 in a fixed order? Or is the AI hallucinating random questions out of nowhere?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer tech">
+        "Each remaining question is scored by how many candidate plans it would eliminate. We ask the most discriminating one, and stop when nothing left would change the outcome. That's also why two businesses get different questions rather than the same list reordered."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 10 (The Binary Search Tree / 20 Questions)</div>
+      <div class="eli5-box">
+        Suppose I pick a number between 1 and 100. If your first question is: <em>"Is it 47?"</em>, that's a terrible question! If I say no, you only eliminated 1 number and 99 numbers remain.<br><br>
+        A genius player asks: <em>"Is it higher than 50?"</em> Boom! Half the universe (50 numbers) is eliminated in one move!<br><br>
+        Our question engine does the exact same thing with computer plans:
+        <ul style="margin-left: 18px; margin-top: 6px;">
+          <li>Before each screen, code asks: <em>"If the user answers Question A, how many plans get eliminated? What about Question B?"</em></li>
+          <li>We rank them: <strong>Price Impact first</strong>, then <strong>Feature bullets second</strong>, then <strong>Model preference only as a tie-breaker</strong>.</li>
+          <li>We ask the question that slashes the possibilities the most.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Lexicographic Ranking</span> Sorting by priority levels. First priority: Does it change what they pay? Second priority: Does it change what features they see? Third priority: AI tie-breaker.</div>
+        <div class="jargon-item"><span class="jargon-term">Discrimination</span> The mathematical power of an answer to rule out candidate choices.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        On 03 Sep (documented in <code>DECISIONS.md</code>), we caught a bug where the model was asking <em>"Which mail client do you use?"</em> early because it swapped two feature bullets. We fixed it with lexicographic ranking: price-moving questions are strictly forced ahead of cosmetic feature questions!
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "We score each question by how many candidate plans it mathematically eliminates; price-deciding questions are prioritized over cosmetic feature questions."
+    </div>
+  </div>
+</div>
+
+<!-- Q12 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill tech">Q12</span>
+    <div class="q-title">What happens when the model call fails or times out?</div>
+    <span class="q-tag tech-tag">Resilience / DevOps</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"OpenAI goes down all the time. If an API request times out or returns a 500 error, does the entire checkout page crash with a white screen of death?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer tech">
+        "Nothing user-visible breaks. Questions fall back to their fixed wording and the recommendation is unaffected, because the plan never depended on the model. The harder problem was that this fails silently — a timeout returns a plausible screen, not an error — so we added reporting for the empty-but-successful case specifically."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The Backup Candle)</div>
+      <div class="eli5-box">
+        Imagine you're having dinner at a restaurant with fancy electric lights that change colors. Suddenly, the power company has a blackout!<br><br>
+        The waiter doesn't throw your food in the trash and kick you out into the rain! Instead, the restaurant instantly lights warm, beautiful candles on your table. You still eat your delicious pizza, the food tastes the exact same, and you leave completely happy.<br><br>
+        In Find My Neo, <strong>every external API call has a safety net (Graceful Degradation)</strong>. If OpenAI times out, the app silently uses our standard, beautifully written question bank. The plan calculation doesn't care about OpenAI anyway! The user never sees an error popup.
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Graceful Degradation</span> When something breaks behind the scenes, the website keeps running smoothly instead of showing an error screen.</div>
+        <div class="jargon-item"><span class="jargon-term">Fallback Bank</span> The pre-written list of standard questions stored safely inside the frontend bundle.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>api/_lib/llm.ts</code> and <code>api/log.ts</code>, failures don't throw uncaught exceptions. Because a timeout silently returns default wording without crashing, we built custom telemetry in <code>api/log.ts</code> to log "empty-but-successful" events so engineers can track OpenAI uptime.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "Zero crashes: timeouts fall back to our pre-packaged question bank and the plan calculation proceeds identically, with silent errors logged to telemetry."
+    </div>
+  </div>
+</div>
+
+<!-- Q13 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill tech">Q13</span>
+    <div class="q-title">Is it deterministic? Same answers, same plan?</div>
+    <span class="q-tag tech-tag">Consistency / QA</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"If I run the exact same business twice on two different laptops, will your system recommend Starter to one person and Max to the other?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer tech">
+        "Yes — we verified it across repeated runs. The generated wording varies; the recommendation doesn't. And an explicit tap always beats anything inferred from the description, so if they type “huge video files” and then tap “mostly just messages”, the tap wins."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The Two Twins Test)</div>
+      <div class="eli5-box">
+        Imagine twin brothers, Timmy and Tommy, walk into the bakery. Both of them say: <em>"I want a vanilla cupcake with rainbow sprinkles."</em><br><br>
+        The baker might smile and say to Timmy: <em>"Here's your awesome treat, superstar!"</em> and might say to Tommy: <em>"Here's a delicious snack, buddy!"</em> The words spoken were slightly different. But what's in the box? <strong>Both boys get the exact same cupcake for the exact same $3 price.</strong><br><br>
+        Same here: the AI's descriptive adjectives might vary slightly, but the math rules governing the price and plan return the identical tier down to the penny.
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Explicit Tap Beats Inference</span> If the user physically clicks a button with their finger, the computer believes their finger, not what the AI guessed from their typing.</div>
+        <div class="jargon-item"><span class="jargon-term">Repeatability</span> Running 100 automated test simulations on the same profile to prove the recommendation never changes.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>CLAUDE.md</code> rule 2 and <code>DECISIONS.md</code> (Snapshot v7), we documented test runs verifying that 10 runs of identical inputs produce the identical plan and price. <code>temperature</code> is omitted (and rejected by GPT-5.6 anyway).
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "100% deterministic on pricing: the AI wording has slight creative variation, but identical user inputs yield the identical plan and price every single time."
+    </div>
+  </div>
+</div>
+
+<!-- Q14 -->
+<div class="page-break"></div>
+
+<!-- Q14 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill tech">Q14</span>
+    <div class="q-title">Which model, and why that one?</div>
+    <span class="q-tag tech-tag">Model Selection / Cost</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Why did you pick this specific model? Are you locked in? Can we swap it out for a cheaper or in-house model later?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer tech">
+        "GPT-5.6 through our internal seam, chosen for latency more than quality — it's writing short question text, not reasoning about plans. It's one config line to swap, because nothing about the recommendation depends on which model is behind it."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (Choosing a Bicycle vs a Rocket Ship)</div>
+      <div class="eli5-box">
+        If you just need to ride down the street to buy a bottle of milk, you don't rent a NASA Space Shuttle rocket! A rocket takes 3 hours to fuel up and costs millions of dollars. You jump on a swift, lightweight bicycle and get there in 30 seconds.<br><br>
+        Because our system <strong>does not ask the AI to solve hard math problems or compute financial algorithms</strong>, we don't need the slowest, most expensive model on earth. We picked GPT-5.6 (Terra/Luna) because it responds in a split-second. And because we wrapped it in a clean adapter, swapping to another model (like Claude, Gemini, or Llama) is as simple as changing one line in a settings file!
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Latency</span> The waiting time in milliseconds between when you click a button and when the response comes back. Fast is good!</div>
+        <div class="jargon-item"><span class="jargon-term">Internal Seam / Decoupled Adapter</span> Code built with a clean socket. You can unplug OpenAI and plug in Anthropic or Google without touching the website code.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>TECHNICAL.md</code>: Terra was already A/B proven in <code>flock-partner-analysis</code>. Luna is 10x cheaper ($0.20/1M tokens) and ideal for production. The model is called strictly via <code>api/_lib/llm.ts</code>; changing <code>MODEL_NAME</code> in config points the entire pipeline to any model.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "GPT-5.6 selected for low latency rather than deep reasoning; decoupled behind a 1-line config seam so we can swap providers instantly."
+    </div>
+  </div>
+</div>
+
+<!-- Q15 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill tech">Q15</span>
+    <div class="q-title">What do you send to the model? Any customer data?</div>
+    <span class="q-tag tech-tag">Privacy / Security</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Are you sending our customers' credit cards, email addresses, passwords, or personal identifying information (PII) to an external third-party API?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer tech">
+        "The business description they just typed, and the list of question IDs to reword. No account data, no email addresses, nothing retained."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The Postcard with No Name)</div>
+      <div class="eli5-box">
+        Imagine you want an artist to draw a picture of a tree for your front yard. You don't hand the artist your house keys, your diary, your passport, and your bank card!<br><br>
+        You just write on a blank postcard: <em>"An oak tree with green leaves."</em> You don't put your name on it, you don't put your phone number on it. The artist draws the oak tree, hands you the sketch, and you walk away. <strong>They have no idea who you are.</strong><br><br>
+        We only send the anonymous business sentence (<em>"bakery in Bandra"</em>) to the model. We don't send emails, user IDs, or payment info. And the model is forbidden from saving anything.
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">PII (Personally Identifiable Information)</span> Any data that can identify an individual (names, phone numbers, email addresses, credit card numbers). We send 0% PII.</div>
+        <div class="jargon-item"><span class="jargon-term">Stateless / Ephemeral</span> Nothing is saved in a permanent database; once the question is answered, the session memory vanishes.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>api/questions.ts</code>, the payload sent to the LLM is strictly typed: only <code>description</code> and an array of <code>questionIds</code>. No cookies, no session tokens, no user IDs, and no headers containing customer identity are forwarded.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "Zero PII: we only send the anonymous text they typed in the box and question IDs; no user accounts, emails, or persisted data."
+    </div>
+  </div>
+</div>
+
+<!-- Q16 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill tech">Q16</span>
+    <div class="q-title">Why seven questions? Why not more signal?</div>
+    <span class="q-tag tech-tag">Data Science / UX</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"More data is always better for algorithms! Why didn't you ask 15 questions to get more granular business intelligence?"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer tech">
+        "We started with nine and removed two that never changed the answer. A question that can't move the recommendation is a question you're charging the customer to answer. Most people see four or five, because the description already answered the rest."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 5 (The 50-Question First Date)</div>
+      <div class="eli5-box">
+        Imagine you meet a new friend on the playground and want to play tag. If your friend pulls out a clipboard and forces you to answer 50 questions: <em>"What's your favorite vegetable? What's your shoe size? What brand of toothpaste do you use?"</em>, you'll get bored and run away!<br><br>
+        Every single question you ask a customer has a <strong>"tax" (mental friction)</strong>. If a question doesn't change what plan they get, asking it is just annoying them for no reason! We pruned away useless questions. And because their opening sentence already tells us a lot, most users only tap through 4 quick screens!
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Question Fatigue</span> When a user gets exhausted by answering too many questions and abandons the website.</div>
+        <div class="jargon-item"><span class="jargon-term">Pre-fill Signals</span> When the user writes <em>"Two-person bakery"</em>, code automatically notes <code>teamSize = 2</code> without having to ask them on a separate screen.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>src/lib/questions.ts</code>, questions were pruned down from earlier iterations. <code>team</code> is never pre-filled (headcount doesn't equal email accounts), but signals like <code>sells</code> and <code>surface</code> are often resolved immediately from the free text.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "Every question has a friction cost; we cut questions that never moved the price, and free-text pre-fill means most people only see 4 or 5."
+    </div>
+  </div>
+</div>
+
+<!-- Q17 -->
+<div class="page-break"></div>
+
+<!-- Q17 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill tech">Q17</span>
+    <div class="q-title">Are those domain names actually checked, or just generated?</div>
+    <span class="q-tag tech-tag">Domain API / Reliability</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Are you just generating cute names with AI and slapping a green checkmark on them? If someone clicks buy and the domain is already owned by someone else, checkout crashes!"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer tech">
+        "Both, and against two different sources. Availability is a live registry lookup on all three names — three genuinely different names, not one name with three endings. Then the one you settle on is checked a second time against Neo's own order records, because a domain can be free at the registry and already taken at Neo — that's the combination that sends someone to a checkout that can't complete."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 10 (The Double-Lease Apartment Trap)</div>
+      <div class="eli5-box">
+        Imagine you want to rent an apartment at "123 Ocean Street".<br><br>
+        1. <strong>Step 1 (The City Public Records / Registry):</strong> You check City Hall's public website. It says: <em>"No deed has been registered for 123 Ocean Street. Looks free!"</em><br>
+        2. <strong>Step 2 (The Landlord's Desk / Neo Internal Database):</strong> You walk into the building office. The landlord looks at his desk and says: <em>"Wait! Someone signed a lease 10 minutes ago and hasn't moved their furniture in yet. It's TAKEN!"</em><br><br>
+        If you only checked City Hall, you would take your suitcases, try to unlock the door, and crash into someone's living room! That's what happens on the web: <strong>a domain can be free on the public internet, but already reserved inside Neo's private order system</strong>. We check BOTH sources so the customer never hits a broken checkout.
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Live Registry Lookup (DomScan)</span> Calling official internet authorities (RDAP/WHOIS) to see if a domain name is registered globally.</div>
+        <div class="jargon-item"><span class="jargon-term">Titan / Neo Order Database</span> Neo's private database of active customer accounts and claimed subdomains (<code>.co.site</code>).</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>docs/data-findings.md</code> §9: out of 44,581 site orders, <strong>79.5% (35,460 sites) were claimed but never publicly published!</strong> An external DNS lookup would see an empty page and think it's free. <code>api/_lib/cositeService.ts</code> validates against internal order records to prevent checkout collisions.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "Checked twice: first against global domain registries via DomScan, and second against Neo's internal orders to catch unpublished reservations."
+    </div>
+  </div>
+</div>
+
+<!-- Q18 -->
+<div class="question-card">
+  <div class="question-header">
+    <span class="q-number-pill tech">Q18</span>
+    <div class="q-title">Where does the plan data come from — is it accurate?</div>
+    <span class="q-tag tech-tag">Data Authority / Pandora</span>
+  </div>
+  <div class="card-body">
+    <div class="sub-block">
+      <div class="sub-label">🎯 What the Judge Is Really Thinking</div>
+      <div class="judge-worry">"Did you just scrape the marketing comparison page on neo.space? Marketing pages are often simplified, outdated, or full of copywriting mistakes!"</div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🗣️ The Official Pro Answer</div>
+      <div class="pro-answer tech">
+        "Neo's own entitlement tables are the source of truth, not the marketing comparison page. That distinction caught three real bugs: the published table shows a limit where the backend grants the feature, and we were charging people more for something the cheaper plan already did."
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🧸 Explain Like I'm 10 (The Movie Billboard vs The Ticket Machine)</div>
+      <div class="eli5-box">
+        Imagine you visit a cinema. The shiny poster on the wall says: <em>"VIP Popcorn is ONLY for Gold Pass members!"</em><br><br>
+        You go to buy a Silver Pass, and the computer ticket dispenser actually prints out a voucher that says: <em>"Congratulations! Silver Pass includes VIP Popcorn!"</em> The poster outside was an oversimplified advertisement made by the marketing team, but the actual ticket machine inside the cinema gives it to you for less money!<br><br>
+        In Neo, <strong>Pandora is the actual backend software code that controls what features accounts actually get</strong>. When we cross-checked Pandora with the marketing webpage, we found <strong>five real discrepancies</strong> where the marketing page said you needed the expensive Max plan, but the cheaper Standard plan actually gave you the feature! By trusting Pandora, we protect customers from being overcharged.
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🔍 Plain-English Jargon Buster</div>
+      <div class="jargon-list">
+        <div class="jargon-item"><span class="jargon-term">Pandora</span> Neo's internal backend service and database that controls customer entitlements and feature permissions.</div>
+        <div class="jargon-item"><span class="jargon-term">Single Source of Truth</span> Relying on the actual technical authorization engine rather than promotional marketing pamphlets.</div>
+      </div>
+    </div>
+
+    <div class="sub-block">
+      <div class="sub-label">🕵️ The Behind-the-Scenes Secret (From the Code)</div>
+      <div class="secret-box">
+        In <code>DECISIONS.md</code> (03 Sep evening): the marketing page listed <code>signature_builder</code>, <code>drive_storage</code>, <code>ai_summary</code>, and <code>advanced_tracking</code> as Max-only. In reality, Pandora grants them on Standard! Catching this prevented us from charging customers ₹299 more for features Standard already included.
+      </div>
+    </div>
+
+    <div class="panic-line">
+      <span class="label">10-Sec Panic Line</span>
+      "Our ground truth is Pandora backend entitlement tables, not the marketing page; that caught five discrepancies where cheaper plans already included features."
+    </div>
+  </div>
+</div>
+
+<!-- PART 3: THE RAPID-FIRE DEFENSE MATRIX -->
+<div class="page-break"></div>
+
+<div class="section-header">
+  <div>
+    <h2 class="section-title">⚡ Rapid-Fire Cheat Sheet: If You Freeze On Stage</h2>
+    <div class="section-subtitle">Keep this single page open during your pitch demo</div>
+  </div>
+</div>
+
+<table class="summary-table">
+  <thead>
+    <tr>
+      <th style="width: 28%;">Question</th>
+      <th style="width: 25%;">The Key Metaphor</th>
+      <th style="width: 47%;">The 1-Sentence Answer to Say Out Loud</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1. Just a form?</strong></td>
+      <td>20 Questions game</td>
+      <td>"A form asks everyone everything; we play Guess Who, cut unneeded questions, and stop when the price is locked."</td>
+    </tr>
+    <tr>
+      <td><strong>2. How differs from AI builder?</strong></td>
+      <td>The forgetful waiter</td>
+      <td>"Their builder spends your answer on a webpage and forgets it; we carry it all the way to a plan, mailboxes, and price."</td>
+    </tr>
+    <tr>
+      <td><strong>3. Recommends wrong plan?</strong></td>
+      <td>Calculator vs magic 8-ball</td>
+      <td>"The plan isn't an AI guess—it's a strict mathematical lookup of the cheapest plan meeting Pandora entitlements."</td>
+    </tr>
+    <tr>
+      <td><strong>4. Quiz increases drop-off?</strong></td>
+      <td>Fast lane vs toll booth</td>
+      <td>"It's an optional helper button, not a gate; and guessing currently causes 62.5% of higher-plan buyers to churn."</td>
+    </tr>
+    <tr>
+      <td><strong>5. How measure if it works?</strong></td>
+      <td>Shoe store refund rate</td>
+      <td>"A/B test against the pricing page: we measure Day-1 conversion and Month-3 retention, not vanity clicks."</td>
+    </tr>
+    <tr>
+      <td><strong>6. Why not recommend Max?</strong></td>
+      <td>Overstuffed backpack</td>
+      <td>"Overselling causes immediate cancellations at month three; happy customers who stay for years make far more revenue."</td>
+    </tr>
+    <tr>
+      <td><strong>7. Who maintains plan changes?</strong></td>
+      <td>Chalkboard menu</td>
+      <td>"Plans and prices live in JSON data tables, not code; changing a price takes 10 seconds in a text editor."</td>
+    </tr>
+    <tr>
+      <td><strong>8. Cost to build and run?</strong></td>
+      <td>Penny gumball</td>
+      <td>"3 tiny model calls costing under $0.001 per run; our entire hackathon development and testing fit in a $15 credit."</td>
+    </tr>
+    <tr>
+      <td><strong>9. Does AI pick price?</strong></td>
+      <td>Blindfolded barker</td>
+      <td>"No, AI never sees numbers; it can only request a tier raise by citing a fixed enum and verbatim user quote."</td>
+    </tr>
+    <tr>
+      <td><strong>10. What does AI actually do?</strong></td>
+      <td>Poet vs Accountant</td>
+      <td>"It extracts the profile, customizes question wording, and writes the explanation; code does the financial math."</td>
+    </tr>
+    <tr>
+      <td><strong>11. How pick next question?</strong></td>
+      <td>Binary search</td>
+      <td>"Questions are scored by how many candidate plans they eliminate, prioritizing price impact over cosmetic bullets."</td>
+    </tr>
+    <tr>
+      <td><strong>12. Model fails / times out?</strong></td>
+      <td>Emergency candle</td>
+      <td>"Zero crashes: it silently falls back to our pre-written question bank and the plan calculation proceeds identically."</td>
+    </tr>
+    <tr>
+      <td><strong>13. Is it deterministic?</strong></td>
+      <td>Twin brothers' cupcake</td>
+      <td>"100% deterministic on pricing: wording varies slightly, but identical answers yield the exact same plan and price."</td>
+    </tr>
+    <tr>
+      <td><strong>14. Which model and why?</strong></td>
+      <td>Bicycle vs rocket</td>
+      <td>"GPT-5.6 selected for low latency; decoupled behind a 1-line config seam so we can swap providers instantly."</td>
+    </tr>
+    <tr>
+      <td><strong>15. Any customer data sent?</strong></td>
+      <td>Postcard without name</td>
+      <td>"Zero PII: we send only the anonymous business text and question IDs; no user accounts, emails, or stored data."</td>
+    </tr>
+    <tr>
+      <td><strong>16. Why seven questions?</strong></td>
+      <td>Friction tax</td>
+      <td>"Every question has friction; we pruned questions that don't move the plan, and free-text pre-fills the rest."</td>
+    </tr>
+    <tr>
+      <td><strong>17. Domain names checked?</strong></td>
+      <td>City deed vs Landlord desk</td>
+      <td>"Checked twice: live registry via DomScan plus Neo internal database to catch claimed but unpublished sites."</td>
+    </tr>
+    <tr>
+      <td><strong>18. Plan data accurate?</strong></td>
+      <td>Cinema ticket machine</td>
+      <td>"Ground truth is Pandora backend entitlement tables, not marketing copy; that caught 5 overcharging errors."</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- MASTER JARGON GLOSSARY -->
+<div class="section-header" style="margin-top: 20px;">
+  <div>
+    <h3 class="section-title" style="font-size: 13pt;">📖 Master Jargon Decoder</h3>
+    <div class="section-subtitle">Plain-English definitions for every buzzword used in this repository</div>
+  </div>
+</div>
+
+<div class="glossary-grid">
+  <div class="glossary-card">
+    <div class="glossary-title">🔑 Pandora</div>
+    <div class="glossary-desc">Neo's internal backend authority for accounts and feature entitlements. If the marketing table says X and Pandora says Y, <strong>Pandora always wins</strong>.</div>
+  </div>
+  <div class="glossary-card">
+    <div class="glossary-title">🎯 Entitlement</div>
+    <div class="glossary-desc">A specific permission stored in Neo's database (e.g. <code>drive_storage</code>, <code>signature_builder</code>). A plan is simply a bundled basket of entitlements.</div>
+  </div>
+  <div class="glossary-card">
+    <div class="glossary-title">🎲 Deterministic</div>
+    <div class="glossary-desc">Math that produces the exact same answer every single time. Putting 2 + 2 into a calculator is deterministic; rolling dice or asking an LLM to guess a price is not.</div>
+  </div>
+  <div class="glossary-card">
+    <div class="glossary-title">📉 Churn Rate</div>
+    <div class="glossary-desc">The percentage of paying customers who cancel their subscription within a given time period (e.g., month 3). High churn destroys software company value.</div>
+  </div>
+  <div class="glossary-card">
+    <div class="glossary-title">⚡ Discrimination Score</div>
+    <div class="glossary-desc">A mathematical calculation measuring how many candidate plans a question rules out. The question with the highest score is asked next.</div>
+  </div>
+  <div class="glossary-card">
+    <div class="glossary-title">🛡️ Graceful Degradation</div>
+    <div class="glossary-desc">Engineering software so that if a third-party service (like OpenAI) goes down, the app silently falls back to pre-packaged data without crashing or showing an error.</div>
+  </div>
+</div>
+
+<!-- PRE-DEMO CHECKLIST -->
+<div class="checklist-box">
+  <div class="checklist-title">✅ Pre-Pitch Stage Checklist (Check These 5 Minutes Before Pitching!)</div>
+  <div class="checklist-items">
+    <div class="checklist-item"><span>✔️</span> <div><strong>Never say "Akinator" on stage:</strong> The trademarked name is internal only; the public name is <em>"Find My Neo"</em>.</div></div>
+    <div class="checklist-item"><span>✔️</span> <div><strong>Never say "we build websites":</strong> Neo already has an AI builder; we are the <em>pre-purchase qualifier</em> that lands them in it.</div></div>
+    <div class="checklist-item"><span>✔️</span> <div><strong>If someone asks about hallucinated prices:</strong> Remind them the AI never sees prices; prices live in code and JSON tables.</div></div>
+    <div class="checklist-item"><span>✔️</span> <div><strong>If asked about OpenAI latency:</strong> Point out that questions fall back gracefully and site generation starts in parallel on screen 1.</div></div>
+  </div>
+</div>
+
+</body>
+</html>

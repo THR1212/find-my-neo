@@ -135,7 +135,17 @@ export const NEEDS: Need[] = [
        business" is exactly the move off a personal Gmail. */
     id: "look_established",
     because: "you're moving off a personal address",
-    entitlement: "signature_builder",
+    /**
+     * `company_branding`, not `signature_builder`. Hari confirmed 03 Sep that Signature
+     * Designer is MAX ONLY — the pricing page was right and plan-features.json's "STANDARD and
+     * MAX" is stale. Citing it for a STANDARD floor was therefore naming a feature they would
+     * not get.
+     *
+     * Branding is the entitlement both sources agree sits exactly here: absent from Starter,
+     * present on Standard and Max. It is also the better reason — someone leaving a personal
+     * address wants mail that looks like it came from a business, which is what branding is.
+     */
+    entitlement: "company_branding",
     minMail: "standard",
     when: (p) => has(p, "customerChannel", "personal_email"),
   },
@@ -155,7 +165,11 @@ export const NEEDS: Need[] = [
   {
     id: "room_for_big_files",
     because: "you send large files often",
-    entitlement: "storage",
+    /* `drive_storage`, not `storage`. Mailbox storage is 15/50/100 GB — present on every tier,
+       so citing it made this a cap dressed as a gate. Neo Drive is the real difference:
+       Pandora has it ABSENT from Starter, 1,024 MB on Standard and 51,200 MB on Max. A 1 GB
+       Drive does not hold "large files, often"; a 50 GB one does. */
+    entitlement: "drive_storage",
     /* Storage is PER MAILBOX (Neo's own catalogue: "allotted for each mailbox that is
        created"), so this is about what one person sends, not how many people there are. */
     minMail: "max",
@@ -164,7 +178,18 @@ export const NEEDS: Need[] = [
   {
     id: "room_for_attachments",
     because: "you send photos and documents",
-    entitlement: "storage",
+    /**
+     * `drive_storage`, and this is the one Hari caught.
+     *
+     * It cited `storage` — mailbox storage, which Neo publishes as 15/50/100 GB. Starter HAS
+     * 15 GB, so the need doubled the price for something the cheaper tier already did: a cap
+     * read as a gate, the same error as read receipts earlier that day.
+     *
+     * The floor is right; the citation was wrong. Pandora — the source of truth — has Neo
+     * Drive **absent from Starter** entirely. Somewhere to put files you send is a real
+     * presence gate at Standard, which is what this need was always reaching for.
+     */
+    entitlement: "drive_storage",
     minMail: "standard",
     when: (p) => has(p, "attachmentVolume", "docs"),
   },
@@ -213,14 +238,21 @@ export const NEEDS: Need[] = [
    * Rs958 with the tick, Rs658 without. Invoice Builder still put them on Max, because that
    * one genuinely is Max-only — which is the difference between our modelling error and Neo's
    * actual gating. */
-  {
-    id: "a_real_catalogue",
-    because: "you have hundreds of things to list",
-    /* Plus caps products, services and gallery at 500 each; Growth is unlimited. */
-    entitlement: "site_products",
-    minSite: "growth",
-    when: (p) => !has(p, "surface", "mail") && has(p, "catalogueSize", "hundreds"),
-  },
+  /* THERE IS NO `a_real_catalogue` NEED, AND GROWTH IS UNREACHABLE ON PURPOSE.
+   *
+   * It forced GROWTH on `catalogueSize: "hundreds"`, citing `site_products` — Rs508 to
+   * Rs1,048, an extra Rs540 a month. Plus allows **500 products, 500 services and 500 gallery
+   * images**. "Hundreds" is under 500, so Plus covered every answer the question could give.
+   * Third instance of a cap read as a gate in one day, after read receipts (Starter has 50)
+   * and attachments (Starter has 15 GB), and by far the most expensive.
+   *
+   * There is no honest replacement, because GROWTH HAS NO PRESENCE GATE AT ALL. Every
+   * difference from Plus is a cap or a quality upgrade: 500 -> unlimited on products,
+   * services, gallery, testimonials and forms; Standard -> Premium fonts; 24x7 -> priority
+   * chat. Nothing exists on Growth that Plus lacks, so no question we could ask would justify
+   * it. Unreachable is the correct answer for a 1-3 person business — CLAUDE.md's stated
+   * scope — not a gap to be filled.
+   */
 ];
 
 export function needsFor(profile: Profile): Need[] {

@@ -109,6 +109,132 @@ export const FEATURES: Feature[] = [
   },
   {
     /**
+     * Four features added 03 Sep so a reveal has something SPECIFIC to say.
+     *
+     * The bank had grown around what differentiates tiers, so a Starter or Standard reveal
+     * fell back on floors — "Android and iOS apps", "Custom Domain Email" — while Neo's own
+     * table lists twenty-one things Starter includes and fifteen more Standard adds.
+     *
+     * The constraint on which ones could be added is not the table, it is our SIGNALS: we ask
+     * seven questions, so a feature earns a place only if one of those answers already implies
+     * it. Anything else would have to match always-true, and a second floor is not an
+     * improvement. These four each key off an answer we already hold.
+     *
+     * Tier claims cross-checked against both sources: page and Pandora agree Email Rules and
+     * Shareable Calendar are on every plan. For Turbo Search and Priority Inbox the pricing
+     * page is the only evidence (Starter no, Standard yes) — Pandora neither gates them nor
+     * lists them as every-plan, which is consistent, so `minMailPlan: "standard"` is the safe
+     * reading. If that is ever contradicted, they simply stop showing on Starter.
+     */
+    id: "email_rule",
+    name: "Email Rules",
+    surface: "mail",
+    because: "mail sorts itself into the right address instead of piling into one inbox",
+    /* Only meaningful once there is more than one address to sort INTO. */
+    matches: (p) => Number(p.mailboxCount ?? 0) >= 2,
+    priority: 5,
+  },
+  {
+    id: "shareable_calendar",
+    name: "Shareable Calendar",
+    surface: "mail",
+    because: "the others can see what you have on without asking",
+    /* Headcount, not mailbox count: sharing needs a second PERSON, and §7 is the reason those
+       are different questions — 39-64% of Neo mailboxes are role addresses, not people. */
+    matches: (p) => Number(p.teamSize ?? 0) >= 2,
+    priority: 5,
+  },
+  {
+    id: "turbo_search",
+    minMailPlan: "standard",
+    name: "Turbo Search",
+    surface: "mail",
+    because: "you are bringing years of mail across, and you will want to find things in it",
+    matches: (p) => is(p, "importIntent", "emails") || is(p, "importIntent", "both"),
+    priority: 6,
+  },
+  {
+    id: "priority_inbox",
+    minMailPlan: "standard",
+    name: "Priority Inbox",
+    surface: "mail",
+    because: "the messages that need you first, in a shared inbox several people watch",
+    /* Three or more addresses is where a shared inbox stops being skimmable. */
+    matches: (p) => Number(p.mailboxCount ?? 0) >= 3,
+    priority: 6,
+  },
+  {
+    /**
+     * THE SECOND FLOOR, and there are deliberately exactly two.
+     *
+     * Hari's rule, 04 Sep: a reveal must never show fewer than two features, and the mail-only
+     * pane must never show fewer than two panes. One floor got the left column to two; the
+     * RIGHT column needs two things with MEDIA, and `custom_domain` — the usual second bullet
+     * on a sparse Starter — has no artwork in Neo's set, so it is dropped from the pane and a
+     * lone film stretched across it.
+     *
+     * Rich webmail is on all three plans and true of everyone who buys anything, so like
+     * `mobile_apps` it can never be wrong. Ranked BELOW it, so between the two floors the more
+     * interesting one leads. Two is the cap: a third always-true feature would start crowding
+     * out the specific ones, which is the padding the commonness ranking exists to prevent.
+     */
+    id: "rich_webmail",
+    name: "Rich webmail",
+    surface: "mail",
+    because: "a proper inbox in the browser, with nothing to install",
+    matches: () => true,
+    priority: 1,
+  },
+  {
+    /**
+     * THE FLOOR. Always true, lowest priority, and that combination is the point.
+     *
+     * A plain mail-only Starter run — mostly messages, phone customers, one address, nothing
+     * done last month — matched exactly ONE feature and the reveal showed a single bullet.
+     * Not because we had nothing true to say: Neo's own comparison table (src/data/
+     * mail-features.json, read from their pricing page) lists eighteen things Starter
+     * includes. We just modelled almost none of them, because the bank grew around what
+     * DIFFERENTIATES tiers rather than what a plan contains.
+     *
+     * "Android and iOS apps" is Neo's verbatim row, it is on all three plans, and it is true
+     * of everyone — so it can never be wrong, and the commonness ranking added this morning
+     * keeps it out of the way of anything more specific. It surfaces only when there is
+     * genuinely nothing more particular to say, which is exactly when a reveal needs a floor.
+     */
+    id: "mobile_apps",
+    name: "Android and iOS apps",
+    surface: "mail",
+    because: "the same inbox on your phone and your laptop, without forwarding anything",
+    matches: () => true,
+    /* Below every other mail feature. It is a backstop, not a selling point. */
+    priority: 2,
+  },
+  {
+    /**
+     * THE #1 CONVERSION DRIVER, and it had no bullet at all until 03 Sep.
+     *
+     * docs/data-findings.md §5 measures real paywall clicks: `Storage Banner` is the dominant
+     * trigger in EVERY industry at 32-52%, ahead of everything else by a distance. `volume` is
+     * already the question that most often sets the mail tier because of it — and yet someone
+     * who answered "Large files, often", was moved to Max for that reason, and read a needs
+     * line saying "you send large files often" was never told what they actually got.
+     *
+     * No `minMailPlan`: every tier has storage. What differs is the amount — 15 / 50 / 100 GB,
+     * from Neo's own pricing table, recorded in plan-features.json rather than typed here.
+     * The `because` states the PER-MAILBOX fact instead of a number, because that is the part
+     * people get wrong and the part that survives a price change.
+     */
+    id: "storage",
+    name: "Mailbox Storage",
+    surface: "mail",
+    because: "room for what you send, counted per mailbox rather than shared across the team",
+    matches: (p) => is(p, "attachmentVolume", "docs") || is(p, "attachmentVolume", "heavy"),
+    /* Above multi_device_support (9) and below import (10): it is the strongest reason in the
+       data, but only for the people who told us they send things, which `matches` enforces. */
+    priority: 9.5,
+  },
+  {
+    /**
      * NO `minMailPlan`, deliberately: Pandora has read receipts on all three tiers, capped at
      * 50/month on Starter and a 90-day trial on Standard, unlimited on Max. Only the unlimited
      * version is a Max thing.
@@ -122,10 +248,12 @@ export const FEATURES: Feature[] = [
     name: "Read Receipts",
     surface: "mail",
     because: "you can tell whether a quote was actually opened",
-    matches: (p) =>
-      is(p, "extras", "receipts") ||
-      is(p, "sellsOnline", false) ||
-      is(p, "customerChannel", "personal_email"),
+    /* `sellsOnline === false` was here and has gone: "does not sell online" is a strange
+       reason to want read receipts, and it was the loosest matcher in the bank — it fired for
+       most people and pushed this to the top of nearly every Starter reveal. What is left is
+       the two signals that actually mean it: they said they check whether mail was opened,
+       or they are moving off a personal address where they never could. */
+    matches: (p) => is(p, "extras", "receipts") || is(p, "customerChannel", "personal_email"),
     priority: 8,
   },
   {
@@ -187,7 +315,10 @@ export const FEATURES: Feature[] = [
   },
   {
     id: "signature_builder",
-    minMailPlan: "standard",
+    /* MAX, not standard. Confirmed by Hari 03 Sep; plan-features.json still says "STANDARD and
+       MAX" and is stale on this one. At standard it was offered as a reason to buy a plan that
+       does not include it — the exact failure minMailPlan exists to prevent. */
+    minMailPlan: "max",
     name: "Signature Designer",
     surface: "mail",
     because: "every mail you send looks like it came from a real business",

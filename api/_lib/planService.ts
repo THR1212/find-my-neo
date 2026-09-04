@@ -47,11 +47,12 @@ const SITE_RANK: Record<string, number> = { none: 0, basic: 1, plus: 2, growth: 
  * floor comes from here, never from the model.
  */
 const ENTITLEMENT_FLOORS: Record<string, { mail?: MailTier; site?: SiteTier }> = {
-  storage: { mail: "max" },
+  drive_storage: { mail: "max" },
+  company_branding: { mail: "standard" },
   invoice_builder: { mail: "max" },
   email_marketing: { mail: "max" },
   appointment_booking: { mail: "max" },
-  signature_builder: { mail: "standard" },
+  signature_builder: { mail: "max" },
   neo_site: { site: "basic" },
   contact_form: { site: "plus" },
   site_products: { site: "plus" },
@@ -76,11 +77,12 @@ const ENTITLEMENT_IDS = Object.keys(ENTITLEMENT_FLOORS);
  * asked, or one answered in prose that no fixed rule can read. Never contradict a choice.
  */
 const ENTITLEMENT_QUESTION: Record<string, string> = {
-  storage: "volume",
+  drive_storage: "volume",
   invoice_builder: "extras",
   email_marketing: "extras",
   appointment_booking: "extras",
   signature_builder: "channel",
+  company_branding: "channel",
   neo_site: "surface",
   contact_form: "channel",
   site_products: "sells",
@@ -139,11 +141,12 @@ const SYSTEM = [
   "To raise a tier you must cite the entitlement that requires it AND quote the words that",
   "show they need it. Copy their phrase exactly; a paraphrase is rejected. These are the only",
   "entitlements you may cite, and what each one requires:",
-  "  storage                   large files / heavy attachments  -> mail max",
+  "  drive_storage             large files / heavy attachments  -> mail max",
   "  invoice_builder           sending quotes or invoices       -> mail max",
   "  email_marketing           messaging customers as a group   -> mail max",
   "  appointment_booking       people booking time with them    -> mail max",
-  "  signature_builder         moving off a personal address    -> mail standard",
+  "  company_branding          moving off a personal address    -> mail standard",
+  "  signature_builder         wants a designed signature       -> mail max",
   "  neo_site                  wanting a website at all         -> site basic",
   "  contact_form              needing enquiries from the site  -> site plus",
   "  site_products             listing products or services     -> site plus",
@@ -225,7 +228,7 @@ export async function handlePlan(
       }),
       schema: SCHEMA as unknown as Record<string, unknown>,
       schemaName: "plan_proposal",
-      maxOutputTokens: 900,
+      maxOutputTokens: 15000,
     });
   } catch (err) {
     reason = err instanceof Error ? err.message : String(err);

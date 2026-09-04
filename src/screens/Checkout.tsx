@@ -1,17 +1,15 @@
 import { useMemo, useState } from "react";
 import { NeoHeader } from "../components/NeoChrome";
 import {
-  businessMailLabel,
   checkoutViewTotals,
-  domainAfterFirstCopy,
-  domainFreePromo,
   EMPTY_TOTALS,
+  formatApproxInr,
   formatInr,
   orderIsReady,
   type CheckoutCycle,
+  type CheckoutLine,
   type CheckoutOrder,
 } from "../lib/checkout";
-import { isCoSite } from "../lib/domains";
 import { playSound, unlockSound } from "../sound";
 
 const COUNTRIES = ["India", "United States", "United Kingdom", "Singapore", "United Arab Emirates"];
@@ -69,8 +67,6 @@ export default function Checkout({
   }
 
   const dueLabel = totals.amountDueInr == null ? "Pay" : `Pay ${formatInr(totals.amountDueInr)}`;
-  const mailPrice = totals.amountDueInr;
-  const showDomain = isCoSite(order.domain);
 
   return (
     <div className="neo-funnel neo-checkout">
@@ -182,72 +178,14 @@ export default function Checkout({
               />
             </div>
 
-            <div className="neo-line">
-              <div className="neo-line-main">
-                <div className="neo-line-title-row">
-                  <p className="neo-line-title">{businessMailLabel(order.mailPlanName)}</p>
-                  <p className="neo-line-price">
-                    {mailPrice == null ? "—" : formatInr(mailPrice)}
-                    <span
-                      className="neo-info"
-                      title="Price from the same plan shown on your setup. Yearly is 12 months at the yearly mailbox rate."
-                    >
-                      ?
-                    </span>
-                  </p>
-                </div>
-                <ul className="neo-mails">
-                  {order.mailboxes.map((m) => (
-                    <li key={m.address}>
-                      <span>
-                        {m.address}
-                        {m.admin ? " (Admin)" : ""}
-                      </span>
-                      {!m.admin && <TrashIcon />}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {showDomain && (
-              <div className={`neo-line neo-line-domain${order.hasSite ? "" : " neo-line-last"}`}>
-                <div className="neo-line-title-row">
-                  <div>
-                    <p className="neo-line-title">Domain</p>
-                    <p className="neo-line-host">{order.domain}</p>
-                    <p className="neo-line-after">
-                      {domainAfterFirstCopy(cycle)}
-                      <span
-                        className="neo-info"
-                        title="First cycle is free on .co.site. After that, Neo's sheet retail for the subdomain applies."
-                      >
-                        ?
-                      </span>
-                    </p>
-                  </div>
-                  <div className="neo-site-price">
-                    <p className="neo-line-price">{formatInr(0)}</p>
-                    <p className="neo-free-beta">{domainFreePromo(cycle)}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {order.hasSite && (
-              <div className="neo-line neo-line-site">
-                <div className="neo-line-title-row">
-                  <div>
-                    <p className="neo-line-title">AI site</p>
-                    <p className="neo-line-host">{order.domain}</p>
-                  </div>
-                  <div className="neo-site-price">
-                    <p className="neo-line-price">{formatInr(0)}</p>
-                    <p className="neo-free-beta">FREE BETA</p>
-                  </div>
-                </div>
-              </div>
-            )}
+            {totals.lines.map((line, i) => (
+              <SummaryLine
+                key={`${line.kind}-${line.title}`}
+                line={line}
+                mailboxes={line.kind === "mail" ? order.mailboxes : null}
+                last={i === totals.lines.length - 1}
+              />
+            ))}
 
             <div className="neo-due">
               <p className="neo-due-label">Amount due now</p>
@@ -275,6 +213,113 @@ export default function Checkout({
           <div className="neo-chat-bubble">Hi. Need any help?</div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SummaryLine({
+  line,
+  mailboxes,
+  last,
+}: {
+  line: CheckoutLine;
+  mailboxes: CheckoutOrder["mailboxes"] | null;
+  last: boolean;
+}) {
+  const price =
+    line.due == null ? "—" : line.approx ? formatApproxInr(line.due) : formatInr(line.due);
+
+  if (line.kind === "mail") {
+    return (
+      <div className="neo-line">
+        <div className="neo-line-main">
+          <div className="neo-line-title-row">
+            <p className="neo-line-title">{line.title}</p>
+            <p className="neo-line-price">
+              {price}
+              <span
+                className="neo-info"
+                title="Price from the same plan shown on your setup. Yearly is 12 months at the yearly mailbox rate."
+              >
+                ?
+              </span>
+            </p>
+          </div>
+          {mailboxes && (
+            <ul className="neo-mails">
+              {mailboxes.map((m) => (
+                <li key={m.address}>
+                  <span>
+                    {m.address}
+                    {m.admin ? " (Admin)" : ""}
+                  </span>
+                  {!m.admin && <TrashIcon />}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (line.kind === "domain") {
+    return (
+      <div className={`neo-line neo-line-domain${last ? " neo-line-last" : ""}`}>
+        <div className="neo-line-title-row">
+          <div>
+            <p className="neo-line-title">{line.title}</p>
+            {line.host && <p className="neo-line-host">{line.host}</p>}
+            {line.afterCopy && (
+              <p className="neo-line-after">
+                {line.afterCopy}
+                <span
+                  className="neo-info"
+                  title="First cycle is free on .co.site. After that, Neo's sheet retail for the subdomain applies."
+                >
+                  ?
+                </span>
+              </p>
+            )}
+          </div>
+          <div className="neo-site-price">
+            <p className="neo-line-price">
+              {price}
+              {line.approx && (
+                <span
+                  className="neo-info"
+                  title="Indicative registrar price from the same lookup as your setup. Yearly is that figure; monthly is it divided by 12."
+                >
+                  ?
+                </span>
+              )}
+            </p>
+            {line.promo && <p className="neo-free-beta">{line.promo}</p>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="neo-line neo-line-site">
+      <div className="neo-line-title-row">
+        <div>
+          <p className="neo-line-title">{line.title}</p>
+          {line.host && <p className="neo-line-host">{line.host}</p>}
+        </div>
+        <div className="neo-site-price">
+          <p className="neo-line-price">
+            {price}
+            <span
+              className="neo-info"
+              title="Price from the same plan shown on your setup (neo.space live rates). Yearly is 12 months at the yearly site rate."
+            >
+              ?
+            </span>
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

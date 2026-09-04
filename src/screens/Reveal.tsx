@@ -830,6 +830,8 @@ export default function Reveal({
                     revealMailboxes: reveal.mailboxes,
                     rec,
                     hasSite: showSite,
+                    domainPriceInr: livePrice,
+                    domainFree: Boolean(domain?.free),
                   }),
                 );
               }}

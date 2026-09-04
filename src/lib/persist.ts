@@ -17,7 +17,7 @@
  * be the thing that breaks the flow.
  */
 
-import type { CheckoutOrder } from "./checkout";
+import { normalizeCheckoutOrder, type CheckoutOrder } from "./checkout";
 import type { EngineState } from "./engine";
 import type { NeoSite } from "./neoSite";
 import type { RevealContent } from "./session";
@@ -33,7 +33,7 @@ const KEY = "findmyneo.session";
  * the snapshot instead of deserialising yesterday's shape into today's fields, which fails
  * silently and looks like an engine bug.
  */
-const VERSION = 8;
+const VERSION = 9;
 /* v2: EngineState gained `surface` (model-written wording) and `trail` (what was shown).
    Both live inside `engine`, so they ride along in the snapshot automatically — but a v1
    snapshot restored into v2 would have neither, and every question would silently revert to
@@ -58,7 +58,10 @@ const VERSION = 8;
    simply have none, which is a legitimate state — the bump keeps the rule simple.
 
    v8: checkout / success stages and the Claim payload. A v7 snapshot has no order, so
-   restoring it onto checkout would paint the empty state with leftover nothing. */
+   restoring it onto checkout would paint the empty state with leftover nothing.
+
+   v9: customDomainYearlyInr on the Claim payload (DomScan yearly for a custom domain).
+   Missing field on old snapshots → treat as null, not free. */
 
 /**
  * RESOLVED 02 Sep — kept because the reasoning still governs the design.
@@ -141,6 +144,9 @@ export function loadSnapshot(): Snapshot | null {
       !parsed.checkoutOrder
     ) {
       parsed.stage = "reveal";
+    }
+    if (parsed.checkoutOrder) {
+      parsed.checkoutOrder = normalizeCheckoutOrder(parsed.checkoutOrder as CheckoutOrder);
     }
 
     return parsed as Snapshot;

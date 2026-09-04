@@ -546,6 +546,10 @@ export default function App() {
             <NarrowingMeter
               confidence={conf}
               stage={stage}
+              /* The wait screens are the one place the ring cannot move on its own: the
+                 profile is in flight, so confidence has nothing to update from. Without this
+                 the dock reads as stalled at exactly the moment it is working hardest. */
+              busy={loading}
               lastQuestionId={engine.asked[engine.asked.length - 1] ?? null}
               profile={engine.profile}
               /**

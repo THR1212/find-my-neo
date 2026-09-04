@@ -1104,12 +1104,60 @@ a.btn {
   margin-top: 14px;
 }
 
+/* It is a <summary>: clicking it opens the input. Nothing said so — it rendered as faint
+   grey body text, so the one escape hatch on the domain step looked like a caption. Underline
+   plus a disclosure caret plus a pointer, which is the least decoration that still reads as
+   "this does something". */
 .own-label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
   font-size: 12px;
   letter-spacing: 0.02em;
-  color: var(--text-faint);
+  color: var(--text-muted, var(--text-faint));
   margin-bottom: 6px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+  list-style: none;
+}
+.own-label::-webkit-details-marker {
+  display: none;
+}
+.own-label::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-1px, -1px);
+  transition: transform 0.18s var(--ease-out);
+}
+details[open] > .own-label::after {
+  transform: rotate(-135deg) translate(-1px, -1px);
+}
+.own-label:hover {
+  color: var(--neo-blue);
+}
+.own-label:focus-visible {
+  outline: 2px solid var(--neo-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* "Check" was a bare word beside the input. It is the button that performs the lookup. */
+.own-check {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--neo-blue);
+  font-weight: 600;
+  cursor: pointer;
+}
+.own-check:hover:not(:disabled) {
+  border-color: var(--neo-blue);
 }
 
 .own-row {
@@ -1264,6 +1312,39 @@ a.btn {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+/* The eyebrow is the only thing on this screen that says work is happening, and it was set
+   as static faint grey — the same treatment as every other eyebrow in the flow, none of which
+   are about waiting. A slow sweep across the letters, not a blink: it reads as progress at a
+   glance and survives being looked at for eight seconds. */
+@keyframes eyebrow-sweep {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.product-wait .eyebrow {
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  background: linear-gradient(
+    100deg,
+    var(--text-faint) 0%,
+    var(--text-faint) 38%,
+    var(--neo-blue) 50%,
+    var(--text-faint) 62%,
+    var(--text-faint) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: eyebrow-sweep 2.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-wait .eyebrow {
+    animation: none;
+    background: none;
+    color: var(--text-faint);
+  }
 }
 
 .product-wait h1 {
@@ -1502,6 +1583,22 @@ a.btn {
   flex-shrink: 0;
 }
 
+/* Busy state. The ring already moves when confidence changes, but between changes it sits
+   perfectly still — so the wait screen, which is exactly when nothing is changing, read as
+   frozen rather than working. A slow breath is enough to say "still going". */
+@keyframes meter-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.72; transform: scale(0.965); }
+}
+.meter-ring.is-busy {
+  animation: meter-breathe 1.7s var(--ease-out, ease-in-out) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .meter-ring.is-busy {
+    animation: none;
+  }
+}
+
 .meter-headline {
   font-size: 15px;
   font-weight: 600;
@@ -1642,7 +1739,10 @@ html:has(.stage-reveal) #root {
   display: flex;
   flex-direction: column;
   justify-content: safe center;
-  gap: clamp(12px, 1.8vh, 20px);
+  /* ~5% tighter than the 12-20px it was. The left column is the one that runs out of room
+     first — the price breakdown was clipping under the CTA at laptop heights — and the gaps
+     are where the space is, not the content. */
+  gap: clamp(11px, 1.7vh, 19px);
 }
 
 .reveal-domain {
@@ -1664,29 +1764,31 @@ html:has(.stage-reveal) #root {
   padding-top: 0;
 }
 
+/* Text down about half a pixel at each stop rather than a uniform scale: the headline can
+   afford it, the addresses and the numbers cannot. */
 .reveal-setup .domain-name {
-  font-size: clamp(18px, 1.6vw + 12px, 26px);
+  font-size: clamp(17.5px, 1.55vw + 11.5px, 25px);
 }
 
 .reveal-setup .mailbox {
-  padding: 5px 0;
+  padding: 4px 0;
 }
 
 .reveal-setup .mailbox-address {
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 .plan-card {
   flex: 0 0 auto;
-  padding: 12px 14px 12px;
+  padding: 11px 13px 11px;
   background: var(--neo-bg-blue-alt);
   border: 1px solid var(--neo-border-blue);
   border-radius: var(--radius-card);
 }
 
 .plan-why {
-  margin: 4px 0 6px;
-  font-size: 13px;
+  margin: 4px 0 5px;
+  font-size: 12.5px;
   line-height: 1.4;
   color: var(--neo-text);
 }
@@ -1900,8 +2002,8 @@ html:has(.stage-reveal) #root {
 .plan-breakdown {
   width: 100%;
   border-collapse: collapse;
-  margin: 10px 0 12px;
-  font-size: 13px;
+  margin: 9px 0 11px;
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2097,8 +2199,18 @@ html:has(.stage-reveal) #root {
 }
 
 .tpl-pane-chosen {
+  /* 2px, and a firmer ring. At 1px against a white card the chosen state was only legible
+     from the badge — the border it was supposed to be signalled with read as an artefact of
+     the screenshot. Kept to 2px rather than 3: the pane is the content, not a frame. */
+  border-width: 2px;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.12);
+  box-shadow: 0 0 0 4px rgba(0, 102, 255, 0.16);
+}
+
+/* The unchosen pane keeps a 2px transparent border so selecting one does not shift the
+   layout by a pixel — a jump on click reads as a bug even when the state is right. */
+.tpl-pane-pick {
+  border-width: 2px;
 }
 
 /* Hidden until hover or selection: an always-on "Use this one" on both panes reads as two

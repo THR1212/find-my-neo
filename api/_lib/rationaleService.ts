@@ -302,6 +302,36 @@ export async function handleRationale(
 
   const cheaper = mailSaving >= siteSaving ? (mailStep ?? siteStep ?? null) : (siteStep ?? null);
 
+  /**
+   * The same choice, as data rather than as a sentence.
+   *
+   * `whyNotCheaper` is prose the model wrote, and prose cannot be acted on. The reveal now
+   * offers to actually TAKE the cheaper plan, and to price it, which needs the dimension and
+   * the target tier — so we return what we already computed instead of making the client
+   * re-derive it from a second copy of CHEAPER_TIER.
+   *
+   * `saveInr` is per month at the yearly cycle, and mail's already has the mailbox multiplier
+   * applied, which is the whole reason mail usually wins the comparison above.
+   */
+  const cheaperStep =
+    cheaper === null
+      ? null
+      : cheaper === mailStep
+        ? {
+            dimension: "mail" as const,
+            fromId: mailId,
+            toId: mailStep!.cheaperId,
+            toName: mailStep!.cheaper,
+            saveInr: mailSaving >= 0 ? mailSaving : null,
+          }
+        : {
+            dimension: "site" as const,
+            fromId: siteId,
+            toId: siteStep!.cheaperId,
+            toName: siteStep!.cheaper,
+            saveInr: siteSaving >= 0 ? siteSaving : null,
+          };
+
   const payload = {
     business: businessText,
     theirAnswers: answers,
@@ -344,6 +374,8 @@ export async function handleRationale(
     }),
   );
 
-  /* Empty strings are a complete answer: the reveal keeps buildRationale's line. */
-  return { status: 200, body: { rationale, whyNotCheaper, because } };
+  /* Empty strings are a complete answer: the reveal keeps buildRationale's line.
+     `cheaperStep` is independent of the model — it is computed from plans.json above, so it
+     survives a failed generation and the swap control still works on the degraded path. */
+  return { status: 200, body: { rationale, whyNotCheaper, because, cheaperStep } };
 }

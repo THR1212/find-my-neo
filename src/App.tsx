@@ -17,6 +17,7 @@ import {
   fetchRationale,
   fetchPlanVerdict,
   type PlanVerdict,
+  type RationaleResult,
 } from "./lib/api";
 import { recommend } from "./lib/rules";
 import { fetchNeoSites, type NeoSite } from "./lib/neoSite";
@@ -103,11 +104,7 @@ export default function App() {
    * Empty until the last question is answered, and empty forever if that call fails — the
    * reveal falls back to `buildRationale`, which is why those templates were kept.
    */
-  const [rationale, setRationale] = useState<{
-    rationale: string;
-    whyNotCheaper: string;
-    because: string;
-  }>(
+  const [rationale, setRationale] = useState<RationaleResult>(
     restored?.rationale ?? { rationale: "", whyNotCheaper: "", because: "" },
   );
   /**

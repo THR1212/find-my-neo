@@ -134,8 +134,47 @@ export function availableFromLookup(
   return picked;
 }
 
+/**
+ * Does Neo already hold an order for this exact domain?
+ *
+ * Separate from `lookupDomains` because it answers a different question. DomScan reads the
+ * public registry; this reads Neo's own order records. A name can be free at the registry and
+ * already taken at Neo, and that combination is the one that hurts — we would recommend it,
+ * the person would click through, and the order would fail at the end.
+ *
+ * ONE name, the one they have settled on. Not the whole suggestion list: see checkTitanOrder
+ * in api/_lib/cositeService.ts for why that limit is deliberate rather than thrifty.
+ *
+ * `null` is "we could not tell" and must stay distinguishable from `false`. An admin session
+ * that did not answer is not evidence a name is free.
+ */
+export async function checkTitanOrder(domain: string, timeoutMs = 6000): Promise<boolean | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`/api/domains?titan=${encodeURIComponent(domain)}`, {
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { titan?: { taken?: boolean | null } };
+    return body.titan?.taken ?? null;
+  } catch {
+    /* Silent on purpose, and NOT reported as a degradation: this check is an extra guard on
+       top of the normal flow, so failing to make it leaves the reveal exactly as correct as
+       it was before the check existed. */
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function lookupDomains(
-  stem: string,
+  /**
+   * One stem, or several. Several is the reveal's normal case — the model suggests three
+   * different names and all three are looked up, which is what makes them personalised rather
+   * than one stem wearing three different TLDs.
+   */
+  stem: string | readonly string[],
   tlds: readonly string[] = TLDS,
   /* 12s, not 6s. A cold lookup costs 4 DomScan credits across several upstream calls and
      measured past 6s in practice, which aborted the request and left the reveal with no
@@ -155,9 +194,10 @@ export async function lookupDomains(
 ): Promise<DomainInfo[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const name = (Array.isArray(stem) ? stem : [stem]).filter(Boolean).join(",");
   try {
     const res = await fetch(
-      `/api/domains?name=${encodeURIComponent(stem)}&tlds=${encodeURIComponent(tlds.join(","))}` +
+      `/api/domains?name=${encodeURIComponent(name)}&tlds=${encodeURIComponent(tlds.join(","))}` +
         (manual ? "&manual=1" : ""),
       { signal: controller.signal },
     );

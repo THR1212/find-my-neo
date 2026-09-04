@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { DomainOption, RevealContent } from "../lib/session";
 import {
   availableFromLookup,
+  checkTitanOrder,
   COSITE_SUFFIX,
+  isCoSite,
   lookupDomains,
   type DomainInfo,
 } from "../lib/domains";
 import { pickFeatures, withReason, type FeatureSurface, type ReasonMap } from "../lib/features";
-import { recommend, CYCLE_LABEL, domainFirstCycleInr } from "../lib/rules";
+import { recommend, priceAs, CYCLE_LABEL, domainFirstCycleInr } from "../lib/rules";
+import type { RationaleResult } from "../lib/api";
 import { buildHandoffUrl } from "../lib/handoff";
 import SetupStory from "../components/SetupStory";
 import { block as blockData, type NeoSite } from "../lib/neoSite";
@@ -51,7 +54,7 @@ export default function Reveal({
   neoSite: NeoSite | null;
   neoSiteAlt?: NeoSite | null;
   reasons?: ReasonMap;
-  rationale?: { rationale: string; whyNotCheaper: string; because: string };
+  rationale?: RationaleResult;
   verdict?: {
     mailTier: string;
     siteTier: string;
@@ -68,19 +71,115 @@ export default function Reveal({
   const [live, setLive] = useState<Record<string, DomainInfo>>({});
   const revealCuePlayed = useRef(false);
 
-  const stem = reveal?.domains[0]?.name.split(".")[0] ?? "";
+  /**
+   * Which of Neo's two templates they picked, by `templateKey`.
+   *
+   * Null until they choose, and null is a real state: it means "we did not ask them to decide
+   * something they had no opinion about", and the handoff then omits `templateKey` so Neo
+   * picks as it does today. Defaulting it to the first pane would put a choice in the URL
+   * that nobody made, which is the thing this control exists to stop.
+   *
+   * DECLARED HERE, with the other hooks, and it must stay here. It used to sit two hundred
+   * lines down, below the `error` and `loading` early returns — so a render that took either
+   * branch ran nine hooks and the render after it ran ten, which is "Rendered more hooks than
+   * during the previous render". Latent only because the reveal is usually mounted with its
+   * data already in hand.
+   */
+  const [chosenTemplate, setChosenTemplate] = useState<string | null>(null);
+
+  /**
+   * They took the cheaper plan we offered them.
+   *
+   * Null is the recommendation as solved. Non-null means the person read what the cheaper tier
+   * would cost them and chose it anyway — which is a decision they are entitled to make, and
+   * the opposite of the failure mode this whole project is arguing against.
+   */
+  const [swap, setSwap] = useState<{ mail: string; site: string } | null>(null);
+
+  /**
+   * Names Neo already holds an order for, so we can stop recommending them.
+   *
+   * DomScan and Neo answer different questions — see `checkTitanOrder`. A name can be free at
+   * the registry and already spoken for at Neo, and that is the combination that sends someone
+   * to a checkout that cannot complete.
+   *
+   * Only ever holds names we asked about, and we ask about ONE at a time: the name currently
+   * on offer. `false` means confirmed free at Neo; a name absent from this map is simply
+   * unchecked, which is the same state the reveal was always in before this existed.
+   */
+  const [titanTaken, setTitanTaken] = useState<Record<string, boolean>>({});
+  const titanAsked = useRef<Set<string>>(new Set());
+
+  const verifyTitan = useCallback((name: string) => {
+    if (!name || titanAsked.current.has(name)) return;
+    titanAsked.current.add(name);
+    void checkTitanOrder(name).then((taken) => {
+      /* null is "could not tell" and is deliberately NOT recorded: an unreachable admin
+         session must never read as a verdict in either direction. */
+      if (taken === null) return;
+      setTitanTaken((prev) => ({ ...prev, [name]: taken }));
+    });
+  }, []);
+
+  /**
+   * Check the name we are actually recommending, once the lookup settles.
+   *
+   * One call, for the top suggestion — not one per suggestion. Three per page view is the
+   * traffic `PANEL_MAX_PER_WINDOW` exists to keep off an admin-session endpoint, and the two
+   * names nobody picks are not worth spending it on. Selecting a different name below checks
+   * that one too, because by then it is the one being recommended.
+   */
+  useEffect(() => {
+    if (!reveal?.domains.length) return;
+    /* Excludes names already known taken at Neo, so that when the top suggestion is dropped
+       the REPLACEMENT gets checked in turn rather than being recommended unverified. Walks
+       down the list one name at a time, which is the point: still one call per name that is
+       actually on offer, never one per suggestion. */
+    const top = availableFromLookup(
+      reveal.domains.map((d) => d.name).filter((n) => titanTaken[n] !== true),
+      Object.values(live).filter((r) => titanTaken[r.domain] !== true),
+    )[0];
+    /* `.co.site` already goes through its own Neo-aware ladder in cositeService, which reads
+       the same order records. Asking again here would spend a second panel call to learn what
+       the batch lookup was told. */
+    if (top && !isCoSite(top.domain)) verifyTitan(top.domain);
+  }, [reveal, live, titanTaken, verifyTitan]);
+
+  /**
+   * EVERY suggested name's stem, not just the first one.
+   *
+   * This used to be `reveal.domains[0].name.split(".")[0]` — one stem — and the lookup below
+   * then filtered its own results back down to that stem. So the model could suggest three
+   * genuinely different names and the reveal would show the first one with `.com`, `.in` and
+   * `.co` after it. That is the "the domains aren't personalised" feedback, in full.
+   *
+   * `.co.site` is excluded from the stem list only in the sense that it needs no separate
+   * stem: it is one of the TLDs asked for, answered for the first stem (see domainService).
+   */
+  const stems = [
+    ...new Set(
+      (reveal?.domains ?? [])
+        .map((d) => d.name.split(".")[0])
+        .filter((s): s is string => Boolean(s)),
+    ),
+  ];
+  const stem = stems[0] ?? "";
+  /* Joined so the effect re-runs on a genuine change of names, not on every re-render — an
+     array literal is a new reference each time and would loop the lookup forever. */
+  const stemKey = stems.join(",");
+
   useEffect(() => {
     setChosenName(null);
-    if (!stem) return;
+    if (!stemKey) return;
     let cancelled = false;
-    lookupDomains(stem).then((rows) => {
+    lookupDomains(stemKey.split(",")).then((rows) => {
       if (cancelled || !rows.length) return;
       setLive((prev) => ({ ...prev, ...Object.fromEntries(rows.map((r) => [r.domain, r])) }));
     });
     return () => {
       cancelled = true;
     };
-  }, [stem]);
+  }, [stemKey]);
 
   useEffect(() => {
     if (error) return;
@@ -119,9 +218,13 @@ export default function Reveal({
   const showSite = surface !== "mail";
   const notesByName = Object.fromEntries(reveal.domains.map((d) => [d.name, d.note]));
   const extraNames = new Set(extraDomains.map((d) => d.name));
+  /* No stem filter. It existed because only one stem was ever looked up, so rows for any
+     other stem could only be stale — now they are the point, and filtering them out would
+     throw away the two extra names we just paid to check. `extraNames` is still excluded:
+     a domain the person typed themselves is theirs, not a suggestion to re-rank. */
   const lookedUp = availableFromLookup(
     reveal.domains.map((d) => d.name),
-    Object.values(live).filter((r) => r.domain.startsWith(`${stem}.`) && !extraNames.has(r.domain)),
+    Object.values(live).filter((r) => !extraNames.has(r.domain)),
   );
   const suggested: DomainOption[] = (
     lookedUp.length > 0
@@ -136,7 +239,21 @@ export default function Reveal({
       : reveal.domains
   );
   const coSiteTaken = live[`${stem}.${COSITE_SUFFIX}`]?.available === false;
-  const allDomains = [...suggested, ...extraDomains.filter((d) => !suggested.some((s) => s.name === d.name))];
+  const allDomainsRaw = [...suggested, ...extraDomains.filter((d) => !suggested.some((s) => s.name === d.name))];
+
+  /**
+   * Drop anything Neo already has an order for.
+   *
+   * DomScan said these were free and, for the registry, it was right — Neo's own records are a
+   * second question, and this is where its answer lands. Dropping rather than badging is
+   * deliberate and matches how a registry-taken name is already handled two lines up: a name
+   * that cannot be bought is not a recommendation, and showing it with a warning invites
+   * someone to click it anyway.
+   *
+   * Only names actually confirmed taken are removed. Unchecked and unknown both stay, so a
+   * panel that is unreachable leaves the list exactly as it was before this check existed.
+   */
+  const allDomains = allDomainsRaw.filter((d) => titanTaken[d.name] !== true);
   const domain = allDomains.find((d) => d.name === chosenName) ?? allDomains[0];
 
   async function checkOwnDomain() {
@@ -176,6 +293,31 @@ export default function Reveal({
       setOwnError(row.available === false ? "That one's taken." : "Couldn't confirm that one's free.");
       return;
     }
+
+    /**
+     * Free at the registry, but is it already an order at Neo?
+     *
+     * This is the manual path, which is the one place the Partner Panel rung is already
+     * allowed, and the person has just told us this is the name they want — so it is exactly
+     * the name worth the call. Awaited rather than fired off, because unlike the suggestions
+     * there is nothing else on screen to fall back to: adding it and then removing it a second
+     * later would be worse than making them wait for the answer.
+     *
+     * A `null` (could not tell) adds the name as before. We do not know it is taken, and
+     * refusing on an unreachable admin session would block a name that is probably fine.
+     */
+    if (!isCoSite(name)) {
+      setOwnChecking(true);
+      const taken = await checkTitanOrder(name);
+      setOwnChecking(false);
+      titanAsked.current.add(name);
+      if (taken === true) {
+        setTitanTaken((prev) => ({ ...prev, [name]: true }));
+        setOwnError("That one's already set up on Neo.");
+        return;
+      }
+    }
+
     setExtraDomains((prev) => [
       ...prev,
       {
@@ -191,11 +333,25 @@ export default function Reveal({
 
   const mailboxCount = Math.max(reveal.mailboxes.length, answeredMailboxes ?? 0);
   const surfaces: FeatureSurface[] = showSite ? ["mail", "site"] : ["mail"];
-  const rec = recommend(
+  const solved = recommend(
     profile,
     mailboxCount,
     verdict?.raised ? { mail: verdict.mailTier, site: verdict.siteTier } : null,
   );
+
+  /**
+   * What is actually on screen: the solved recommendation, or the cheaper tier if they took it.
+   *
+   * `needs` and `viable` are carried across unchanged from the solve, on purpose. They describe
+   * what this business established a requirement for, and taking a cheaper plan does not
+   * un-establish it — that is exactly the information someone needs to make this trade
+   * knowingly. The swap notice below says which of them is no longer covered.
+   */
+  const cheaperStep = rationale?.cheaperStep ?? null;
+  const swappedPrice = swap
+    ? priceAs(swap.mail, swap.site, solved.mailboxes, solved.cycle)
+    : null;
+  const rec = swappedPrice ? { ...solved, ...swappedPrice } : solved;
 
   /* First-cycle price for a .co.site name — 0 today, but derived, so a two-year cycle
      stops it saying "Free" without anyone remembering to. */
@@ -212,16 +368,6 @@ export default function Reveal({
     neoSite && typeof (blockData(neoSite, "header") as { title?: unknown })?.title === "string"
       ? ((blockData(neoSite, "header") as { title: string }).title)
       : null;
-
-  /**
-   * Which of Neo's two templates they picked, by `templateKey`.
-   *
-   * Null until they choose, and null is a real state: it means "we did not ask them to decide
-   * something they had no opinion about", and the handoff then omits `templateKey` so Neo
-   * picks as it does today. Defaulting it to the first pane would put a choice in the URL
-   * that nobody made, which is the thing this control exists to stop.
-   */
-  const [chosenTemplate, setChosenTemplate] = useState<string | null>(null);
 
   const handoffUrl = buildHandoffUrl({
     profile,
@@ -311,6 +457,9 @@ export default function Reveal({
                       unlockSound();
                       playSound("select");
                       setChosenName(d.name);
+                      /* Now that this is the name being recommended, it is the one worth
+                         spending a panel call on. Cached per name, so re-clicking is free. */
+                      if (!isCoSite(d.name)) verifyTitan(d.name);
                     }}
                     title={d.note}
                     aria-pressed={active}
@@ -601,7 +750,67 @@ export default function Reveal({
                 ))}
               </ul>
             )}
-            {rationale?.whyNotCheaper && (
+            {/**
+              * The cheaper plan, with its price and a way to actually take it.
+              *
+              * It used to be a sentence saying what they would lose and nothing else, which
+              * told someone a trade existed while giving them no way to weigh or make it. The
+              * saving is the missing half of that sentence, and the button is the missing half
+              * of the screen.
+              *
+              * `whyNotCheaper` is hidden once swapped: the model wrote it about dropping FROM
+              * the solved tier, so on the cheaper plan it describes a step they have already
+              * taken and reads as though it were still ahead of them.
+              */}
+            {!swap && cheaperStep && (
+              <div className="plan-cheaper-offer">
+                {rationale?.whyNotCheaper && (
+                  <p className="plan-meta plan-cheaper">{rationale.whyNotCheaper}</p>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-small"
+                  onClick={() => {
+                    unlockSound();
+                    playSound("select");
+                    setSwap(
+                      cheaperStep.dimension === "mail"
+                        ? { mail: cheaperStep.toId, site: solved.sitePlan?.id ?? "none" }
+                        : { mail: solved.mailPlan.id, site: cheaperStep.toId },
+                    );
+                  }}
+                >
+                  Switch to {cheaperStep.toName}
+                  {cheaperStep.saveInr ? ` · save ₹${cheaperStep.saveInr.toLocaleString("en-IN")}/mo` : ""}
+                </button>
+              </div>
+            )}
+
+            {swap && (
+              <div className="plan-cheaper-offer plan-swapped">
+                <p className="plan-meta">
+                  You picked the cheaper plan.{" "}
+                  {solved.needs.length > 0
+                    ? "The reason we suggested the other one is still above — worth a look before you buy."
+                    : ""}
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-small"
+                  onClick={() => {
+                    unlockSound();
+                    playSound("select");
+                    setSwap(null);
+                  }}
+                >
+                  Back to {solved.mailPlan.name}
+                  {solved.sitePlan ? ` + ${solved.sitePlan.name}` : ""}
+                </button>
+              </div>
+            )}
+
+            {/* No cheaper step at all — already on the entry tier. Say nothing. */}
+            {!swap && !cheaperStep && rationale?.whyNotCheaper && (
               <p className="plan-meta plan-cheaper">{rationale.whyNotCheaper}</p>
             )}
 

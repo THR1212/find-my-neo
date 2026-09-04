@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import { motion } from "framer-motion";
 import { LineIn, ScreenIn } from "../components/ScreenIn";
 import ProductWait from "../components/ProductWait";
@@ -35,6 +36,25 @@ export default function Guess({
   onConfirm: () => void;
   onReject: () => void;
 }) {
+  /**
+   * The wait screen leaves on ITS clock, not on the profile's.
+   *
+   * `loading` flipping used to unmount ProductWait mid-beat, cutting the pane away from
+   * someone still reading it. Now `loading` only tells the wait screen that the data arrived;
+   * the wait screen finishes the beat it is in and calls back. See ProductWait's header.
+   *
+   * Hooks stay above every early return — the error and loading branches below return before
+   * the end of the component, so a hook declared after them would change the hook count
+   * between renders.
+   */
+  const [waitDone, setWaitDone] = useState(false);
+  /* Captured at mount, which is the whole question: App renders this screen the moment the
+     description is submitted, so `loading` is already true by the time we get here. A screen
+     that somehow mounted with the profile already in hand has nothing to wait for and should
+     go straight to the guess — which is exactly what a false here does. */
+  const [everLoaded] = useState(loading);
+  const releaseWait = useCallback(() => setWaitDone(true), []);
+
   if (error) {
     return (
       <ScreenIn>
@@ -56,10 +76,12 @@ export default function Guess({
     );
   }
 
-  if (loading) {
+  /* Held past `loading` on purpose — see releaseWait above. An error is NOT held: being told
+     something broke is not a thing to delay for the sake of an animation. */
+  if (everLoaded && !waitDone) {
     return (
       <ScreenIn>
-        <ProductWait />
+        <ProductWait settled={!loading} onDone={releaseWait} />
       </ScreenIn>
     );
   }

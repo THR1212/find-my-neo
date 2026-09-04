@@ -272,6 +272,11 @@ function domainApiPlugin(env: Record<string, string>): Plugin {
              credentials, answered properly. A dev/prod signature drift that presents as "the
              feature doesn't work locally", which is the least useful way to find out. */
           url.searchParams.get("manual"),
+          /* Same lesson as `manual` above, applied before it could bite twice: `titan` is a
+             new parameter on this route and it has to be forwarded from BOTH mounts in the
+             same change, or the Titan order check works in production and silently answers
+             nothing on localhost. */
+          url.searchParams.get("titan"),
         );
         res.statusCode = status;
         res.setHeader("Content-Type", "application/json");

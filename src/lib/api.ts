@@ -219,6 +219,21 @@ export interface RationaleResult {
    * existed — so a failed or slow generation loses the brevity, never the explanation.
    */
   because: string;
+  /**
+   * The cheaper plan `whyNotCheaper` is about, as data rather than prose.
+   *
+   * Computed server-side from plans.json, NOT by the model, so it is present even when the
+   * generation failed and `whyNotCheaper` came back empty. Null means there is no cheaper
+   * step — they are already on the entry tier in both dimensions.
+   */
+  cheaperStep?: {
+    dimension: "mail" | "site";
+    fromId: string;
+    toId: string;
+    toName: string;
+    /** INR/month saved at the yearly cycle. Mail already includes the mailbox multiplier. */
+    saveInr: number | null;
+  } | null;
 }
 
 /**

@@ -1180,6 +1180,34 @@ a.btn {
   opacity: 0.85;
 }
 
+/* The cheaper plan, offered rather than merely mentioned.
+   Boxed so the button reads as attached to the sentence that motivates it, and kept visually
+   quieter than the CTA — this is a real choice, not the one we are steering towards. */
+.plan-cheaper-offer {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.1));
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.plan-cheaper-offer .plan-cheaper,
+.plan-cheaper-offer .plan-meta {
+  margin-top: 0;
+}
+/* Swapped state reads as confirmed rather than as another offer. */
+.plan-swapped {
+  border-color: color-mix(in srgb, var(--accent, #0066ff) 35%, transparent);
+  background: color-mix(in srgb, var(--accent, #0066ff) 6%, transparent);
+}
+.btn-small {
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
 /* ?debug=1 only — out of the layout flow so it cannot disturb a demo or a screenshot. */
 /* TOP left, not bottom left, and the move is the point.
    It sat at bottom:16px under a comment promising it "cannot disturb a screenshot or a

@@ -2507,11 +2507,4 @@ html:has(.stage-reveal) #root {
   }
 }
 
-/* Shorter still — a 768p projector. The mailbox list is the one block that can lose rows
-   without losing meaning: four addresses all read the same, and the point ("we named them
-   for your business") lands in two. */
-@media (max-height: 820px) {
-  .reveal-setup .mailbox:nth-child(n + 4) {
-    display: none;
-  }
-}
+

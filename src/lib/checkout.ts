@@ -8,6 +8,7 @@
  */
 
 import plansData from "../data/plans.json";
+import { isCoSite } from "./domains";
 import type { Recommendation } from "./rules";
 import type { Mailbox } from "./session";
 
@@ -55,31 +56,30 @@ export function businessMailLabel(planName: string): string {
   return `Business Mail (${short} plan)`;
 }
 
-/**
- * Neo's own checkout paints USD. Max is taken from their live checkout
- * ($9.99 / $7.99 per mailbox): two boxes yearly is $191.76, SAVE 20%, $48.
- * Other tiers stay converted from the INR sheet so we do not invent a catalog.
- */
-const INR_PER_USD = 75;
-const NEO_USD: Partial<Record<string, { monthly: number; yearly: number }>> = {
-  max: { monthly: 9.99, yearly: 7.99 },
-};
-
-function usdFromInr(inr: number): number {
-  return Math.round((inr / INR_PER_USD) * 100) / 100;
+/** Whole rupees from the sheet — no .00. */
+export function formatInr(amount: number): string {
+  if (amount === 0) return "₹0";
+  return `₹${amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
-function usdPerMailbox(planId: string, cycle: CheckoutCycle, inr: number): number {
-  const listed = NEO_USD[planId]?.[cycle];
-  return listed ?? usdFromInr(inr);
+export function domainRetailInrPerMonth(): number {
+  return plansData.domain.retailInrPerMonth;
 }
 
-export function formatUsd(amount: number): string {
-  if (amount === 0) return "$0";
-  return `$${amount.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+/** Sheet retail × 12. Yearly after-first-year figure for the Domain line. */
+export function domainRetailYearlyInr(): number {
+  return domainRetailInrPerMonth() * 12;
+}
+
+export function domainAfterFirstCopy(cycle: CheckoutCycle): string {
+  if (cycle === "yearly") {
+    return `${formatInr(domainRetailYearlyInr())}/yr after 1st year`;
+  }
+  return `${formatInr(domainRetailInrPerMonth())}/mo after 1st month`;
+}
+
+export function domainFreePromo(cycle: CheckoutCycle): string {
+  return cycle === "yearly" ? "FREE FOR 1ST YEAR" : "FREE FOR 1ST MONTH";
 }
 
 export interface CycleTotals {
@@ -87,15 +87,19 @@ export interface CycleTotals {
   amountDueInr: number | null;
   savedInr: number;
   savePercent: number;
-  /** Rounded per-mailbox USD, then multiplied — Max × 2 yearly is $191.76. */
-  amountDueUsd: number | null;
-  savedUsd: number;
 }
+
+export const EMPTY_TOTALS: CycleTotals = {
+  amountDueInr: null,
+  savedInr: 0,
+  savePercent: 0,
+};
 
 /**
  * Yearly is prepaid for 12 months at the yearly per-month rate.
  * Monthly is one month at the monthly rate.
  * Site is not added: the checkout shows AI site as FREE BETA when present.
+ * SAVE % is INR mailbox rates (Max 599 vs 799), not a converted USD figure.
  */
 export function totalsForCycle(
   mailPlanId: string,
@@ -108,32 +112,32 @@ export function totalsForCycle(
   const yearly = plan?.inr.yearly ?? monthly;
 
   if (cycle === "yearly") {
-    if (yearly == null) {
-      return { amountDueInr: null, savedInr: 0, savePercent: 0, amountDueUsd: null, savedUsd: 0 };
-    }
+    if (yearly == null) return { ...EMPTY_TOTALS };
     const amountDueInr = yearly * boxes * 12;
-    const yearlyUsd = usdPerMailbox(mailPlanId, "yearly", yearly);
-    const amountDueUsd = yearlyUsd * boxes * 12;
     if (monthly == null || monthly <= yearly) {
-      return { amountDueInr, savedInr: 0, savePercent: 0, amountDueUsd, savedUsd: 0 };
+      return { amountDueInr, savedInr: 0, savePercent: 0 };
     }
     const savedInr = (monthly - yearly) * boxes * 12;
-    const monthlyUsd = usdPerMailbox(mailPlanId, "monthly", monthly);
-    const savedUsd = Math.round((monthlyUsd - yearlyUsd) * boxes * 12 * 100) / 100;
-    const savePercent = Math.round((1 - yearlyUsd / monthlyUsd) * 100);
-    return { amountDueInr, savedInr, savePercent, amountDueUsd, savedUsd };
+    const savePercent = Math.round((1 - yearly / monthly) * 100);
+    return { amountDueInr, savedInr, savePercent };
   }
 
-  if (monthly == null) {
-    return { amountDueInr: null, savedInr: 0, savePercent: 0, amountDueUsd: null, savedUsd: 0 };
-  }
+  if (monthly == null) return { ...EMPTY_TOTALS };
   return {
     amountDueInr: monthly * boxes,
     savedInr: 0,
     savePercent: 0,
-    amountDueUsd: usdPerMailbox(mailPlanId, "monthly", monthly) * boxes,
-    savedUsd: 0,
   };
+}
+
+/**
+ * Checkout amounts as painted. Mail due is unchanged. On yearly `.co.site`, YOU SAVED
+ * adds the first-year domain retail (the Domain line is ₹0 now). Custom domains do not.
+ */
+export function checkoutViewTotals(order: CheckoutOrder, cycle: CheckoutCycle): CycleTotals {
+  const mail = totalsForCycle(order.mailPlanId, order.pricedMailboxes, cycle);
+  if (cycle !== "yearly" || !isCoSite(order.domain)) return mail;
+  return { ...mail, savedInr: mail.savedInr + domainRetailYearlyInr() };
 }
 
 export function orderIsReady(order: CheckoutOrder | null | undefined): order is CheckoutOrder {

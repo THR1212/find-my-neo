@@ -2619,8 +2619,7 @@ html.is-funnel .grain {
   border-bottom: 1px solid #f0f0f0;
 }
 
-.neo-line-title-row,
-.neo-line-site {
+.neo-line-title-row {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -2672,6 +2671,29 @@ html.is-funnel .grain {
 
 .neo-trash {
   color: #bbb;
+}
+
+.neo-line-host {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 400;
+  color: #666;
+  word-break: break-all;
+}
+
+.neo-line-after {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: #888;
+}
+
+.neo-line-domain {
+  padding-top: 16px;
+}
+
+.neo-line-last {
+  border-bottom: 0;
 }
 
 .neo-line-site {
@@ -2841,6 +2863,67 @@ html.is-funnel .grain {
 
 .neo-success-again {
   margin-top: 28px;
+}
+
+.neo-success-mailbox .neo-success-mailbox-main {
+  width: min(440px, calc(100% - 48px));
+  margin: 64px auto 80px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.neo-success-mailbox .neo-success-check {
+  margin-bottom: 28px;
+  line-height: 0;
+}
+
+.neo-success-mailbox h1 {
+  margin: 0 0 16px;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #333;
+}
+
+.neo-success-mailbox .neo-success-mail {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.neo-success-mailbox .neo-success-ready {
+  margin: 0 0 36px;
+  font-size: 16px;
+  font-weight: 400;
+  color: #333;
+}
+
+.neo-success-mailbox .neo-success-primary {
+  width: 100%;
+}
+
+.neo-success-mailbox .neo-success-share {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin-top: 14px;
+  border: 1px solid #222;
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.neo-success-mailbox .neo-success-share-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #666;
 }
 
 .neo-need-help {

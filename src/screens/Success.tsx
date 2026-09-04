@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { NeoHeader } from "../components/NeoChrome";
 import { adminMailbox, orderIsReady, type CheckoutOrder } from "../lib/checkout";
+import { isCoSite } from "../lib/domains";
 
 export default function Success({
   order,
@@ -10,6 +12,7 @@ export default function Success({
 }) {
   const ready = orderIsReady(order);
   const admin = ready ? adminMailbox(order) : null;
+  const [shareNote, setShareNote] = useState(false);
 
   if (!ready || !admin) {
     return (
@@ -22,6 +25,47 @@ export default function Success({
           <button className="btn" type="button" onClick={onBack}>
             Back to checkout
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isCoSite(order.domain)) {
+    return (
+      <div className="neo-funnel neo-success neo-success-mailbox">
+        <NeoHeader />
+        <div className="neo-success-mailbox-main">
+          <div className="neo-success-check" aria-hidden="true">
+            <svg viewBox="0 0 88 88" width="88" height="88">
+              <circle cx="44" cy="44" r="44" fill="#0066ff" />
+              <path
+                d="M25 45.5l12.5 12.5 26-28"
+                fill="none"
+                stroke="#fff"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <h1>Congratulations!</h1>
+          <a className="neo-success-mail" href={`mailto:${admin.address}`}>
+            {admin.address}
+          </a>
+          <p className="neo-success-ready">Your mailbox is now ready for you!</p>
+          <button className="neo-success-primary" type="button">
+            Go to your webmail
+          </button>
+          <button
+            className="neo-success-share"
+            type="button"
+            onClick={() => setShareNote(true)}
+          >
+            Share login info with your team members
+          </button>
+          {shareNote && (
+            <p className="neo-success-share-note">Login details stay on this page for the demo.</p>
+          )}
         </div>
       </div>
     );

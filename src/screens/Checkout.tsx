@@ -2,12 +2,16 @@ import { useMemo, useState } from "react";
 import { NeoHeader } from "../components/NeoChrome";
 import {
   businessMailLabel,
-  formatUsd,
+  checkoutViewTotals,
+  domainAfterFirstCopy,
+  domainFreePromo,
+  EMPTY_TOTALS,
+  formatInr,
   orderIsReady,
-  totalsForCycle,
   type CheckoutCycle,
   type CheckoutOrder,
 } from "../lib/checkout";
+import { isCoSite } from "../lib/domains";
 import { playSound, unlockSound } from "../sound";
 
 const COUNTRIES = ["India", "United States", "United Kingdom", "Singapore", "United Arab Emirates"];
@@ -34,17 +38,11 @@ export default function Checkout({
 
   const ready = orderIsReady(order);
   const yearlyTotals = useMemo(
-    () =>
-      ready
-        ? totalsForCycle(order.mailPlanId, order.pricedMailboxes, "yearly")
-        : { amountDueInr: null, savedInr: 0, savePercent: 0, amountDueUsd: null, savedUsd: 0 },
+    () => (ready ? checkoutViewTotals(order, "yearly") : EMPTY_TOTALS),
     [ready, order],
   );
   const totals = useMemo(
-    () =>
-      ready
-        ? totalsForCycle(order.mailPlanId, order.pricedMailboxes, cycle)
-        : { amountDueInr: null, savedInr: 0, savePercent: 0, amountDueUsd: null, savedUsd: 0 },
+    () => (ready ? checkoutViewTotals(order, cycle) : EMPTY_TOTALS),
     [ready, order, cycle],
   );
 
@@ -70,8 +68,9 @@ export default function Checkout({
     );
   }
 
-  const dueLabel = totals.amountDueUsd == null ? "Pay" : `Pay ${formatUsd(totals.amountDueUsd)}`;
-  const mailPrice = totals.amountDueUsd;
+  const dueLabel = totals.amountDueInr == null ? "Pay" : `Pay ${formatInr(totals.amountDueInr)}`;
+  const mailPrice = totals.amountDueInr;
+  const showDomain = isCoSite(order.domain);
 
   return (
     <div className="neo-funnel neo-checkout">
@@ -159,7 +158,7 @@ export default function Checkout({
             <button
               className="neo-pay"
               type="button"
-              disabled={paying || totals.amountDueUsd == null}
+              disabled={paying || totals.amountDueInr == null}
               onClick={() => {
                 unlockSound();
                 playSound("cta");
@@ -188,7 +187,7 @@ export default function Checkout({
                 <div className="neo-line-title-row">
                   <p className="neo-line-title">{businessMailLabel(order.mailPlanName)}</p>
                   <p className="neo-line-price">
-                    {mailPrice == null ? "—" : formatUsd(mailPrice)}
+                    {mailPrice == null ? "—" : formatInr(mailPrice)}
                     <span
                       className="neo-info"
                       title="Price from the same plan shown on your setup. Yearly is 12 months at the yearly mailbox rate."
@@ -211,12 +210,41 @@ export default function Checkout({
               </div>
             </div>
 
+            {showDomain && (
+              <div className={`neo-line neo-line-domain${order.hasSite ? "" : " neo-line-last"}`}>
+                <div className="neo-line-title-row">
+                  <div>
+                    <p className="neo-line-title">Domain</p>
+                    <p className="neo-line-host">{order.domain}</p>
+                    <p className="neo-line-after">
+                      {domainAfterFirstCopy(cycle)}
+                      <span
+                        className="neo-info"
+                        title="First cycle is free on .co.site. After that, Neo's sheet retail for the subdomain applies."
+                      >
+                        ?
+                      </span>
+                    </p>
+                  </div>
+                  <div className="neo-site-price">
+                    <p className="neo-line-price">{formatInr(0)}</p>
+                    <p className="neo-free-beta">{domainFreePromo(cycle)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {order.hasSite && (
               <div className="neo-line neo-line-site">
-                <p className="neo-line-title">AI site</p>
-                <div className="neo-site-price">
-                  <p className="neo-line-price">{formatUsd(0)}</p>
-                  <p className="neo-free-beta">FREE BETA</p>
+                <div className="neo-line-title-row">
+                  <div>
+                    <p className="neo-line-title">AI site</p>
+                    <p className="neo-line-host">{order.domain}</p>
+                  </div>
+                  <div className="neo-site-price">
+                    <p className="neo-line-price">{formatInr(0)}</p>
+                    <p className="neo-free-beta">FREE BETA</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -224,11 +252,11 @@ export default function Checkout({
             <div className="neo-due">
               <p className="neo-due-label">Amount due now</p>
               <p className="neo-due-amount">
-                {totals.amountDueUsd == null ? "—" : formatUsd(totals.amountDueUsd)}
+                {totals.amountDueInr == null ? "—" : formatInr(totals.amountDueInr)}
               </p>
             </div>
             {cycle === "yearly" && totals.savedInr > 0 && (
-              <p className="neo-saved">YOU SAVED {formatUsd(totals.savedUsd)}!</p>
+              <p className="neo-saved">YOU SAVED {formatInr(totals.savedInr)}!</p>
             )}
           </aside>
         </div>

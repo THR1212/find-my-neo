@@ -156,6 +156,7 @@ research generally: **absence of evidence here was mostly absence of looking pro
 3. **Start over / try again** — Cynet and Rinda both offer it. We have `onRestart`; this says
    keep it visible rather than tucked away.
 4. **Three to four questions** — Mailchimp asks 4, Rinda 3. Our `MAX_QUESTIONS = 4` now has
+   *(number superseded — see the correction at the foot of this file)*
    direct precedent from the two closest analogues, not just the telecom/insurance range.
 
 **And the addresses gap holds even here.** Rinda asks "number of people". Mailchimp asks team
@@ -198,3 +199,13 @@ looks like the right call, on a small sample.
   we did not look properly.
 - Confirming whether Wix computes a recommended plan. Currently unverified either way, and it is
   the largest hole in the site-builder table.
+
+---
+
+## Correction, 04 Sep 2026
+
+`MAX_QUESTIONS` is **12**, not 4, and the bank is **seven** questions. The number above was
+right when it was written and the *finding* still holds — the comparison set asks three to four
+— but the ceiling is no longer what stops our run. `shouldReveal` does, when nothing left to ask
+could change the recommendation, which in practice lands most runs at four to six questions.
+The ceiling is now a guard rail rather than the design.

@@ -24,6 +24,12 @@ chosen, mailbox count known, plan fitted — instead of at the category picker. 
 adding a purchase path; they have one. See `docs/neo-product-facts.md` before making any claim
 about what Neo does.
 
+**Claim now opens an in-app checkout, not the live funnel** (04 Sep). It is a faithful mock of
+Neo's checkout that makes no network calls, so a rehearsal cannot create a real order. Say
+"pre-built cart" in a demo, not "this is Neo's checkout" — the point being shown is that the
+cart arrives with the right plan already in it, and the honest framing is stronger than the
+overclaim. `buildHandoffUrl` still exists as the fallback path.
+
 Generative and pre-purchase. Not a decision tree, not post-purchase analytics.
 
 ## Hard rules

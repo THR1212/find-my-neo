@@ -221,6 +221,25 @@ const words = (t: string) =>
   );
 
 /** True when `hint` carries no content word that `context` does not already have. */
+/**
+ * Cut at a word boundary, never mid-word.
+ *
+ * The caps are real — a label that wraps to three lines breaks the option grid — but a hard
+ * `slice` produced "You arrange things with clients after they enq" on a live run. A sentence
+ * that stops mid-word reads as a rendering fault, which is worse than the sentence being
+ * shorter. Drops the last partial word, and only if that leaves something usable; a cap so
+ * tight that trimming empties the string returns the hard cut instead.
+ */
+function clip(text: string, max: number): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  const trimmed = lastSpace > max * 0.5 ? cut.slice(0, lastSpace) : cut;
+  /* Trailing punctuation left dangling by the trim reads as a typo. */
+  return trimmed.replace(/[\s,;:.\-]+$/, "");
+}
+
 function addsNothing(hint: string, context: string): boolean {
   const h = words(hint);
   if (h.size === 0) return true;
@@ -311,8 +330,8 @@ function validateQuestions(raw: ModelQuestion[] | undefined): {
         dropped.push(`${q.questionId}: duplicate optionId ${o.optionId}`);
         continue;
       }
-      const label = String(o.label ?? "").slice(0, 34);
-      const hint = String(o.hint ?? "").slice(0, 46);
+      const label = clip(String(o.label ?? ""), 34);
+      const hint = clip(String(o.hint ?? ""), 46);
       options[o.optionId] = {
         label,
         /**
@@ -337,9 +356,9 @@ function validateQuestions(raw: ModelQuestion[] | undefined): {
     }
 
     surface[q.questionId] = {
-      prompt: String(q.prompt ?? "").slice(0, 80),
-      sub: String(q.sub ?? "").slice(0, 120),
-      placeholder: String(q.placeholder ?? "").slice(0, 90),
+      prompt: clip(String(q.prompt ?? ""), 80),
+      sub: clip(String(q.sub ?? ""), 120),
+      placeholder: clip(String(q.placeholder ?? ""), 90),
       options,
     };
   }

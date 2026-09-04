@@ -403,6 +403,8 @@ export default function Reveal({
               * three real suggestions against a price for five is a gap; inventing a
               * `mailbox4@` to close it would be us writing their addresses for them.
               */}
+            {/* See the note below the list: we bill `rec.mailboxes` and the model may have named
+                fewer, so the difference is stated rather than left for the reader to notice. */}
             {reveal.mailboxes.slice(0, rec.mailboxes).map((m) => (
               <div key={m.address} className="mailbox">
                 <span className="mailbox-address">
@@ -412,6 +414,24 @@ export default function Reveal({
                 <span className="mailbox-label">{m.label}</span>
               </div>
             ))}
+            {/**
+              * The arithmetic, when it does not match what is listed.
+              *
+              * "Three to five" resolves to four mailboxes and the price says `4 × ₹299`, but
+              * the model suggests names from the description and often gives three. A reader
+              * counts three addresses above a charge for four and has no way to reconcile it.
+              *
+              * We say it instead. Not by inventing a fourth name — that would be writing their
+              * address for them — and not by billing three, because four is what they asked
+              * for and each one costs the same to add.
+              */}
+            {rec.mailboxes > reveal.mailboxes.length && (
+              <p className="mailbox-extra">
+                +{rec.mailboxes - reveal.mailboxes.length} more address
+                {rec.mailboxes - reveal.mailboxes.length === 1 ? "" : "es"} on your plan — name
+                {rec.mailboxes - reveal.mailboxes.length === 1 ? " it" : " them"} when you set up.
+              </p>
+            )}
           </div>
 
           <div className="plan-card">
@@ -419,9 +439,11 @@ export default function Reveal({
             <div className="plan-name">
               {rec.mailPlan.name}
               {rec.sitePlan ? ` + ${rec.sitePlan.name} site` : ""}
-              {rec.monthlyInr !== null && (
-                <span className="plan-price"> ₹{rec.monthlyInr.toLocaleString("en-IN")}/mo</span>
-              )}
+              {/* NO PRICE HERE. It showed `rec.monthlyInr`, which is plans only, directly above
+                  a Total that adds the domain — "Neo Standard + Plus site ₹1,555/mo" over
+                  "Total ~₹1,643/mo". Two prices for the same thing, three lines apart, and the
+                  reader has no way to know which one they pay. The breakdown below is the
+                  answer and it is immediately underneath. */}
             </div>
             {/**
               * ONLY when `because` is absent, and this was a real bug on 03 Sep.

@@ -66,7 +66,11 @@ const CHEAPER_TIER: Record<string, { cheaper: string; cheaperId: string; loses: 
   standard: {
     cheaperId: "starter",
     cheaper: "Neo Starter",
-    loses: "the signature designer, company branding, and the extra mailbox storage",
+    /* NOT the signature designer. It moved to Max on 03 Sep, so Standard does not have it
+       either and dropping to Starter cannot lose it — the sentence was live and false. All
+       three below are verified Starter-absent: Branding and Neo Drive in both sources,
+       storage as the 15 GB -> 50 GB step. */
+    loses: "company branding, Neo Drive, and the jump from 15 GB to 50 GB a mailbox",
   },
   max: {
     cheaperId: "standard",

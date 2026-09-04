@@ -17,12 +17,13 @@
  * be the thing that breaks the flow.
  */
 
+import { normalizeCheckoutOrder, type CheckoutOrder } from "./checkout";
 import type { EngineState } from "./engine";
 import type { NeoSite } from "./neoSite";
 import type { RevealContent } from "./session";
 
 /** Where the flow is. Lives here rather than in App so the snapshot type can name it. */
-export type Stage = "hook" | "describe" | "guess" | "question" | "reveal";
+export type Stage = "hook" | "describe" | "guess" | "question" | "reveal" | "checkout" | "success";
 
 const KEY = "findmyneo.session";
 
@@ -32,7 +33,7 @@ const KEY = "findmyneo.session";
  * the snapshot instead of deserialising yesterday's shape into today's fields, which fails
  * silently and looks like an engine bug.
  */
-const VERSION = 7;
+const VERSION = 9;
 /* v2: EngineState gained `surface` (model-written wording) and `trail` (what was shown).
    Both live inside `engine`, so they ride along in the snapshot automatically — but a v1
    snapshot restored into v2 would have neither, and every question would silently revert to
@@ -54,7 +55,13 @@ const VERSION = 7;
    different ceiling, so restoring it would resume a flow that can no longer happen.
 
    v7: added `verdict` (the model's verified plan raise). A v6 snapshot restored into v7 would
-   simply have none, which is a legitimate state — the bump keeps the rule simple. */
+   simply have none, which is a legitimate state — the bump keeps the rule simple.
+
+   v8: checkout / success stages and the Claim payload. A v7 snapshot has no order, so
+   restoring it onto checkout would paint the empty state with leftover nothing.
+
+   v9: customDomainYearlyInr on the Claim payload (DomScan yearly for a custom domain).
+   Missing field on old snapshots -> treat as null, not free. */
 
 /**
  * RESOLVED 02 Sep — kept because the reasoning still governs the design.
@@ -94,6 +101,8 @@ export interface Snapshot {
   rationale: { rationale: string; whyNotCheaper: string; because: string };
   /** The model's verified plan verdict, or null when it never raised anything. */
   verdict: { mailTier: string; siteTier: string; raised: boolean; cites: { entitlement: string; evidence: string }[] } | null;
+  /** Claim payload. Absent on v7 snapshots and on every stage before checkout. */
+  checkoutOrder?: CheckoutOrder | null;
 }
 
 /** Everything App owns that is worth restoring. `loading` and `error` are deliberately absent. */
@@ -130,6 +139,14 @@ export function loadSnapshot(): Snapshot | null {
     if (!parsed.engine || !Array.isArray(parsed.engine.asked) || !parsed.engine.profile) return null;
     if (!parsed.stage || parsed.stage === "hook") return null;
     if (typeof parsed.rawText !== "string") return null;
+    /* A checkout stage with no order would paint the empty checkout, which reads as a bug.
+       Fall back to the reveal, which is where the order is built. */
+    if ((parsed.stage === "checkout" || parsed.stage === "success") && !parsed.checkoutOrder) {
+      parsed.stage = "reveal";
+    }
+    if (parsed.checkoutOrder) {
+      parsed.checkoutOrder = normalizeCheckoutOrder(parsed.checkoutOrder as CheckoutOrder);
+    }
 
     return parsed as Snapshot;
   } catch {

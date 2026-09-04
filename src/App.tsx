@@ -32,6 +32,9 @@ import Describe from "./screens/Describe";
 import Guess from "./screens/Guess";
 import AdaptiveQuestion from "./screens/AdaptiveQuestion";
 import Reveal from "./screens/Reveal";
+import Checkout from "./screens/Checkout";
+import Success from "./screens/Success";
+import type { CheckoutOrder } from "./lib/checkout";
 
 const transition = { duration: 0.42, ease: [0.16, 1, 0.3, 1] as const };
 
@@ -113,6 +116,20 @@ export default function App() {
    * recommendation stands unchanged.
    */
   const [verdict, setVerdict] = useState<PlanVerdict | null>(restored?.verdict ?? null);
+
+  /**
+   * The Claim payload: what the reveal was actually showing when they pressed the button.
+   *
+   * Built in Reveal from the recommendation ON SCREEN, which is the swapped one when they
+   * took the cheaper plan — so the checkout bills what they chose, not what we first
+   * suggested. Null before Claim, and a checkout stage without one falls back to the reveal
+   * on restore (see persist.ts).
+   */
+  const [checkoutOrder, setCheckoutOrder] = useState<CheckoutOrder | null>(
+    restored?.checkoutOrder ?? null,
+  );
+  /** Guards a double-tap on Pay while the mock settles. */
+  const [paying, setPaying] = useState(false);
 
   /**
    * Current stage, readable from inside async callbacks.
@@ -374,8 +391,8 @@ export default function App() {
 
   /** Snapshot after every meaningful change, so a reload lands on the current screen. */
   useEffect(() => {
-    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict });
-  }, [stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict]);
+    saveSnapshot({ stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict, checkoutOrder });
+  }, [stage, engine, rawText, reveal, summary, neoSite, neoSiteAlt, reasons, rationale, verdict, checkoutOrder]);
 
   /**
    * Apply an answer and decide where to go next.
@@ -518,6 +535,21 @@ export default function App() {
   }, [engine, rawText, reveal, reasons, rationale, verdict]);
 
   const showMeter = stage === "guess" || stage === "question" || stage === "reveal";
+
+  /**
+   * Checkout and success are Neo's pages, not ours.
+   *
+   * They render outside the qualifier's shell so the meter dock and the background blooms are
+   * gone — the point of the in-app checkout is that it reads as the thing you were handed to,
+   * and our chrome sitting on top of it would undo that.
+   */
+  const funnel = stage === "checkout" || stage === "success";
+  useEffect(() => {
+    document.documentElement.classList.toggle("is-funnel", funnel);
+    return () => {
+      document.documentElement.classList.remove("is-funnel");
+    };
+  }, [funnel]);
   const stepNumber = engine.asked.length + 1;
 
   return (
@@ -587,6 +619,32 @@ export default function App() {
         </button>
       )}
 
+      {/* The checkout and success screens are meant to read as NEO's pages, not ours, so they
+          render outside the qualifier's shell entirely — no meter dock, no blooms, full bleed.
+          `is-funnel` on <html> is what hides the chrome; see index.css. */}
+      {funnel ? (
+        <main className="stage stage-funnel">
+          {stage === "checkout" && (
+            <Checkout
+              order={checkoutOrder}
+              paying={paying}
+              onBack={() => setStage("reveal")}
+              onPay={() => {
+                if (paying) return;
+                setPaying(true);
+                window.setTimeout(() => {
+                  setPaying(false);
+                  setStage("success");
+                }, 400);
+              }}
+            />
+          )}
+          {stage === "success" && (
+            <Success order={checkoutOrder} onBack={() => setStage("checkout")} />
+          )}
+        </main>
+      ) : (
+      <>
       {/* `stage-reveal` and `screen-wide` are what the merged split layout hangs off:
           html:has(.stage-reveal) locks the page to the viewport so the reveal is one screen,
           and .screen-wide widens it for the two panes. Without these two class names the
@@ -643,11 +701,17 @@ export default function App() {
                 rationale={rationale}
                 verdict={verdict}
                 onRestart={restart}
+                onClaim={(order) => {
+                  setCheckoutOrder(order);
+                  setStage("checkout");
+                }}
               />
             )}
           </motion.div>
         </AnimatePresence>
       </main>
+      </>
+      )}
     </>
   );
 }

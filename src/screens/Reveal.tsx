@@ -12,6 +12,7 @@ import {
 import { pickFeatures, withReason, type FeatureSurface, type ReasonMap } from "../lib/features";
 import { recommend, priceAs, CYCLE_LABEL, domainFirstCycleInr } from "../lib/rules";
 import type { RationaleResult } from "../lib/api";
+import { buildCheckoutOrder, type CheckoutOrder } from "../lib/checkout";
 import { buildHandoffUrl } from "../lib/handoff";
 import SetupStory from "../components/SetupStory";
 import { block as blockData, type NeoSite } from "../lib/neoSite";
@@ -43,6 +44,7 @@ export default function Reveal({
   rationale,
   verdict,
   onRestart,
+  onClaim,
 }: {
   reveal: RevealContent | null;
   loading: boolean;
@@ -62,6 +64,13 @@ export default function Reveal({
     cites: { entitlement: string; evidence: string }[];
   } | null;
   onRestart: () => void;
+  /**
+   * Claim: hand the checkout exactly what this screen was showing.
+   *
+   * Optional so the reveal still renders anywhere it is mounted without a checkout behind it;
+   * with no handler the button falls back to Neo's real funnel URL.
+   */
+  onClaim?: (order: CheckoutOrder) => void;
 }) {
   const [chosenName, setChosenName] = useState<string | null>(null);
   const [extraDomains, setExtraDomains] = useState<DomainOption[]>([]);
@@ -833,16 +842,38 @@ export default function Reveal({
           </div>
 
           <div className="row reveal-cta">
+            {/**
+              * `rec`, NOT `solved`, and that is the whole point of passing it.
+              *
+              * `rec` is what this screen is showing — the solved recommendation, or the cheaper
+              * plan if they took it. Handing the checkout `solved` would bill them for the plan
+              * they just declined, with the screen they declined it on still behind them.
+              *
+              * Still an <a> to Neo's real funnel underneath, so the button works (and degrades
+              * to today's behaviour) if it is ever mounted without `onClaim`.
+              */}
             <a
               className="btn"
               href={handoffUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              target={onClaim ? undefined : "_blank"}
+              rel={onClaim ? undefined : "noopener noreferrer"}
               autoFocus
-              onClick={() => {
+              onClick={(e) => {
                 unlockSound();
                 playSound("cta");
                 void navigator.clipboard?.writeText(domainName).catch(() => {});
+                if (!onClaim) return;
+                e.preventDefault();
+                onClaim(
+                  buildCheckoutOrder({
+                    domain: domainName,
+                    revealMailboxes: reveal.mailboxes,
+                    rec,
+                    hasSite: showSite,
+                    domainPriceInr: livePrice,
+                    domainFree: Boolean(domain?.free),
+                  }),
+                );
               }}
             >
               Claim it and start building

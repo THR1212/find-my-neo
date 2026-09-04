@@ -469,6 +469,26 @@ async function askNeo(stem: string, domain: string): Promise<CoSiteResult | null
  * wins the moment its 500 is repaired); this is what we have while that is broken.
  */
 async function askPartnerPanel(domain: string): Promise<CoSiteResult | null> {
+  /**
+   * THE SINGLE GATE ON THE ADMIN SESSION. Off unless NEO_PARTNER_PANEL_LOOKUP=1.
+   *
+   * Placed on the function rather than on its callers, because there are two of them and the
+   * one that mattered was the one nobody was looking at. `checkTitanOrder` was gated on 04 Sep
+   * after it was found answering for arbitrary domains; `checkCoSite` reaches the same session
+   * from a different rung, and `manual=1` is a query-string flag the client controls, so
+   * `?name=<anything>&tlds=co.site&manual=1` is enumerable in exactly the same way.
+   *
+   * The DATA is far less sensitive than the other oracle's — `<stem>.co.site` availability is
+   * Neo's own namespace, which their public domain-selection step already discloses. The
+   * MECHANISM is the problem: a real Titan admin login, spent answering public queries from a
+   * public URL, rate-limited only per serverless instance.
+   *
+   * Off costs the reveal nothing. The batch lookup never used this rung anyway (it answers
+   * `null` and renders no badge), and the "FREE" label is a product fact, not a lookup result.
+   * Only a hand-typed `.co.site` loses its authoritative answer, and it degrades to the probe.
+   */
+  if (process.env.NEO_PARTNER_PANEL_LOOKUP !== "1") return null;
+
   /* A pasted session wins when present: it costs no login, and it is what someone debugging
      with tools/cosite-check.mjs already has to hand. Minting is the fallback, not the norm. */
   const pasted = process.env.NEO_PARTNER_SESSION;
@@ -607,7 +627,24 @@ export async function checkCoSite(
      a cached definite yes/no as normal. */
   if (hit && Date.now() - hit.at < TTL_MS) {
     const conclusive = hit.value.available !== null;
-    if (conclusive || !allowPanel) return { ...hit.value, cached: true };
+    /**
+     * A PANEL-DERIVED ANSWER IS NOT SERVED TO A CALLER THAT WAS NOT ALLOWED THE PANEL.
+     *
+     * Measured on 04 Sep: `bakery.co.site` and `coffee.co.site` came back
+     * `authoritative` on the plain batch path, seconds after a `manual=1` request had warmed
+     * the cache on the same instance. No panel call was made — the cache simply handed the
+     * earlier one over. So the batch path could report an admin-sourced answer, which is the
+     * exact separation `manual=1` exists to maintain, quietly undone by a cache hit.
+     *
+     * Non-deterministic, too, which is worse: Vercel routes across instances, so the same
+     * request answered `authoritative` or `null` depending on which one took it.
+     */
+    const fromPanel = hit.value.source === "panel";
+    if (fromPanel && !allowPanel) {
+      // fall through and re-derive with the rungs this caller IS allowed
+    } else if (conclusive || !allowPanel) {
+      return { ...hit.value, cached: true };
+    }
   }
 
   /* A LADDER, not a single try/catch, and the difference matters when Neo's endpoint is

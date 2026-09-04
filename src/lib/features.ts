@@ -165,6 +165,28 @@ export const FEATURES: Feature[] = [
   },
   {
     /**
+     * THE SECOND FLOOR, and there are deliberately exactly two.
+     *
+     * Hari's rule, 04 Sep: a reveal must never show fewer than two features, and the mail-only
+     * pane must never show fewer than two panes. One floor got the left column to two; the
+     * RIGHT column needs two things with MEDIA, and `custom_domain` — the usual second bullet
+     * on a sparse Starter — has no artwork in Neo's set, so it is dropped from the pane and a
+     * lone film stretched across it.
+     *
+     * Rich webmail is on all three plans and true of everyone who buys anything, so like
+     * `mobile_apps` it can never be wrong. Ranked BELOW it, so between the two floors the more
+     * interesting one leads. Two is the cap: a third always-true feature would start crowding
+     * out the specific ones, which is the padding the commonness ranking exists to prevent.
+     */
+    id: "rich_webmail",
+    name: "Rich webmail",
+    surface: "mail",
+    because: "a proper inbox in the browser, with nothing to install",
+    matches: () => true,
+    priority: 1,
+  },
+  {
+    /**
      * THE FLOOR. Always true, lowest priority, and that combination is the point.
      *
      * A plain mail-only Starter run — mostly messages, phone customers, one address, nothing

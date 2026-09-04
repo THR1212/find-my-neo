@@ -322,7 +322,7 @@ export async function handleRationale(
       user: JSON.stringify(payload),
       schema: SCHEMA as unknown as Record<string, unknown>,
       schemaName: "plan_rationale",
-      maxOutputTokens: 900,
+      maxOutputTokens: 15000,
     });
   } catch (err) {
     reason = err instanceof Error ? err.message : String(err);

@@ -402,7 +402,7 @@ export async function handleQuestions(
       /* Nine questions now, not six. Raised with the bank; llm.ts reports truncation rather
          than letting it surface as a JSON parse error. */
       /**
-       * 8000, and the ceiling is nearly free to raise: billing is on tokens actually used,
+       * 15000, raised from 8000 on 04 Sep at Hari's call, and the ceiling is nearly free: billing is on tokens actually used,
        * not on the cap. What it buys is headroom for REASONING tokens, which gpt-5.6 counts
        * against `max_completion_tokens` alongside the visible output. The visible JSON here is
        * only ~1,200-1,500 tokens; at 3,800 a long deliberation left too little room to finish
@@ -412,7 +412,7 @@ export async function handleQuestions(
        * question renders from the fixed bank, and the flow looks like it simply never
        * personalised anything. Which is the symptom this whole thread began with.
        */
-      maxOutputTokens: 8000,
+      maxOutputTokens: 15000,
       /* The long call. 45s and no retry beats 20s twice: the old pair spent 40.5s to return
          nothing, and nothing here means every screen reads from the fixed bank. Nobody waits
          on this — it resolves while the guess screen is up and is dropped if a question is

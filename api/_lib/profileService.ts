@@ -503,7 +503,7 @@ export async function handleProfile(
       schemaName: "business_profile",
       /* The output is small and fixed-shape. A tight ceiling makes truncation cheap to
          detect (llm.ts checks finish_reason) rather than surfacing as a JSON parse error. */
-      maxOutputTokens: 3000,
+      maxOutputTokens: 15000,
     });
   } catch (err) {
     reason = err instanceof Error ? err.message : String(err);

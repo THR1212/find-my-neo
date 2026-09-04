@@ -33,7 +33,17 @@
  */
 
 (function () {
-  var APP = "https://find-my-neo-hari-7720.vercel.app/";
+  /* neo-akinator.vercel.app, NOT find-my-neo-hari-7720 — and this is a correctness choice,
+     not a preference. As of 04 Sep the -hari-7720 alias has Vercel Deployment Protection ON:
+     every path 302s to vercel.com/sso-api, which answers X-Frame-Options: DENY, and the
+     overlay below dies exactly as the header of this file predicts. neo-akinator serves 200
+     with no frame headers, so it embeds.
+
+     The trademark note in docs/naming.md still stands and this host is the thing it warns
+     about — but a URL nobody can load is worse than a URL with an awkward word in it. The
+     real fix is a public alias without the trademark (find-my-neo.vercel.app was unclaimed
+     on 04 Sep); point this at it the moment one exists. */
+  var APP = "https://neo-akinator.vercel.app/";
   /* Share token baked in so the demo needs no login. This is a revocable Vercel share link,
      not a credential — regenerate it from the deployment's Share dialog if it leaks. */
   /* Substituted by build.mjs from VERCEL_SHARE_TOKEN. Never commit a real token here:
@@ -97,7 +107,11 @@
 
     var frame = document.createElement("iframe");
     frame.src = URL_WITH_TOKEN;
-    frame.setAttribute("allow", "clipboard-write");
+    /* `autoplay` matters: the wait screen is three muted <video> loops, and muted autoplay in a
+       cross-origin iframe is allowed by Chrome today but is exactly the kind of thing a policy
+       change breaks silently — a failed play() renders nothing and the pane reads as blank.
+       Delegating it costs nothing and removes the question. */
+    frame.setAttribute("allow", "clipboard-write; autoplay");
 
     var close = document.createElement("button");
     close.className = "fmn-close";

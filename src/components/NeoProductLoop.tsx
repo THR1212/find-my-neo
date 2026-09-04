@@ -38,8 +38,16 @@ export default function NeoProductLoop({
     }
   }, [active, reduceMotion]);
 
-  if (failed) return null;
-
+  /**
+   * A failed video keeps its caption. It used to `return null`, which is how three loading
+   * panes become an empty screen with no explanation — the exact silent-failure shape this
+   * project keeps finding. On 04 Sep every clip 302'd to a login page (Deployment Protection
+   * on the aliased host), and the visible symptom was "it goes blank", with nothing on screen
+   * or in the console to say a video had been refused.
+   *
+   * The frame collapses and the name and caption stay, so the pane still says what Neo does
+   * even when the footage cannot load.
+   */
   return (
     <motion.figure
       className={`neo-loop${variant === "hero" ? " neo-loop-hero" : ""}`}
@@ -47,6 +55,7 @@ export default function NeoProductLoop({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
     >
+      {failed ? null : (
       <div className="neo-loop-frame">
         <video
           ref={ref}
@@ -59,6 +68,7 @@ export default function NeoProductLoop({
           onError={() => setFailed(true)}
         />
       </div>
+      )}
       <figcaption>
         {clip.kicker ? <span className="neo-loop-kicker">{clip.kicker}</span> : null}
         <span className="neo-loop-name">{clip.name}</span>

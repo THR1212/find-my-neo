@@ -251,7 +251,7 @@ export async function handleReasons(
       schemaName: "feature_reasons",
       /* 20 short clauses. Generous enough that truncation is a real signal rather than the
          normal case — llm.ts checks finish_reason and says so. */
-      maxOutputTokens: 2200,
+      maxOutputTokens: 15000,
     });
     raw = out.reasons;
   } catch (err) {

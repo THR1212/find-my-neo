@@ -17,12 +17,15 @@ import {
   fetchRationale,
   fetchPlanVerdict,
   type PlanVerdict,
+  type RationaleResult,
 } from "./lib/api";
 import { recommend } from "./lib/rules";
 import { fetchNeoSites, fixtureFitsDescription, type NeoSite } from "./lib/neoSite";
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Stage } from "./lib/persist";
 import type { RevealContent } from "./lib/session";
 
+import DegradeBanner from "./components/DegradeBanner";
+import SoundToggle from "./components/SoundToggle";
 import NarrowingMeter from "./components/NarrowingMeter";
 import SetupTray from "./components/SetupTray";
 import { playSound, unlockSound } from "./sound";
@@ -138,7 +141,7 @@ export default function App() {
    * Empty until the last question is answered, and empty forever if that call fails — the
    * reveal falls back to `buildRationale`, which is why those templates were kept.
    */
-  const [rationale, setRationale] = useState<{ rationale: string; whyNotCheaper: string; because: string }>(
+  const [rationale, setRationale] = useState<RationaleResult>(
     restored?.rationale ?? { rationale: "", whyNotCheaper: "", because: "" },
   );
   /**
@@ -179,6 +182,10 @@ export default function App() {
   /* The model's ranking now lives inside `engine` (and so is persisted and overruled there),
      rather than in a separate state that was consumed once and thrown away. */
   const current = useMemo(() => nextQuestion(engine), [engine]);
+  /* Read inside the question-surface callback, which fires long after that render. A ref, not
+     the value, because the callback closes over whichever render started the fetch. */
+  const currentQuestionRef = useRef<string | null>(null);
+  currentQuestionRef.current = current?.id ?? null;
   /* What the description already answered, in the words the option would have used. Shown on
      the guess screen so a skipped question is visible and therefore correctable. */
   const inferred = useMemo(
@@ -228,28 +235,6 @@ export default function App() {
         });
       }
 
-      if (opts.profile) {
-        void fetchQuestionSurface(text).then((surface) => {
-          if (Object.keys(surface).length === 0) return;
-          /**
-           * Do not apply it once a question is on screen.
-           *
-           * Wording lands ~12s in. Someone who taps "That's us" quickly is already reading
-           * question 1 in the fixed wording, and applying the override then rewrites the
-           * question under them mid-read. Better to lose the generated wording for a fast
-           * mover than to change the words they are in the middle of.
-           */
-          if (
-            stageRef.current === "question" ||
-            stageRef.current === "reveal" ||
-            stageRef.current === "checkout" ||
-            stageRef.current === "success"
-          ) {
-            return;
-          }
-          setEngine((prev) => ({ ...prev, surface }));
-        });
-      }
       if (!opts.profile) return;
 
       setLoading(true);
@@ -272,7 +257,30 @@ export default function App() {
            * `resolves` payloads use, so a prefilled signal is indistinguishable from a tapped
            * one and `isResolved` skips its question for free.
            */
-          setEngine((prev) => ({
+          setEngine((prev) => {
+            /**
+             * PREFILL MUST NOT OVERWRITE AN ANSWER THEY ALREADY GAVE.
+             *
+             * `...prefill` last meant the server won. Harmless on a fresh submit, where the
+             * profile is empty — but this same call re-fires on RESUME, and the resume path
+             * runs at `stage === "question"` whenever there is no reveal yet. So someone who
+             * answered three questions and reloaded the tab could have a tap replaced by the
+             * model's reading of their description: tap "Just email", reload, and a prefill of
+             * `surface: "both"` silently put the site back.
+             *
+             * Their answers now win. Prefill fills GAPS only, which is all it was ever for —
+             * `prefilledQuestionIds` exists to skip questions nobody needs to be asked, not to
+             * answer ones already answered.
+             */
+            const gapsOnly = Object.fromEntries(
+              Object.entries(res.prefill ?? {}).filter(([k]) => prev.profile[k] === undefined),
+            );
+            /* Same reason: a question they have ANSWERED must not be relabelled "you already
+               told us", or the guess screen credits the description for their tap. */
+            const stillPrefilled = (res.prefilledQuestionIds ?? []).filter(
+              (id) => !prev.asked.includes(id),
+            );
+            return {
             ...prev,
             /* Guess-screen meter line. Question wording comes from fetchQuestionSurface. */
             ...(res.meterGuess ? { meterGuess: res.meterGuess } : {}),
@@ -281,13 +289,62 @@ export default function App() {
               industry: res.profile.industry,
               brandName: res.profile.domainStem,
               ...(res.profile.teamSize ? { teamSize: res.profile.teamSize } : {}),
-              ...(res.prefill ?? {}),
+              ...gapsOnly,
             },
-            prefilled: res.prefilledQuestionIds ?? [],
+            prefilled: stillPrefilled,
             /* Only on a fresh run. Re-seeding a ranking mid-flow would point the engine back
                at ground it has already covered — the ranking was computed before any answer. */
             ...(opts.seedNextQuestion ? { priority: res.questionPriority ?? [] } : {}),
-          }));
+            };
+          });
+          /**
+           * SERIALISED, on Hari's call. It used to fire beside this one.
+           *
+           * In parallel it could not know which questions mattered, so it rewrote all nine —
+           * roughly forty strings — and measured 11.5s, 45s and 62s on identical inputs. A run
+           * only ever SHOWS five or six; the rest are prefilled, gated out, or never reached.
+           * We were generating about twice what anyone reads, and the wait was proportional
+           * to the waste.
+           *
+           * Starting later costs the profile's own latency. Rewriting half as much should more
+           * than pay that back, and the variance matters more than the mean here — the 62s run
+           * is what breaks the feature, not the 11s one.
+           *
+           * Order comes from `questionPriority` minus anything the description already
+           * answered: exactly the questions about to appear, in the order they will appear.
+           */
+          const askOrder = (res.questionPriority ?? []).filter(
+            (id) => !(res.prefilledQuestionIds ?? []).includes(id),
+          );
+          void fetchQuestionSurface(text, askOrder.slice(0, 6)).then((surface) => {
+          if (Object.keys(surface).length === 0) return;
+          /* Nothing left to reword — and do not rewrite engine state on checkout/success. */
+          if (
+            stageRef.current === "reveal" ||
+            stageRef.current === "checkout" ||
+            stageRef.current === "success"
+          ) {
+            return;
+          }
+
+          /**
+           * Apply it to every question EXCEPT the one being read right now.
+           *
+           * The rule used to be "drop it entirely once a question is on screen", and the
+           * reason was right: rewriting a question under someone mid-read is worse than
+           * plain wording. But it threw away the other seven to protect one, and it did that
+           * more and more often as the call got slower. Holding back the current question
+           * keeps the original guarantee intact and lets the rest of the flow read as meant.
+           */
+          setEngine((prev) => {
+            const onScreen = stageRef.current === "question" ? currentQuestionRef.current : null;
+            if (!onScreen) return { ...prev, surface };
+            const rest = { ...surface };
+            delete rest[onScreen];
+            return { ...prev, surface: rest };
+          });
+          });
+
           setLoading(false);
         })
         .catch((err: unknown) => {
@@ -491,13 +548,7 @@ export default function App() {
             mailboxes: finalRec.mailboxes,
           });
         }).then((r) => {
-          if (r && (r.rationale || r.whyNotCheaper)) {
-            setRationale({
-              rationale: r.rationale ?? "",
-              whyNotCheaper: r.whyNotCheaper ?? "",
-              because: r.because ?? "",
-            });
-          }
+          if (r && (r.rationale || r.whyNotCheaper || r.because)) setRationale(r);
         });
       }
     },
@@ -613,6 +664,14 @@ export default function App() {
         </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Always mounted, never debug-gated: sound ships MUTED and this is the only way to
+          turn it on, so it has to be there for the audience and not just for us. */}
+      <SoundToggle />
+
+      {/* Dev-only, and the whole point is that it is impossible to miss: every silent fallback
+          on screen as it happens. See the header of DegradeBanner. */}
+      {debug && <DegradeBanner />}
 
       {/* Debug-only. Positioned out of the flow so it cannot disturb a screenshot or a demo. */}
       {debug && stage === "reveal" && (

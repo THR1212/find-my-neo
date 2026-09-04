@@ -1950,3 +1950,66 @@ edit to that line had silently no-op'd.
 **Reverse if:** a working `check-domain-availability` or a scoped service credential arrives.
 Then `NEO_PARTNER_SESSION` comes out and the manual path stops depending on an admin session
 that expires without warning.
+
+## 2026-09-03 (evening) — three sources of truth, and five places they disagree
+
+Hari asked how "photos and documents" leads to Standard and told me to check better sources.
+Read Neo's own Starter/Standard/Max comparison off the live pricing page; all 78 rows are now
+`src/data/mail-features.json`, the sibling of `site-features.json` that had been missing.
+
+**`room_for_attachments` is not supported by either source.** Mailbox Storage is 15 / 50 /
+100 GB — Starter HAS storage. The need doubles the price, Rs149 to Rs299, citing an entitlement
+present on every tier. Same error as read receipts earlier the same day: a quantity cap read as
+a presence gate. Left in place for now only because both routes to Standard are in question and
+removing them blind would make the tier unreachable.
+
+**Five conflicts, pricing page vs Pandora:**
+
+| feature | pricing page | plan-features.json |
+|---|---|---|
+| `signature_builder` | MAX ONLY | "STANDARD and MAX" |
+| `drive_storage` | Drive MAX ONLY | "Standard (1,024) and Max (51,200)" |
+| `ai_summary` | MAX ONLY | "All three, limit 4 on Starter/Standard" |
+| `advanced_tracking` | MAX ONLY | "All three, limited" |
+| `sendLimitPerDay` | Max 1000/day | max 2000 |
+
+**Resolved the same evening: Pandora wins, full stop.** Hari confirmed it, and my
+recommendation — "where they conflict, do not print the Pandora answer" — was wrong. The
+published table is Neo's marketing simplification of the same data, compact enough that four
+features it shows as Max-only are available lower. `look_established` citing Signature Designer
+for Standard is therefore CORRECT, and Standard is reachable honestly.
+
+That also resolves the attachments question, and not by removing the need. The floor was right
+and the CITATION was wrong: it named `storage`, which is mailbox storage at 15/50/100 GB and
+present on every tier, when what it was reaching for is **Neo Drive — absent from Starter**
+in Pandora. Both storage needs now cite `drive_storage`, in `candidates.ts` and in the model's
+own entitlement enum. A mis-citation under a correct floor is harder to catch than a wrong
+floor, which is why CLAUDE.md rule 2 now says to name the entitlement that is ABSENT below the
+line, never the one that is merely smaller.
+
+  'photos and documents'      standard  room_for_attachments [drive_storage]
+  'moving off personal email' standard  look_established [signature_builder]
+  'large files often'         max       room_for_big_files [drive_storage]
+  invoiced last month         max       bill_from_your_inbox [invoice_builder]
+
+### A regression of my own, caught by Hari
+
+I added `_storageGb` to `plan-features.json` while "recording" the storage numbers. `storageGb`
+was already there with identical values, and `_onEveryMailPlan` already listed mobile apps — the
+fact I described as a discovery. Duplicate removed. The lesson is dull and worth writing down:
+read the data file before adding to it. The 78-row table is not a duplicate — different source,
+and it is what surfaced the five conflicts — but the storage numbers were.
+
+### Smaller things, same evening
+
+- **A plain Starter reveal showed one bullet.** Not for lack of true things to say: Neo lists
+  eighteen features Starter includes and we modelled almost none, because the bank grew around
+  what DIFFERENTIATES tiers rather than what a plan contains. Added "Android and iOS apps" at
+  the lowest priority — always true, so never wrong, and the commonness ranking keeps it out of
+  the way of anything specific.
+- **The two halves of the reveal were arguing.** `clipsFor` ranked the footage independently of
+  `pickFeatures`, so a run justified Campaign Mode, Read Receipts and Multi-account Support on
+  the left while the right played Bookings, Mail apps and Email Designer. One list now.
+- **`sells` is no longer asked on a mail-only run**, and `read_receipts` no longer matches on
+  `sellsOnline === false` — the loosest matcher in the bank, which put it at the top of nearly
+  every Starter reveal.

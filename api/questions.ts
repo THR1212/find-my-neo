@@ -78,9 +78,16 @@ export default async function handler(req: NodeReq, res: NodeRes): Promise<void>
   }
 
   let businessText: unknown;
+  /* Which questions to rewrite. Sent by the client once the profile has ranked them; the
+     service validates every id against QUESTION_SHAPE, so a bad list costs nothing. */
+  let wantIds: unknown = [];
   try {
-    businessText = (JSON.parse((await readBody(req)) || "{}") as { businessText?: unknown })
-      .businessText;
+    const parsed = JSON.parse((await readBody(req)) || "{}") as {
+      businessText?: unknown;
+      wantIds?: unknown;
+    };
+    businessText = parsed.businessText;
+    wantIds = parsed.wantIds ?? [];
   } catch {
     res.statusCode = 400;
     res.end(JSON.stringify({ error: "invalid JSON body" }));
@@ -91,7 +98,7 @@ export default async function handler(req: NodeReq, res: NodeRes): Promise<void>
   const header = req.headers["x-fmn-session"];
   const sid = String(Array.isArray(header) ? header[0] : (header ?? "none")).slice(0, 24);
 
-  const { status, body } = await handleQuestions(businessText, sid);
+  const { status, body } = await handleQuestions(businessText, sid, wantIds);
   res.statusCode = status;
   res.end(JSON.stringify(body));
 }

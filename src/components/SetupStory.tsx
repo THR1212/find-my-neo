@@ -1,7 +1,7 @@
 import NeoSitePreview from "./NeoSitePreview";
 import NeoSiteGenerating from "./NeoSiteGenerating";
 import NeoProductLoop from "./NeoProductLoop";
-import { clipsFor } from "../lib/neoMedia";
+import { clipsFor, featureArt } from "../lib/neoMedia";
 import { pickHero, type NeoSite } from "../lib/neoSite";
 
 /**
@@ -18,6 +18,7 @@ export default function SetupStory({
   profile = {},
   mailPlanId = null,
   mailPlanName = null,
+  features = [],
   chosenTemplate = null,
   onChooseTemplate,
 }: {
@@ -28,20 +29,56 @@ export default function SetupStory({
   profile?: Record<string, unknown>;
   mailPlanId?: string | null;
   mailPlanName?: string | null;
+  /** The bullets the reveal is already showing, so the mail pane can echo them. */
+  features?: { id: string; name: string; because: string }[];
   /** `templateKey` of the pane they picked, or null while neither is chosen. */
   chosenTemplate?: string | null;
   onChooseTemplate?: (templateKey: string) => void;
 }) {
   if (!showSite) {
-    const clips = clipsFor(profile, mailPlanId, 3);
+    /**
+     * DRIVEN BY THE FEATURES WE ARE JUSTIFYING, not by a separate ranking of the footage.
+     *
+     * `clipsFor` used to choose the films on its own, so the two halves of the screen argued.
+     * A real run (cz3npnaz, 16:45) justified Campaign Mode, Read Receipts and Multi-account
+     * Support on the left while the right played Neo Bookings, Neo Mail apps and Email
+     * Designer — one overlap out of three, and the two most prominent films were for things
+     * nobody was being sold.
+     *
+     * Now every highlighted feature brings its own media: its film if Neo shot one and this
+     * plan grants it, otherwise the per-feature artwork from the pricing page. Left and right
+     * cannot disagree, because there is only one list.
+     *
+     * A feature with neither is dropped rather than rendered as an empty box, and the stack
+     * sizes to what is left so the rest grow into the space.
+     */
+    const legalFilms = clipsFor(profile, mailPlanId, 99);
+    const filmFor = (id: string) => legalFilms.find((c) => (c.featureId ?? c.id) === id) ?? null;
+    const media = features
+      .map((f) => ({ feature: f, film: filmFor(f.id), art: featureArt(f.id) }))
+      .filter((m) => m.film || m.art)
+      .slice(0, 3);
     const planLabel = mailPlanName ?? "your plan";
+
     return (
       <aside className="setup-story setup-story-mail" aria-label="What comes with your mail">
         <p className="story-kicker">On {planLabel}</p>
-        <div className={`loop-stack loop-stack-${clips.length}`}>
-          {clips.map((clip) => (
-            <NeoProductLoop key={clip.id} clip={clip} />
-          ))}
+        <div className={`loop-stack loop-stack-${Math.max(1, media.length)}`}>
+          {media.map(({ feature, film, art }) =>
+            film ? (
+              <NeoProductLoop key={feature.id} clip={film} />
+            ) : (
+              <figure key={feature.id} className="mail-feature-card">
+                <div className="mail-feature-art">
+                  <img src={art!} alt="" loading="lazy" />
+                </div>
+                <figcaption>
+                  <span className="neo-loop-name">{feature.name}</span>
+                  <span className="neo-loop-caption">{feature.because}</span>
+                </figcaption>
+              </figure>
+            ),
+          )}
         </div>
       </aside>
     );

@@ -1,3 +1,5 @@
+import { has, type Profile } from "./profile";
+
 /**
  * The question bank.
  *
@@ -47,7 +49,6 @@ export type SignalId =
   | "attachmentVolume"
   /** Multi-select. Holds any of invoices / campaigns / bookings / receipts / none. */
   | "extras"
-  | "catalogueSize"
   | "brandName";
 
 export interface QuestionOption {
@@ -76,6 +77,14 @@ export interface Question {
    * Leave false where the options are mutually exclusive (team size, mail-only vs mail+site).
    */
   multi?: boolean;
+  /**
+   * Ask this only when the profile says it is worth asking.
+   *
+   * Added 03 Sep for the `extras` split. Absent means always askable, which is every other
+   * question. The engine checks it in BOTH `nextQuestion` and `shouldReveal` — a question that
+   * is unaskable must not be picked, and must not hold the flow open waiting to be picked.
+   */
+  askOnly?: (p: Profile) => boolean;
   /**
    * Free-text box under the options. Neo's survey has "Others (free text)" on its multi-selects
    * and it is where the interesting answers live — 6.6% of their Q1 responses. It is also the
@@ -201,6 +210,20 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: "sells",
+    /**
+     * NOT ASKED ON A MAIL-ONLY RUN.
+     *
+     * "Do people pay you online?" is a question about a website, and it was being put to
+     * someone who had answered "Just email" two screens earlier. The only need it feeds,
+     * `show_what_you_sell`, is site-guarded, so on mail-only it could not move the price
+     * either — it read as a non-sequitur and bought nothing.
+     *
+     * It did move ONE feature bullet, through `read_receipts` matching on
+     * `sellsOnline === false`, and that clause goes with it below: "does not sell online" is
+     * a strange reason to want read receipts. Its real signals are ticking receipts and
+     * moving off a personal address, both of which survive.
+     */
+    askOnly: (p) => !has(p, "surface", "mail"),
     signal: "sellsOnline",
     prompt: "Do people pay you online?",
     sub: "Changes what your site needs to do.",
@@ -360,16 +383,40 @@ QUESTIONS.push(
      * both depend on. What changed is that they now describe the work rather than the mail
      * feature: someone who quotes jobs recognises themselves whether or not they email a PDF.
      */
-    prompt: "Which of these are a regular part of your work?",
-    sub: "Only what you actually do often. Leave the rest — you can add it any time.",
+    /**
+     * PAST BEHAVIOUR WITH A RECALL ANCHOR, and the wording is the whole design.
+     *
+     * This question decides Max on its own, so how it is asked matters more than anything
+     * else in the bank. Three versions in one day, and the research settles it:
+     *
+     *   "Do you do any of these today?"     -> present tense, vague. A cinema reseller with
+     *                                          NO MAILBOX ticked two of them.
+     *   "Want Neo handling this for you?"   -> intent, and the worst of the three. Stated
+     *                                          intent runs ~21% above actual behaviour
+     *                                          (Schmidt & Bijmolt, 77 studies; median
+     *                                          hypothetical:actual ratio 1.35, Murphy 2005).
+     *                                          Everybody wants help.
+     *   "Which of these did you do LAST MONTH?"  <- past behaviour, with a recall window.
+     *
+     * The anchor is the mitigation the hypothetical-bias literature recommends: a month is
+     * short enough to remember and long enough to be fair, and it turns "would I like this"
+     * into "did that happen", which a person can check against their own memory.
+     *
+     * It also folds the `inbox` gate back in. That gate existed to stop one stray tick
+     * reaching Max, and it worked — but it asked intent, which is the failure this is
+     * avoiding, and it cost a screen. A tick now means "this actually happened", which is a
+     * stronger signal than two taps where the first one asked what they wanted.
+     */
+    prompt: "Which of these did you do last month?",
+    sub: "Not what you would like to do — what actually happened.",
     weight: 0.2,
     multi: true,
     freeText: { placeholder: "Something else you do a lot of?" },
     options: [
       {
         id: "invoices",
-        label: "Quoting and invoicing jobs",
-        hint: "Regularly, not once a year",
+        label: "Sent a quote or invoice",
+        hint: "More than once",
         resolves: { extras: "invoices" },
       },
       {
@@ -378,7 +425,7 @@ QUESTIONS.push(
         hint: "Offers, new stock, seasonal notes",
         resolves: { extras: "campaigns" },
       },
-      { id: "bookings", label: "Book people in for a time", resolves: { extras: "bookings" } },
+      { id: "bookings", label: "Booked someone in for a time", resolves: { extras: "bookings" } },
       {
         id: "receipts",
         label: "Check whether mail was opened",
@@ -387,18 +434,11 @@ QUESTIONS.push(
       { id: "none", label: "None of these", resolves: { extras: "none" } },
     ],
   },
-  {
-    id: "catalogue",
-    signal: "catalogueSize",
-    prompt: "How much would you list on the site?",
-    sub: "Products or services, roughly.",
-    weight: 0.12,
-    options: [
-      { id: "few", label: "A handful", hint: "Under ten", resolves: { catalogueSize: "few" } },
-      { id: "dozens", label: "Dozens", resolves: { catalogueSize: "dozens" } },
-      { id: "hundreds", label: "Hundreds", resolves: { catalogueSize: "hundreds" } },
-    ],
-  },
+  /* THERE IS NO `catalogue` QUESTION. `catalogueSize` was read by exactly one need,
+     `a_real_catalogue`, and that need was removed on 03 Sep for charging Growth prices against
+     a Plus limit it never reached. With it gone the question changed neither the plan nor the
+     reveal — nothing else matched on the signal — so it was a screen for nothing, the same
+     measured-out ending as `client`. */
 );
 
 export const QUESTION_BY_ID = new Map(QUESTIONS.map((q) => [q.id, q]));

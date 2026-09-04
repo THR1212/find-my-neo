@@ -73,7 +73,6 @@ const QUESTION_IDS = [
      adaptivity built around them would have been half-disabled while looking fine. */
   "volume",
   "extras",
-  "catalogue",
 ] as const;
 
 /**
@@ -260,7 +259,7 @@ const SCHEMA = {
       maxItems: 9,
       items: { type: "string", enum: [...QUESTION_IDS] },
       description:
-        "All nine question ids, each exactly once, ordered by how much asking it would tell " +
+        "All eight question ids, each exactly once, ordered by how much asking it would tell " +
         "us about THIS business that the description does not already say. Put a question " +
         "LAST if the description already answers it.",
     },
@@ -506,7 +505,7 @@ export async function handleProfile(
       schemaName: "business_profile",
       /* The output is small and fixed-shape. A tight ceiling makes truncation cheap to
          detect (llm.ts checks finish_reason) rather than surfacing as a JSON parse error. */
-      maxOutputTokens: 3000,
+      maxOutputTokens: 15000,
     });
   } catch (err) {
     reason = err instanceof Error ? err.message : String(err);

@@ -525,6 +525,49 @@ async function probe(domain: string): Promise<CoSiteResult> {
   return { domain, available: taken ? false : null, source: "probe" };
 }
 
+/**
+ * Is there ALREADY a Titan order for this domain? Registrable names included.
+ *
+ * DomScan answers a different question from the one that matters at checkout. It reads the
+ * public registry, so it can say `joeslocks.com` is unregistered — and Titan can still hold an
+ * order for it, at which point the person we sent there cannot buy the name we recommended.
+ * The Partner Panel bundle lookup is the only source that sees Neo's own order records, and it
+ * is domain-agnostic: it queries by name, not by TLD, so it answers for `.com` exactly as it
+ * answers for `.co.site`.
+ *
+ * DELIBERATELY NOT CALLED FOR EVERY SUGGESTION. This is one call for the ONE name the person
+ * has actually settled on, made when they settle on it — not three at reveal. Three per page
+ * view is precisely the traffic `PANEL_MAX_PER_WINDOW` exists to keep off an admin-session
+ * endpoint, and it would burn the budget on two names nobody is going to buy. Checking the
+ * chosen name is also strictly better at the stated job, which is stopping someone creating
+ * an order for a domain that already exists.
+ *
+ * `taken: null` means we could not tell, and null must render as silence: an unreachable
+ * admin session is not evidence that a name is free, nor that it is taken.
+ */
+export async function checkTitanOrder(domain: string): Promise<{ domain: string; taken: boolean | null }> {
+  const key = `titan:${domain}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < TTL_MS && hit.value.available !== null) {
+    return { domain, taken: hit.value.available === false };
+  }
+
+  let result: CoSiteResult | null = null;
+  try {
+    result = await askPartnerPanel(domain);
+  } catch {
+    result = null;
+  }
+
+  /* No probe rung here, unlike checkCoSite. The probe asks whether a SITE is published, which
+     for a registrable domain someone else owns is a question about the wider internet rather
+     than about Neo — a parked .com would read as "taken at Titan", which is false. */
+  if (!result) return { domain, taken: null };
+
+  cache.set(key, { at: Date.now(), value: result });
+  return { domain, taken: result.available === false };
+}
+
 export async function checkCoSite(
   stem: string,
   /**
